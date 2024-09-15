@@ -4,3 +4,5 @@
 *.json
 *.jsonl
 *.env
+.venv
+*.idea
