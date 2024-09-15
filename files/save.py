@@ -1,9 +1,25 @@
 import json, os
-from files.FilePaths import FilePaths
-
+from F.LOG import Log
 PATH = lambda base, file, ext: f"{base}/{file}.{ext}"
+Log = Log("DataSaver")
 
 class DataSaver:
+
+    @staticmethod
+    def ensure_directory_exists(directory_path):
+        """
+        Checks if the specified directory exists, and if it doesn't, creates it.
+
+        :param directory_path: Path to the directory.
+        """
+        if not os.path.exists(directory_path):
+            try:
+                os.makedirs(directory_path)
+                print(f"Directory created: {directory_path}")
+            except Exception as e:
+                print(f"Error creating directory: {e}")
+        else:
+            print(f"Directory already exists: {directory_path}")
 
     @staticmethod
     def format_file_name(file_name, extension):
@@ -25,7 +41,7 @@ class DataSaver:
         return os.path.join(default_path, formatted_file_name)
 
     @staticmethod
-    def save_json(data, file_name, output:FilePaths):
+    def save_json(data, file_name, output:str):
         """
         Save data as a JSON file.
         """
@@ -33,12 +49,12 @@ class DataSaver:
             file_path = DataSaver.PATH(output, file_name, "json")
             with open(file_path, 'w', encoding='utf-8') as json_file:
                 json.dump(data, json_file, indent=4)
-            print(f"Data successfully saved to {file_path}")
+            Log.s(f"Data successfully saved to {file_path}")
         except Exception as e:
-            print(f"Error saving JSON file: {e}")
+            Log.e(f"Error saving JSON file: {e}")
 
     @staticmethod
-    def save_jsonl(data, file_name, output:FilePaths):
+    def save_jsonl(data, file_name, output:str):
         """
         Save data as a JSONL (JSON Lines) file.
         Each item in the data should be written on a new line as a valid JSON object.
@@ -48,12 +64,12 @@ class DataSaver:
             with open(file_path, 'w', encoding='utf-8') as jsonl_file:
                 for item in data:
                     jsonl_file.write(json.dumps(item) + '\n')
-            print(f"Data successfully saved to {file_path}")
+            Log.s(f"Data successfully saved to {file_path}")
         except Exception as e:
-            print(f"Error saving JSONL file: {e}")
+            Log.e(f"Error saving JSONL file: {e}")
 
     @staticmethod
-    def save_txt(data, output:FilePaths):
+    def save_txt(data, output:str):
         """
         Save data as a plain text file.
         """
@@ -63,30 +79,6 @@ class DataSaver:
                     txt_file.write("\n".join(data))
                 else:
                     txt_file.write(data)
-            print(f"Data successfully saved to {output}")
+            Log.s(f"Data successfully saved to {output}")
         except Exception as e:
-            print(f"Error saving TXT file: {e}")
-
-
-if __name__ == '__main__':
-    # Example usage:
-
-    # Save JSON
-    data = {"name": "John", "age": 30, "hobbies": ["reading", "swimming"]}
-    DataSaver.save_json(data, "output.json", FilePaths())
-
-    # Save JSONL
-    data_list = [
-        {"name": "Alice", "age": 25},
-        {"name": "Bob", "age": 30},
-        {"name": "Charlie", "age": 35}
-    ]
-    DataSaver.save_jsonl(data_list, "output.jsonl")
-
-    # Save plain text
-    text_data = "This is some text data to be saved in a file."
-    DataSaver.save_txt(text_data, "output.txt")
-
-    # Save list of text lines as plain text
-    lines_data = ["First line", "Second line", "Third line"]
-    DataSaver.save_txt(lines_data, "output_lines.txt")
+            Log.e(f"Error saving TXT file: {e}")

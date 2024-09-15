@@ -1,10 +1,9 @@
 import pdfplumber
 from config import default_file_path
-from files.FilePaths import FilePaths
 from files.save import DataSaver
 from F import LIST
 
-def pdf_to_txt_file(pdf_file, output_text_file:FilePaths):
+def pdf_to_txt_file(pdf_file, output_text_file:str):
     """
     Extracts text from a PDF document and saves it to a text file.
     Args:
@@ -47,6 +46,7 @@ def pdf_to_txt(pdf_file):
         return LIST.to_str(extracted_text)
     except Exception as e:
         print(f"Error processing the PDF document {pdf_file}: {e}")
+
 
 if __name__ == "__main__":
     # Example usage

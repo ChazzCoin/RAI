@@ -1,16 +1,11 @@
-import os
-import json
-
-from files.FilePaths import FilePaths
-
-# Default_File_Path = f"{OS.get_path(__file__=__file__)}/../dataset/data"
+import os, json, csv
 
 PATH = lambda base, file, ext: f"{base}/{file}.{ext}"
 
 class DataLoader:
     data_directory: str
 
-    def __init__(self, data_directory: FilePaths):
+    def __init__(self, data_directory: str):
         self.data_directory = data_directory
 
     @staticmethod
@@ -66,3 +61,17 @@ class DataLoader:
         except Exception as e:
             print(f"Error loading TXT file: {e}")
             return None
+
+    def csv_to_json(self, csv_file_path, json_file_path):
+        data = []
+
+        with open(csv_file_path, mode='r', encoding='utf-8') as csv_file:
+            csv_reader = csv.DictReader(csv_file)
+            for row in csv_reader:
+                data.append(row)
+
+        with open(json_file_path, mode='w', encoding='utf-8') as json_file:
+            json.dump(data, json_file, indent=4)
+
+        print(f"CSV data successfully converted to JSON and saved to {json_file_path}")
+

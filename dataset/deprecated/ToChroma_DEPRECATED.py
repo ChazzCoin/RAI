@@ -9,7 +9,7 @@ from assistant.openai_client import generate_embeddings
 import os
 from config import env
 import openai  # Or another embedding model you'd like to use
-from dataset.DataCleaner import process_file, to_sentences, to_paragraphs, to_paragraphs_with_min_max
+from dataset.TextCleaner import process_file, to_sentences, to_paragraphs, to_paragraphs_with_min_max
 
 """
             DEPRECATED FOR RAG

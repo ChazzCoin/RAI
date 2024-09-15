@@ -1,10 +1,10 @@
 from pptx import Presentation
 from config import default_file_path
-from files.FilePaths import FilePaths
+from files.FilePath import FilePath
 from files.save import DataSaver
 
 
-def pptx_to_txt_file(pptx_file, output_text_file:FilePaths):
+def pptx_to_txt_file(pptx_file, output_text_file:FilePath):
     # Open the presentation
     presentation = Presentation(pptx_file)
     # Initialize an empty list to hold the extracted text

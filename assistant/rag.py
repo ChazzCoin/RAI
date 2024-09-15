@@ -3,7 +3,7 @@ import uuid
 from F import DATE
 from assistant import openai_client as openai
 from config.chroma import ChromaInstance
-from dataset.DataCleaner import TextCleaner
+from dataset.TextCleaner import TextCleaner
 from dataset import load_txt_file, load_json_file
 
 class RAGWithChroma(ChromaInstance):

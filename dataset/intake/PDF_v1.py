@@ -3,14 +3,14 @@ from pdfminer.converter import TextConverter
 from pdfminer.layout import LAParams
 from pdfminer.pdfpage import PDFPage
 from io import StringIO
-from dataset import CLEANER, DataCleaner
+from dataset import TextCleaner
 from FNLP.Language import Sentences
 # import fitz
-from F import OS
+# from F import OS
 
 PDF_MODEL = lambda x: {}
 
-PostProcessor = DataCleaner.TextCleaner()
+PostProcessor = TextCleaner.TextCleaner()
 
 def list_of_strings_to_string(content: [str]) -> str:
     temp = ""
@@ -46,7 +46,7 @@ class FPDF:
                 sents = self.post_process_text(text)
                 cleaned = []
                 for s in sents:
-                    cleaned_s = CLEANER.clean_text(s)
+                    cleaned_s = PostProcessor.clean_text(s)
                     cleaned.append(cleaned_s)
                 full_text = list_of_strings_to_string(cleaned)
                 for_ai = Sentences.to_sentences(cleaned)

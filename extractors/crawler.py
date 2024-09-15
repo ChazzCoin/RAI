@@ -1,12 +1,14 @@
-# import json
 import tldextract
 from urllib.parse import urljoin, urlparse
-# import re
-from extractors.extract_url import selenium_get_with_urls, selenium_get_with_urls_v2
-from dataset.formatters.jsonlist import pipeline_convert_raw_text_to_jsonl_dataset
-# from assistant import openai_client
+from files.FilePath import FilePath
+from files.save import DataSaver
+from dataset.DataTag import DataTag
+from extractors.extract_url import selenium_get_with_urls, selenium_get_core_page_details
+from F.LOG import Log
 # Set to hold crawled URLs
-visited_urls = set()
+
+Log = Log("WebCrawler")
+
 # Dictionary to store scraped data
 scraped_data = {}
 # sp = """
@@ -20,29 +22,41 @@ scraped_data = {}
 # Example Format:
 # {"messages": [{"role": "system", "content": "You are a professional youth soccer mentor and advisor for parents of soccer players." }, {"role": "user", "content": "Question from the webpage contents?"}, {"role": "assistant", "content": "Answer to the question..."}]}
 # """
+
 def is_internal_url(url, base_url):
     # Ensure URL is within the same domain
     base_domain = tldextract.extract(base_url).domain
     url_domain = tldextract.extract(url).domain
     return base_domain == url_domain
 
-def crawl_website(url, output_file='park_city_data.json'):
+visited_urls = set()
+def crawl_website(url, page=0):
     if url in visited_urls:
+        Log.i(f"{url} has already been visited, skipping...")
         return
     base_domain = tldextract.extract(url).domain
+    out_directory = FilePath(FilePath.PENDING).add(base_domain)
+    FilePath.ensure_directory_exists(out_directory.path())
     try:
         # Mark as visited
         visited_urls.add(url)
         # Fetch content
-        results = selenium_get_with_urls_v2(url)
-        page_text = results['page_content']
+        results = selenium_get_core_page_details(url)
+        page_text = results['content']
         urls = results['urls']
+        details = results['details']
+        title = base_domain
+        if details['title']:
+            title = details['title']
         scraped_data[url] = page_text
 
+        page_text = DataTag.insert_tag(page_text, title, DataTag.TITLE)
+        page_text = DataTag.insert_tag(page_text, url, DataTag.URL)
         """ Page Text to .txt file """
+        DataSaver.save_txt(page_text, out_directory.temp_add(f"{title}-{page}.txt"))
 
-        print(f"Scraped {url}")
-        pipeline_convert_raw_text_to_jsonl_dataset(page_text, output_file)
+        """ Convert to Training Data """
+        # pipeline_convert_raw_text_to_jsonl_dataset(page_text, output_file)
         # json_data = request_jsonl_formatting_from_ai(page_text)
         # save_jsonl_response(json_data, 'park_city_qa.jsonl')
         # Find and crawl internal links
@@ -51,9 +65,12 @@ def crawl_website(url, output_file='park_city_data.json'):
             # Normalize and ensure it's internal
             normalized_url = parsed_url.scheme + "://" + parsed_url.netloc + parsed_url.path
             if is_internal_url(link, base_domain) and normalized_url not in visited_urls:
-                crawl_website(normalized_url)
+                Log.i(f"Crawling new page: {normalized_url}:{page+1}")
+                crawl_website(normalized_url, page=page + 1)
     except Exception as e:
-        print(f"Failed to crawl {url}: {e}")
+        Log.e(f"Failed to crawl {url}: {e}")
 
 if __name__ == "__main__":
-    crawl_website("https://www.parkcitysoccer.org/newpage", "../dataset/data/busa_qa.jsonl")
+    one = "https://www.barrowneuro.org"
+    two = "https://www.mian-neurosurgery.com"
+    crawl_website(two)

@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 import os
 import logging
 from assistant import openai_client as openai
-from dataset.DataCleaner import TextCleaner
+from dataset.TextCleaner import TextCleaner
 from typing import List, Dict
 # Load environment variables from a .env file
 load_dotenv()

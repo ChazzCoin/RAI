@@ -1,4 +1,4 @@
-from dataset.PDF import FPDF
+from dataset.intake.PDF_v1 import FPDF
 from assistant import openai_client as api
 from agents.prompts.diagnosis import DIAGNOSTIC_SYSTEM_PROMPT as sys_prompt
 

@@ -1,10 +1,10 @@
 import docx
 
-from files.FilePaths import FilePaths
+from files.FilePath import FilePath
 from files.save import DataSaver
 
 
-def word_to_txt_file(docx_file, output_text_file:FilePaths):
+def word_to_txt_file(docx_file, output_text_file:FilePath):
     """
     Extracts text from a Microsoft Word document and saves it to a text file.
     Args:

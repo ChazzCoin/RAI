@@ -1,12 +1,27 @@
 import os
 from dataset.intake import Excel, Pdf, PowerPoint, Word
-from files.FilePaths import FilePaths
+from files.FilePath import FilePath
 from F import OS
+
+def find_files_with_extension(folder_path, file_ext):
+    matching_files = []
+
+    for root, dirs, files in os.walk(folder_path):
+        for file in files:
+            if file.endswith(file_ext):
+                matching_files.append(os.path.join(root, file))
+
+    return matching_files
+
+
+def extract_file_names(file_paths):
+    file_names = [os.path.basename(path) for path in file_paths]
+    return file_names
 
 def process_file_to_pending(file_name):
     try:
         # Get the file extension
-        root = FilePaths.PENDING
+        root = FilePath.PENDING
         file_ext = os.path.splitext(file_name)[1]
         # Check if the file has the target extension
         if file_ext.lower() == '.pdf':
@@ -65,20 +80,20 @@ def convert_files_to_txt(import_dir, output_dir):
             return
 
     # Loop through all files in the import directory
-    for file_path in FilePaths.loop_directory(import_dir):
+    for file_path in FilePath.loop_directory(import_dir):
         # for file_name in files:
         try:
             if OS.is_directory(file_path):
                 continue
             # Get the file extension
-            file_name = FilePaths.get_file_name(file_path)
+            file_name = FilePath.get_file_name(file_path)
             file_ext = os.path.splitext(file_name)[1]
             # Construct full file path for the input file
             # file_path = FilePaths(os.path.join(root, file_name))
             print(f"Processing file: {file_path}")
 
             # Handle each file type and generate the output path
-            output_file_path = FilePaths(os.path.join(output_dir, os.path.splitext(file_name)[0] + '.txt'))
+            output_file_path = FilePath(os.path.join(output_dir, os.path.splitext(file_name)[0] + '.txt'))
 
             if file_ext.lower() == '.pdf':
                 try:
