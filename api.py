@@ -1,75 +1,21 @@
 #!/bin/bash
 import json
-from os import system
-
+import time
 import gevent.pywsgi
 import requests
-from flask import Flask, request, jsonify
+from F import DICT
+from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
+from assistant.openai_client import get_current_timestamp, getClient
 from routes.bridge import routeBridge_blueprint
-from assistant import openai_client, api
-
+from config.RaiModels import RAI_MODELS, MODEL_MAP
+from assistant.rag import RAGWithChroma
 BLUEPRINTS = [routeBridge_blueprint]
 
 app = Flask(__name__)
 for bp in BLUEPRINTS:
     app.register_blueprint(bp)
 CORS(app)
-@app.route('/', methods=['GET'])
-async def heart():
-    response = {
-        "status": "available",  # or "unavailable"
-        "message": "Server is running and available",
-        "uptime": "24 hours",  # mock data for uptime
-        "version": "1.0.0"  # mock server version
-    }
-
-    return jsonify(response), 200
-@app.route('/status', methods=['GET'])
-async def get_status():
-    response = {
-        "status": "available",  # or "unavailable"
-        "message": "Server is running and available",
-        "uptime": "24 hours",  # mock data for uptime
-        "version": "1.0.0"  # mock server version
-    }
-
-    return jsonify(response), 200
-
-@app.route("/ollama/api/version", methods=['GET'])
-def version_ollama():
-    return {
-        "version": 'latest',
-    }
-@app.route("/api/version", methods=['GET'])
-def version():
-    return jsonify({
-        "version": "0.1.45",
-    }), 200
-
-@app.route("/version", methods=['GET'])
-def versions():
-    return jsonify({
-        "version": "0.1.45",
-    }), 200
-@app.route('/api/tags', methods=['GET'])
-def models_api():
-    """
-    Call the OpenAI /v1/models endpoint to retrieve the list of available models.
-    """
-    print("Calling Models")
-    url = "http://192.168.1.6:11434/api/tags"
-    headers = {"Content-Type": "application/json"}
-    try:
-        # Make a GET request to the /v1/models endpoint
-        response = requests.get(url, headers=headers)
-        # Check if the response is successful
-        if response.status_code == 200:
-            return response.json()  # Return the list of models
-        else:
-            return jsonify({"error": f"Failed to retrieve models, status code: {response.status_code}"})
-    except requests.exceptions.RequestException as e:
-        return jsonify({"error": str(e)})
 
 # Configure OpenAI API key
 default_model = "gpt-4o"
@@ -77,11 +23,118 @@ CHAT_MESSAGE_OPENAI = lambda system, user: [
       {"role": "system", "content": system },
       {"role": "user", "content": user }
     ]
+ChatID = "111"
 
+collection = "web_pages_2"
+rag = RAGWithChroma(collection_name=collection)
+def rag_search(user_prompt):
+    results = rag.query(user_prompt, n_results=3)
+    system_prompt = rag.inject_into_system_prompt(results)
+    return system_prompt, results
 
+def get_last_user_message(json_data):
+    # Get the list of messages
+    messages = json_data.get('messages', [])
+    # Filter to find the last message with role 'user'
+    last_user_message = None
+    for message in reversed(messages):
+        if message.get('role') == 'user':
+            last_user_message = message.get('content')
+            break
+    return last_user_message
 
-ChatID = ""
-@app.route('/chat/completed', methods=['POST'])
+@app.route('/api/chat', methods=['POST'])
+def chat_completion():
+    model = "gpt-4o-mini"
+    jbody = json.loads(request.data.decode('utf-8'))
+    user_message = get_last_user_message(jbody)
+    appended_message = None
+
+    sys_prompt = "You are a useful assistant."
+    modelIn = DICT.get('model', jbody, 'llama3:latest')
+    if modelIn == 'park-city:latest':
+        # model = MODEL_MAP[modelIn]
+        sys_prompt, metadatas = rag_search(user_message)
+        for metadata in metadatas:
+            appended_message = f"\n\nSources:\n{DICT.get('url', metadata, '')}"
+
+    def generate(system_prompt, user_prompt):
+
+        """ 1. Stream Response. """
+        # Record the time before the request is sent
+        start_time = time.time()
+        response = getClient().chat.completions.create(
+            model=model,
+            messages=[
+                {'role': 'system', 'content':  system_prompt },
+                {'role': 'user', 'content': user_prompt }
+            ],
+            temperature=0,
+            stream=True
+        )
+        # Variables to collect the streamed chunks
+        collected_messages = []
+        prompt_eval_count = 0
+        eval_count = 0
+        prompt_eval_duration = 0  # Simulated prompt evaluation duration
+        for chunk in response:
+            chunk_time = time.time() - start_time  # Calculate the time delay of the chunk
+            timestamp = get_current_timestamp()  # Get the current timestamp
+            choice = chunk.choices[0]
+            delta = choice.delta
+            chunk_message = DICT.get('content', delta, None)
+            if chunk_message:
+                collected_messages.append(chunk_message)
+                response_obj = {
+                    "model": model,
+                    "created_at": timestamp,
+                    "message": {
+                        "role": "assistant",
+                        "content": chunk_message
+                    },
+                    "done": False  # Indicate that the stream is not yet done
+                }
+                yield f"\n{json.dumps(response_obj)}\n"
+            prompt_eval_count += 1
+            eval_count += 1
+
+        """ 2. Append Text/Message to end of Response. """
+        if appended_message:
+            appended_obj = {
+                "model": model,
+                "created_at": get_current_timestamp(),
+                "message": {
+                    "role": "assistant",
+                    "content": f"\n\n {appended_message}" if appended_message else ""
+                },
+                "done": False  # Indicate that the stream is not yet done
+            }
+            yield f"\n{json.dumps(appended_obj)}\n"
+
+        """ 3. Send Final Response. """
+        # Once the stream is finished, compute the total duration
+        total_duration = int((time.time() - start_time) * 1e9)  # Convert to nanoseconds
+        load_duration = total_duration - prompt_eval_duration  # Simulated load duration
+        final_obj = {
+            "model": model,
+            "created_at": get_current_timestamp(),
+            "message": {
+                "role": "assistant",
+                "content": ''  # Join collected messages as final content
+            },
+            "done_reason": "stop",
+            "done": True,  # Indicate that the stream is done
+            "total_duration": total_duration,
+            "load_duration": load_duration,
+            "prompt_eval_count": prompt_eval_count,
+            "prompt_eval_duration": prompt_eval_duration,
+            "eval_count": eval_count,
+            "eval_duration": total_duration - prompt_eval_duration  # Simulated eval duration
+        }
+        yield f"\n{json.dumps(final_obj)}\n"
+    return Response(generate(sys_prompt, user_message), content_type='text/event-stream')
+
+@app.route('/v1/chat/completions', methods=['POST'])
 def chat_completed():
     print("Chat Completed.")
     response = {
@@ -111,44 +164,79 @@ def chat_completed():
         "chat_id": ChatID
     }
     return jsonify(response), 200
-@app.route('/api/chat', methods=['POST'])
-def chat_middleware():
-    """
-    {
-        'messages': [
-            {'content': 'hey', 'images': [], 'role': 'user'},
-            {'content': '', 'images': [], 'role': 'assistant'},
-            {'content': 'hey', 'images': [], 'role': 'user'},
-            {'content': '', 'images': [], 'role': 'assistant'},
-            {'content': 'hey', 'images': [], 'role': 'user'},
-            {'content': '', 'images': [], 'role': 'assistant'},
-            {'content': 'hey', 'images': [], 'role': 'user'} ],
-            'model': 'llama3:latest', 'options': {'temperature': 0}, 'stream': False
-    }
-    :return:
-    """
-    print(request)
-    """ FROM USER """
-    string_data = request.data.decode('utf-8')
-    user_data = json.loads(string_data)
-    print(user_data)
-    """ INLET """
-    # modified_user_data = inlet(user_data)
-    """ FORWARDING """
-    role = user_data["messages"][-1]["role"]
-    messages = user_data["messages"]
-    message = messages[-1]["content"]
-    # openai_response = openai_client.chat_request(system=role, user=message)
-    # openai_response = openai_client.chat_request_forward(messages=messages)
-    response = api.ollama_request_chat("you are a useful assistant", message, forward=True)
-    """ OUTLET """
-    # modified_openai_response = outlet(openai_response)
-    """ TO USER """
-    obj_response = bytes_to_string(response.content)
-    json_response = json.loads(obj_response)
-    print(obj_response)
-    return obj_response
 
+@app.route('/', methods=['GET'])
+async def heart():
+    response = {
+        "status": "available",  # or "unavailable"
+        "message": "Server is running and available",
+        "uptime": "24 hours",  # mock data for uptime
+        "version": "1.0.0"  # mock server version
+    }
+
+    return jsonify(response), 200
+@app.route('/status', methods=['GET'])
+async def get_status():
+    response = {
+        "status": "available",  # or "unavailable"
+        "message": "Server is running and available",
+        "uptime": "24 hours",  # mock data for uptime
+        "version": "1.0.0"  # mock server version
+    }
+
+    return jsonify(response), 200
+
+@app.route("/api/version", methods=['GET'])
+def version():
+    print("version")
+    return jsonify({
+        "version": "0.1.45",
+    }), 200
+
+@app.route('/api/tags', methods=['GET'])
+def models_api():
+    """
+    Call the OpenAI /v1/models endpoint to retrieve the list of available models.
+    """
+    print("Calling Models")
+    return RAI_MODELS
+
+@app.route('/api/tags2', methods=['GET'])
+def forward_models_call_to_ollama():
+    """
+    Call the OpenAI /v1/models endpoint to retrieve the list of available models.
+    """
+    print("Calling Models")
+    url = "http://192.168.1.6:11434/api/tags"
+    headers = {"Content-Type": "application/json"}
+    try:
+        # Make a GET request to the /v1/models endpoint
+        response = requests.get(url, headers=headers)
+        # Check if the response is successful
+        if response.status_code == 200:
+            print(response.json())
+            return response.json()  # Return the list of models
+        else:
+            return jsonify({"error": f"Failed to retrieve models, status code: {response.status_code}"})
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": str(e)})
+
+"""
+    {   
+    'models': [
+        {'name': 'park-city:latest', 'model': 'park-city:latest', 'modified_at': '2024-07-02T06:32:47.913084094Z', 'size': 177669289, 'digest': 'c4ff0145029b23c94b81626b5cdd671a5c48140a3f8d972575efb9d145527581', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'gpt2', 'families': ['gpt2'], 'parameter_size': '163.04M', 'quantization_level': 'Q8_0' }}, 
+        {'name': 'results-test.gguf:latest', 'model': 'results-test.gguf:latest', 'modified_at': '2024-07-02T00:04:52.581499471Z', 'size': 177669289, 'digest': '0b9252e0e7650508ae849420ac4e06678d85421355872f3d95ef1ace2059e6db', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'gpt2', 'families': ['gpt2'], 'parameter_size': '163.04M', 'quantization_level': 'Q8_0'}}, 
+        {'name': 'nous-hermes2-mixtral:8x7b', 'model': 'nous-hermes2-mixtral:8x7b', 'modified_at': '2024-06-29T06:24:46.894948698Z', 'size': 26442493141, 'digest': '599da8dce2c14e54737c51f9668961bbc3526674249d3850b0875638a3e5e268', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'llama', 'families': ['llama'], 'parameter_size': '47B', 'quantization_level': 'Q4_0'}}, 
+        {'name': 'sqlcoder:15b', 'model': 'sqlcoder:15b', 'modified_at': '2024-06-29T06:01:39.480494281Z', 'size': 8987630230, 'digest': '93bb0e8a904ff98bcc6fa5cf3b8e63dc69203772f4bc713f761c82684541d08d', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'starcoder', 'families': None, 'parameter_size': '15B', 'quantization_level': 'Q4_0'}}, 
+        {'name': 'phi3:medium', 'model': 'phi3:medium', 'modified_at': '2024-06-29T06:01:39.060494165Z', 'size': 7897126241, 'digest': '1e67dff39209b792d22a20f30ebabe679c64db83de91544693c4915b57e475aa', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'phi3', 'families': ['phi3'], 'parameter_size': '14.0B', 'quantization_level': 'F16'}}, 
+        {'name': 'codellama:34b', 'model': 'codellama:34b', 'modified_at': '2024-06-29T06:01:38.020493877Z', 'size': 19052049085, 'digest': '685be00e1532e01f795e04bc59c67bc292d9b1f80b5136d4fbdebe6830402132', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'llama', 'families': None, 'parameter_size': '34B', 'quantization_level': 'Q4_0'}}, 
+        {'name': 'llava:34b', 'model': 'llava:34b', 'modified_at': '2024-06-29T06:01:38.736494074Z', 'size': 20166497526, 'digest': '3d2d24f4667475bd28d515495b0dcc03b5a951be261a0babdb82087fc11620ee', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'llama', 'families': ['llama', 'clip'], 'parameter_size': '34B', 'quantization_level': 'Q4_0'}}, 
+        {'name': 'llama3:latest', 'model': 'llama3:latest', 'modified_at': '2024-06-29T06:01:38.340493962Z', 'size': 4661224676, 'digest': '365c0bd3c000a25d28ddbf732fe1c6add414de7275464c4e4d1c3b5fcb5d8ad1', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'llama', 'families': ['llama'], 'parameter_size': '8.0B', 'quantization_level': 'Q4_0'}}, 
+        {'name': 'codellama:13b', 'model': 'codellama:13b', 'modified_at': '2024-06-29T06:01:37.620493765Z', 'size': 7365960935, 'digest': '9f438cb9cd581fc025612d27f7c1a6669ff83a8bb0ed86c94fcf4c5440555697', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'llama', 'families': None, 'parameter_size': '13B', 'quantization_level': 'Q4_0'}}
+            ]
+    }
+
+"""
 def bytes_to_string(byte_data: bytes, encoding: str = 'utf-8') -> str:
     if not isinstance(byte_data, bytes):
         raise ValueError("Input must be a byte string.")
@@ -157,100 +245,6 @@ def bytes_to_string(byte_data: bytes, encoding: str = 'utf-8') -> str:
         return byte_data.decode(encoding)
     except Exception as e:
         raise ValueError(f"Decoding failed: {e}")
-"""
-{ 'model': 'gpt4o-mini', 'message': [] }
-
-webui
-{
-    "model": "llama3:latest",
-    "messages": [
-        {
-            "id": "6b5b6db9-7ed1-4268-a9d4-d115581c3348",
-            "role": "user",
-            "content": "hey",
-            "timestamp": 1725989004
-        },
-        {
-            "id": "973695d2-8fd8-4453-b1ae-dd6b957dd3b0",
-            "role": "assistant",
-            "content": "Hey! How's it going?",
-            "info": {
-                "total_duration": 4521280995,
-                "load_duration": 4196604290,
-                "prompt_eval_count": 11,
-                "prompt_eval_duration": 47952000,
-                "eval_count": 8,
-                "eval_duration": 234033000
-            },
-            "timestamp": 1725989004
-        }
-    ],
-    "chat_id": "c4a22ad4-b076-4214-85e0-c105ba942667"
-}
-"""
-@app.route('/api/chats', methods=['POST'])
-def chats():
-    """
-    Mimic the /chat process where the user sends a message (prompt),
-    and the server responds with a generated answer.
-    """
-    # Get the JSON data sent by the user (e.g., the prompt)
-    data = request.get_json()
-    print(data)
-    # Ensure the request contains a 'message' field
-    if 'message' not in data:
-        return jsonify({"error": "No message provided"}), 400
-
-    # Mimic processing the input prompt
-    user_message = data['message']
-
-    # Example: Mimic a response generation process
-    if "hello" in user_message.lower():
-        bot_response = "Hello! How can I assist you today?"
-    elif "bye" in user_message.lower():
-        bot_response = "Goodbye! Have a great day!"
-    else:
-        bot_response = "I'm just a simple bot, but I can mimic a response!"
-
-    # Return the response as a JSON object
-    response = {
-        "user_message": user_message,
-        "bot_response": bot_response
-    }
-
-    return jsonify(response), 200
-
-@app.route('/chat', methods=['POST'])
-def chat():
-    """
-    Mimic the /chat process where the user sends a message (prompt),
-    and the server responds with a generated answer.
-    """
-    # Get the JSON data sent by the user (e.g., the prompt)
-    data = request.get_json()
-
-    # Ensure the request contains a 'message' field
-    if 'message' not in data:
-        return jsonify({"error": "No message provided"}), 400
-
-    # Mimic processing the input prompt
-    user_message = data['message']
-
-    # Example: Mimic a response generation process
-    if "hello" in user_message.lower():
-        bot_response = "Hello! How can I assist you today?"
-    elif "bye" in user_message.lower():
-        bot_response = "Goodbye! Have a great day!"
-    else:
-        bot_response = "I'm just a simple bot, but I can mimic a response!"
-
-    # Return the response as a JSON object
-    response = {
-        "user_message": user_message,
-        "bot_response": bot_response
-    }
-
-    return jsonify(response), 200
 
 def inlet(user_data):
     return user_data

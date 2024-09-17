@@ -2,7 +2,6 @@ from assistant import openai_client
 from bs4 import BeautifulSoup
 import requests, re
 from F.LOG import Log
-Log = Log("WebTools")
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -11,6 +10,19 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException,
 from selenium.webdriver.chrome.service import Service as ChromeService
 from webdriver_manager.chrome import ChromeDriverManager
 import time
+
+Log = Log("WebTools")
+
+class WebDriver:
+    driver: webdriver.Chrome
+    options:webdriver.ChromeOptions = webdriver.ChromeOptions()
+
+    def __init__(self):
+        self.options.add_argument("--headless")
+        self.driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=self.options)
+
+    def open(self, url):
+        self.driver.get(url)
 
 def selenium_get_with_urls(url, wait_time=10):
     # Setup WebDriver with options
@@ -60,10 +72,8 @@ def selenium_get_with_urls_v2(url, wait_time=10, max_scrolls=3):
         options = webdriver.ChromeOptions()
         options.add_argument("--headless")  # Run in headless mode
         driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=options)
-
         # Open the URL
         driver.get(url)
-
         # Wait until the body element is present
         WebDriverWait(driver, wait_time).until(EC.presence_of_element_located((By.TAG_NAME, 'body')))
 
@@ -74,12 +84,8 @@ def selenium_get_with_urls_v2(url, wait_time=10, max_scrolls=3):
 
         # Extract page content
         page_content = driver.find_element(By.TAG_NAME, 'body').text
-
-        # Find all <a> tags and extract href attributes
         links = driver.find_elements(By.TAG_NAME, 'a')
         all_urls = [link.get_attribute('href') for link in links if link.get_attribute('href')]
-
-        # Extract meta tags
         metas = driver.find_elements(By.TAG_NAME, 'meta')
         for meta in metas:
             name = meta.get_attribute('name')
@@ -90,11 +96,9 @@ def selenium_get_with_urls_v2(url, wait_time=10, max_scrolls=3):
         # Extract images
         images = driver.find_elements(By.TAG_NAME, 'img')
         image_urls = [img.get_attribute('src') for img in images if img.get_attribute('src')]
-
         # Extract scripts
         scripts = driver.find_elements(By.TAG_NAME, 'script')
         script_urls = [script.get_attribute('src') for script in scripts if script.get_attribute('src')]
-
         # Extract stylesheets (CSS)
         stylesheets = driver.find_elements(By.TAG_NAME, 'link')
         css_urls = [sheet.get_attribute('href') for sheet in stylesheets if sheet.get_attribute('rel') == 'stylesheet']
@@ -197,24 +201,19 @@ def selenium_get_core_page_details(url, wait_time=10, max_scrolls=3):
         "tags": meta_tags
     }
 
-
 def extract_main_content(driver):
     """
     Extracts the main content from the webpage by focusing on relevant tags such as
     paragraphs, headings, and main articles.
     """
     content = []
-
     # Extract headings (h1-h3) and paragraphs
     headings = driver.find_elements(By.XPATH, '//h1 | //h2 | //h3')
     paragraphs = driver.find_elements(By.TAG_NAME, 'p')
-
     for heading in headings:
         content.append(heading.text)
-
     for paragraph in paragraphs:
         content.append(paragraph.text)
-
     # Join the content into a single string
     return '\n'.join(content)
 
@@ -229,13 +228,11 @@ def is_irrelevant_link(url):
     ]
     return any(domain in url for domain in irrelevant_domains)
 
-
 def remove_non_printable_ascii(text):
     """
     Remove non-printable characters from text.
     """
     return ''.join([c for c in text if ord(c) < 128])
-
 
 def refine_text_content(content):
     """
