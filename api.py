@@ -1,21 +1,18 @@
 #!/bin/bash
 import json
 import time
-import gevent.pywsgi
+from quart import Quart, request, jsonify, Response
 import requests
 from F import DICT
-from flask import Flask, request, jsonify, Response
-from flask_cors import CORS
+from F.LOG import Log
 from assistant.openai_client import get_current_timestamp, getClient
-from routes.bridge import routeBridge_blueprint
 from config.RaiModels import RAI_MODELS, MODEL_MAP
 from assistant.rag import RAGWithChroma
-BLUEPRINTS = [routeBridge_blueprint]
+from asyncio import to_thread
+Log = Log("RAI API Bruno Canary")
 
-app = Flask(__name__)
-for bp in BLUEPRINTS:
-    app.register_blueprint(bp)
-CORS(app)
+
+app = Quart(__name__)
 
 # Configure OpenAI API key
 default_model = "gpt-4o"
@@ -27,8 +24,9 @@ ChatID = "111"
 
 collection = "web_pages_2"
 rag = RAGWithChroma(collection_name=collection)
-def rag_search(user_prompt):
-    results = rag.query(user_prompt, n_results=3)
+async def rag_search(user_prompt):
+    results = await rag.query(user_prompt)
+    Log.i("RAG Results:", len(results))
     system_prompt = rag.inject_into_system_prompt(results)
     return system_prompt, results
 
@@ -44,20 +42,29 @@ def get_last_user_message(json_data):
     return last_user_message
 
 @app.route('/api/chat', methods=['POST'])
-def chat_completion():
+async def chat_completion():
     model = "gpt-4o-mini"
-    jbody = json.loads(request.data.decode('utf-8'))
+    data = await request.get_data()
+    jbody = json.loads(data.decode('utf-8'))
+    # jbody = await request.get_data()
     user_message = get_last_user_message(jbody)
-    appended_message = None
-
+    appended_message = " Please Bitch "
     sys_prompt = "You are a useful assistant."
     modelIn = DICT.get('model', jbody, 'llama3:latest')
+
+    Log.i("/api/chat", f"Model IN: {modelIn}")
     if modelIn == 'park-city:latest':
-        # model = MODEL_MAP[modelIn]
-        sys_prompt, metadatas = rag_search(user_message)
+        model = MODEL_MAP[modelIn]
+        # sys_prompt = await to_thread(rag_search, user_message)
+        sys_prompt, metadatas = await rag_search(user_message)
+        print(sys_prompt)
+        # results = await rag.query(user_message, n_results=3)
+        # Log.i("RAG Results:", len(results))
+        # sys_prompt = rag.inject_into_system_prompt(results)
         for metadata in metadatas:
             appended_message = f"\n\nSources:\n{DICT.get('url', metadata, '')}"
 
+    Log.i("/api/chat", f"Model OUT: {model}")
     def generate(system_prompt, user_prompt):
 
         """ 1. Stream Response. """
@@ -173,7 +180,6 @@ async def heart():
         "uptime": "24 hours",  # mock data for uptime
         "version": "1.0.0"  # mock server version
     }
-
     return jsonify(response), 200
 @app.route('/status', methods=['GET'])
 async def get_status():
@@ -183,7 +189,6 @@ async def get_status():
         "uptime": "24 hours",  # mock data for uptime
         "version": "1.0.0"  # mock server version
     }
-
     return jsonify(response), 200
 
 @app.route("/api/version", methods=['GET'])
@@ -195,17 +200,11 @@ def version():
 
 @app.route('/api/tags', methods=['GET'])
 def models_api():
-    """
-    Call the OpenAI /v1/models endpoint to retrieve the list of available models.
-    """
     print("Calling Models")
     return RAI_MODELS
 
 @app.route('/api/tags2', methods=['GET'])
 def forward_models_call_to_ollama():
-    """
-    Call the OpenAI /v1/models endpoint to retrieve the list of available models.
-    """
     print("Calling Models")
     url = "http://192.168.1.6:11434/api/tags"
     headers = {"Content-Type": "application/json"}

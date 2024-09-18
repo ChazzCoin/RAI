@@ -7,12 +7,14 @@ import logging
 from assistant import openai_client as openai
 from dataset.TextCleaner import TextCleaner
 from typing import List, Dict
+import asyncio
 # Load environment variables from a .env file
 load_dotenv()
 from F.LOG import Log
 LOG = Log("ChromaDB")
 # Setup basic logging
 logging.basicConfig(level=logging.INFO)
+from asyncio import to_thread
 
 DOCUMENT_TEMPLATE = lambda id, text, metadata, embeddings: { 'id': id, 'text': text, 'metadata': metadata, 'embeddings': embeddings }
 
@@ -66,6 +68,21 @@ class ChromaDocument:
         }
 
 
+# Define the async function to interact with ChromaDB
+async def query_chroma():
+    # Create an asynchronous HTTP client for ChromaDB
+    client = await chromadb.AsyncHttpClient(
+        host=os.getenv("DEFAULT_CHROMA_SERVER_HOST"),  # ChromaDB server host
+        port=os.getenv("DEFAULT_CHROMA_SERVER_PORT"),         # ChromaDB server port
+        ssl=False          # Whether to use SSL or not
+    )
+
+    # Query or other operations
+    collections = await client.list_collections()
+    print(collections)
+    return collections
+
+
 class ChromaInstance:
     chroma_client: chromadb.Client
     collection: chromadb.Collection
@@ -108,6 +125,7 @@ class ChromaInstance:
         user_embedding = self.base_embedding(user_input)
         # Query ChromaDB for similar documents
         print(self.collection.name)
+        # results = await to_thread(self.collection.query, {"query_embeddings":[user_embedding], "n_results":n_results} )
         results = self.collection.query(
             query_embeddings=[user_embedding],
             n_results=n_results
@@ -225,7 +243,7 @@ class ChromaInstance:
                 name = c.name
                 if name in skip:
                     continue
-                db.delete_collection(name)
+                self.chroma_client.delete_collection(name)
             logging.info(f"All Collections Deleted!")
         except Exception as e:
             logging.error(f"Failed to delete all collections: {e}")
@@ -239,6 +257,12 @@ class ChromaInstance:
             logging.error(f"Failed to delete document {doc_id}: {e}")
             raise e
 
+async def run():
+    result = await query_chroma()
+    print(result)
 
+def runner():
+    run()
 if __name__ == "__main__":
-    db = ChromaInstance(collection_name="web_pages_2")
+#     db = ChromaInstance(collection_name="web_pages_2")
+    runner()

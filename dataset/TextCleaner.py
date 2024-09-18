@@ -1,13 +1,34 @@
 import re
 import numpy as np
-from FNLP.Language import Sentences
 import unicodedata
-
+from F import MATH, LIST, DICT
 from F.LOG import Log
 
 from files.FilePath import FilePath
 
 Log = Log("TextCleaner")
+
+
+SENTENCE_ENDERS = ['.', '?', '!']
+QUOTES_ENCODINGS = [b'\xe2\x80\x9e', b'\xe2\x80\x9f', b'\xe2\x80\x9d', b'\xe2\x80\x9c']
+
+ALPHABET_DICT_PAIRS = {"a": "A", "b": "B", "c": "C", "d": "D", "e": "E", "f": "F", "g": "G", "h": "H",
+                       "i": "I", "j": "J", "k": "K", "l": "L", "m": "M", "n": "N", "o": "O", "p": "P",
+                       "q": "Q", "r": "R", "s": "S", "t": "T", "u": "U", "v": "V", "w": "W", "x": "X",
+                       "y": "Y", "z": "Z" }
+
+GET_CAPITAL_FROM_LOWER = lambda lowerChar: DICT.get(lowerChar, ALPHABET_DICT_PAIRS, default=False)
+GET_LOWER_FROM_CAPITAL = lambda capitalChar: DICT.get_key(capitalChar, ALPHABET_DICT_PAIRS, default=False)
+GET_OPPOSITE_LOWER_OR_UPPER = lambda char: GET_CAPITAL_FROM_LOWER(char) if str(char).islower() else GET_LOWER_FROM_CAPITAL(char)
+
+ALPHABET_LOWER = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",
+                  "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"]
+ALPHABET_UPPER = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
+                  "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"]
+ALPHABET_ALL = ALPHABET_LOWER + ALPHABET_UPPER
+NUMBERS_SINGLE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+
+SUMMARY = lambda first, middle, last: f"{first} {middle} {last}"
 
 class TextCleaner:
     def __init__(self):
@@ -208,7 +229,7 @@ class TextCleaner:
     def to_sentences(text, toString: bool = False):
         # Split text into sentences for embedding
         # sentences = re.split(r'(?<=[.!?]) +', text)
-        cleaned_sentences = Sentences.to_sentences(content=text, combineQuotes=True)
+        cleaned_sentences = to_sentences(content=text, combineQuotes=True)
         # Clean each sentence
         # cleaned_sentences = [clean_text(sentencestwo) for sentence in sentences if sentence]
         if toString:
@@ -297,6 +318,178 @@ class TextCleaner:
         # Extract and return the text between start and stop
         return text[start_index:stop_index].strip()
 
+
+
+
+
+FORM_SENTENCE = lambda strContent, startIndex, endIndex, caboose: f"{strContent[startIndex:endIndex]}{caboose}"
+
+"""Move to Engines"""
+def to_sentences(content: str, combineQuotes=True):
+    """100%! WORKING!!!"""
+    content = __prepare_content_for_sentence_extraction(content)
+    current_index, start_index, quotation_count, sentences = 0, 0, 0, []
+    # -> Loop every character in content (str).
+    for currentChar in content:
+        # -> Verify we have next (+3) characters.
+        if current_index >= len(content) - 3:
+            if MATH.is_even_number(quotation_count + 1):
+                sent = content[start_index:-1] + currentChar + '"'
+            else:
+                sent = content[start_index:-1] + currentChar
+            sentences.append(sent)
+            break
+        plusOneChar = content[current_index + 1]
+        # -> Keep count of quotations. Even = Closed and Odd = Open
+        if is_quotation(currentChar):
+            quotation_count += 1
+        # -> Verify current (0) character is a "sentence ending character" EX: . ! ?
+        if __is_sentence_ender(currentChar):
+            # -> Verify next (+1) character is a space or quote "
+            if is_space(plusOneChar) or is_quotation(plusOneChar):
+                QM = False
+                # -> Verify next (+1) character is a quotation and are we "Quote Closed"
+                if is_quotation(plusOneChar) and MATH.is_even_number(quotation_count + 1):
+                    QM = True
+                plusTwoChar = str(content[current_index + 2])
+                plusThreeChar = str(content[current_index + 3])
+                # -> Verify that +2 character is a valid "Sentence Beginner"
+                if __is_sentence_beginner(plusTwoChar if not QM else plusThreeChar):
+                    # -> Verify next character is a space
+                    if is_space(plusOneChar if not QM else plusTwoChar):
+                        minusOneChar = str(content[current_index - 1])
+                        minusTwoChar = str(content[current_index - 2])
+                        minuxThreeChar = str(content[current_index - 3])
+                        # -> Verify previous three characters do not include a period
+                        if not are_periods(minusOneChar, minusTwoChar, minuxThreeChar):
+                            if combineQuotes and not MATH.is_even_number(quotation_count if not QM else quotation_count + 1):
+                                current_index += 1
+                                continue
+                            # -> VERIFIED! Create sentence.
+                            sent = FORM_SENTENCE(content, start_index, current_index, currentChar if not QM else f'{currentChar}"')
+                            start_index = current_index + 2
+                            sentences.append(sent)
+        current_index += 1
+    return sentences
+
+# SENTENCE_ENDERS = ['.', '?', '!']
+def __prepare_content_for_sentence_extraction(content):
+    return content.strip().replace("\n", " ").replace("  ", " ")
+
+def __is_sentence_ender(content):
+    if str(content) in SENTENCE_ENDERS:
+        return True
+    return False
+
+def __is_sentence_beginner(content):
+    if is_in_alphabet(content):
+        return True
+    elif is_quotation(content):
+        return True
+    elif is_single_number(content):
+        return True
+    return False
+
+
+def is_in_alphabet_lower(content:str):
+    firstChar = LIST.get(0, content, default=False)
+    if firstChar in ALPHABET_LOWER:
+        return True
+    return False
+
+def is_in_alphabet_upper(content:str):
+    firstChar = LIST.get(0, content, default=False)
+    if firstChar in ALPHABET_UPPER:
+        return True
+    return False
+
+def is_in_alphabet(content:str):
+    firstChar = LIST.get(0, content, default=False)
+    if firstChar in ALPHABET_ALL:
+        return True
+    return False
+
+def is_single_number(content):
+    if type(content) != int:
+        content = LIST.get(0, content, default=False)
+    if content in NUMBERS_SINGLE:
+        return True
+    return False
+
+def is_capital(content: str):
+    firstChar = LIST.get(0, content, default=False)
+    if firstChar and str(firstChar).isupper():
+        return True
+    return False
+
+def are_capital(*content: str):
+    for item in content:
+        if not is_capital(item):
+            return False
+    return True
+
+def are_periods(*content: str):
+    for item in content:
+        if not is_period(item):
+            return False
+    return True
+
+def is_period(content:str):
+    firstChar = LIST.get(0, content, default=False)
+    if firstChar and str(content) == ".":
+        return True
+    return False
+
+def are_periods_or_capitals(*content:str):
+    for item in content:
+        if is_capital(item) or is_period(item):
+            return True
+    return False
+
+def is_empty(content: str):
+    firstChar = LIST.get(0, content, default=False)
+    if firstChar and not content or content == ' ' or content == '' or str(content) == " ":
+        return True
+    return False
+
+def are_empty(*content: str):
+    for item in content:
+        if not item or item == ' ' or item == '' or str(item) == " ":
+            return True
+    return False
+
+def is_quotation(content:str):
+    encoded_character = str(content).encode('utf-8')
+    if content == '"':
+        return True
+    elif encoded_character in QUOTES_ENCODINGS:
+        return True
+    return False
+
+def is_space(content:str):
+    firstChar = LIST.get(0, content, default=False)
+    if firstChar and str(content) == ' ':
+        return True
+    return False
+
+def is_space_or_quotation(content):
+    if is_quotation(content) or is_space(content):
+        return True
+    return False
+
+# def __is_sentence_ender(content):
+#     if str(content) in SENTENCE_ENDERS:
+#         return True
+#     return False
+#
+# def __is_sentence_beginner(content):
+#     if is_in_alphabet(content):
+#         return True
+#     elif is_quotation(content):
+#         return True
+#     elif is_single_number(content):
+#         return True
+#     return False
 
 if __name__ == '__main__':
     from files.read import read_file

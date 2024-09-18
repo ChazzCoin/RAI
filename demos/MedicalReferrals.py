@@ -1,4 +1,4 @@
-from assistant import api
+from assistant.openai_client import chat_request
 from dataset.intake.PDF_v1 import FPDF
 # Folders to Modify/Migrate
 """
@@ -12,14 +12,13 @@ Branch: stabilize/ai
 -> /helpers
 """
 
-BASE = "/Users/chazzromeo/OneCall/relayhealthcare-webapp-newest"
 FILES = [
-    "/Users/chazzromeo/ChazzCoin/MedRefs/dataset/refers/Alan_Reed_Referral.pdf",
-    "/Users/chazzromeo/ChazzCoin/MedRefs/dataset/refers/Brenda_King_Referral.pdf",
-    "/Users/chazzromeo/ChazzCoin/MedRefs/dataset/refers/Emily_Carter_Referral.pdf",
-    "/Users/chazzromeo/ChazzCoin/MedRefs/dataset/refers/Henry_Clark_Referral.pdf",
-    "/Users/chazzromeo/ChazzCoin/MedRefs/dataset/refers/Joseph_Martin_Referral.pdf",
-    "/Users/chazzromeo/ChazzCoin/MedRefs/dataset/refers/Karen_Thompson_Referral-2.pdf"
+    "/Users/chazzromeo/ChazzCoin/MedRefs/files/raw/refers/Alan_Reed_Referral.pdf",
+    "/Users/chazzromeo/ChazzCoin/MedRefs/files/raw/refers/Brenda_King_Referral.pdf",
+    "/Users/chazzromeo/ChazzCoin/MedRefs/files/raw/refers/Emily_Carter_Referral.pdf",
+    "/Users/chazzromeo/ChazzCoin/MedRefs/files/raw/refers/Henry_Clark_Referral.pdf",
+    "/Users/chazzromeo/ChazzCoin/MedRefs/files/raw/refers/Joseph_Martin_Referral.pdf",
+    "/Users/chazzromeo/ChazzCoin/MedRefs/files/raw/refers/Karen_Thompson_Referral-2.pdf"
 ]
 SUCCESSFUL_FILES = []
 FAILED_FILES = []
@@ -59,7 +58,7 @@ def run_manual_files():
     for file in FILES:
         try:
             content = FPDF(file_path=file).extract_text_from_pdf(file)
-            results = api.chatgpt_request(prompt, content, model="gpt-4o")
+            results = chat_request(prompt, content, model="gpt-4o")
             SUCCESSFUL_FILES.append(file)
             print("-------")
             print(results)

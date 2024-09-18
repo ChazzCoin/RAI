@@ -6,7 +6,7 @@ from io import StringIO
 from dataset import TextCleaner
 from FNLP.Language import Sentences
 # import fitz
-# from F import OS
+from F import OS
 
 PDF_MODEL = lambda x: {}
 
