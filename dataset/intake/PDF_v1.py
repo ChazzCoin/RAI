@@ -4,7 +4,6 @@ from pdfminer.layout import LAParams
 from pdfminer.pdfpage import PDFPage
 from io import StringIO
 from dataset import TextCleaner
-from FNLP.Language import Sentences
 # import fitz
 from F import OS
 
@@ -49,7 +48,7 @@ class FPDF:
                     cleaned_s = PostProcessor.clean_text(s)
                     cleaned.append(cleaned_s)
                 full_text = list_of_strings_to_string(cleaned)
-                for_ai = Sentences.to_sentences(cleaned)
+                for_ai = TextCleaner.to_sentences(str(full_text))
                 j = {
                     "text": full_text,
                     "training": for_ai,
@@ -62,7 +61,7 @@ class FPDF:
         return self.file_texts
 
     def post_process_text(self, text_in:str) -> str:
-        text_out = Sentences.to_sentences(text_in)
+        text_out = TextCleaner.to_sentences(text_in)
         return text_out
 
     def extract_text_from_pdf(self, path):
