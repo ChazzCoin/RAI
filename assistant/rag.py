@@ -2,9 +2,44 @@ import os
 import uuid
 from F import DATE
 from assistant import openai_client as openai
-from config.chroma import ChromaInstance
+from config.chroma import ChromaInstance, AsyncChromaDBClient
 from dataset.TextCleaner import TextCleaner
 from dataset import load_txt_file, load_json_file
+
+class AsyncRagWithChroma(AsyncChromaDBClient):
+    @staticmethod
+    def inject_into_system_prompt(metadata: list) -> str:
+        context = ""
+        # Create a context from the retrieved documents
+        for doc in metadata:
+            context += f"- {doc['content']}\n"
+        # Format the final prompt for OpenAI
+        system_prompt = f"""
+            You will read the following knowledge base dump and become an expert of the information.
+
+            Knowledge Base:
+            {context}
+
+            Based on the knowledge base above, answer the following question(s)...
+            """
+        return system_prompt
+
+    @staticmethod
+    def append_metadata_to_response(chat_response: str, metadata: list) -> str:
+        # Prepare the sources section
+        sources_info = "\n\nSources:\n"
+
+        # Handle multiple or single documents
+        if len(metadata) == 1:
+            doc = metadata[0]
+            sources_info += f"- {doc['title']} by {doc['url']}"
+        else:
+            for i, doc in enumerate(metadata, start=1):
+                sources_info += f"{i}. {doc['title']} by {doc['url']}\n"
+
+        # Append sources to the original chat response
+        final_response = chat_response + sources_info
+        return final_response
 
 class RAGWithChroma(ChromaInstance):
 
@@ -61,7 +96,7 @@ class RAGWithChroma(ChromaInstance):
     def inject_into_system_prompt(metadata: list) -> str:
         context = ""
         # Create a context from the retrieved documents
-        for doc in metadata:
+        for doc in metadata['metadatas'][0]:
             context += f"- {doc['content']}\n"
         # Format the final prompt for OpenAI
         system_prompt = f"""
@@ -93,12 +128,12 @@ class RAGWithChroma(ChromaInstance):
 
     def import_json(self, file_name, topic):
         js = load_json_file(file_name)
-        for url in js:
-            page_contents = js[url]
-            page_paras = to_paragraphs_with_min_max(page_contents)
-            for para in page_paras:
-                print(para)
-                self.add_web_page(page_text=para, page_name=extract_page_extension(url), topic=topic, url=url)
+        # for url in js:
+        #     page_contents = js[url]
+        #     page_paras = to_paragraphs_with_min_max(page_contents)
+        #     for para in page_paras:
+        #         print(para)
+        #         self.add_web_page(page_text=para, page_name=extract_page_extension(url), topic=topic, url=url)
 
     def import_txt(self, file_name):
         text = load_txt_file(file_name)

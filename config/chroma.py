@@ -1,20 +1,25 @@
+from asyncio import to_thread
+
 import chromadb
 from F import DICT, DATE
 from chromadb.config import Settings
 from dotenv import load_dotenv
 import os
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from assistant import openai_client as openai
 from dataset.TextCleaner import TextCleaner
 from typing import List, Dict
 import asyncio
+from functools import wraps
+from F.CLASS.Function import FairFunction
+from F.CLASS.Routines import FairRoutine
 # Load environment variables from a .env file
 load_dotenv()
 from F.LOG import Log
 LOG = Log("ChromaDB")
 # Setup basic logging
 logging.basicConfig(level=logging.INFO)
-from asyncio import to_thread
 
 DOCUMENT_TEMPLATE = lambda id, text, metadata, embeddings: { 'id': id, 'text': text, 'metadata': metadata, 'embeddings': embeddings }
 
@@ -67,20 +72,130 @@ class ChromaDocument:
             "embeddings": self.embeddings if embeddings is None else embeddings
         }
 
+def async_run_in_executor(func):
+    """Decorator to run a function in an asyncio executor."""
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        loop = asyncio.get_running_loop()
+        executor = ThreadPoolExecutor()
+        # Run the original function in the executor
+        result = await loop.run_in_executor(executor, func, *args, **kwargs)
+        # Shutdown the executor after the task is complete
+        executor.shutdown(wait=True)
+        return result
+    return wrapper
 
-# Define the async function to interact with ChromaDB
-async def query_chroma():
-    # Create an asynchronous HTTP client for ChromaDB
-    client = await chromadb.AsyncHttpClient(
-        host=os.getenv("DEFAULT_CHROMA_SERVER_HOST"),  # ChromaDB server host
-        port=os.getenv("DEFAULT_CHROMA_SERVER_PORT"),         # ChromaDB server port
-        ssl=False          # Whether to use SSL or not
-    )
+# @async_run_in_executor
+def base_embedding(text_in):
+    cleaned_text = TextCleaner.clean_text_for_openai_embedding(text_in)
+    print("Cleaned Text for Embedding:", cleaned_text)
+    embeddings = openai.generate_embeddings(cleaned_text)
+    return embeddings
 
-    # Query or other operations
-    collections = await client.list_collections()
-    print(collections)
-    return collections
+class AsyncChromaDBClient:
+    """An asynchronous wrapper for the ChromaDB client."""
+    def __init__(self, settings=None):
+        self.settings = settings or Settings(
+            chroma_server_host=os.getenv("DEFAULT_CHROMA_SERVER_HOST"),
+            chroma_server_http_port=os.getenv("DEFAULT_CHROMA_SERVER_PORT"),
+            persist_directory=os.getenv("DEFAULT_CHROMA_CACHE_FOLDER"),
+            is_persistent=True,
+        )
+        self.client = chromadb.Client(self.settings)
+        self.loop = asyncio.get_event_loop()
+        self.executor = ThreadPoolExecutor()
+        LOG.i("Initialized AsyncChromaDBClient")
+
+    @staticmethod
+    async def base_embedding(text_in):
+        # Assuming TextCleaner.clean_text_for_openai_embedding is a synchronous function
+        # If this function is also I/O bound, it should be refactored as an async function too.
+        loop = asyncio.get_running_loop()
+
+        # Run the synchronous cleaning function in the executor
+        cleaned_text = await loop.run_in_executor(None, TextCleaner.clean_text_for_openai_embedding, text_in)
+        print("Cleaned Text for Embedding:", cleaned_text)
+
+        # Run the synchronous embedding function in the executor
+        embeddings = await loop.run_in_executor(None, openai.generate_embeddings, cleaned_text)
+
+        return embeddings
+
+    async def add_documents(self, collection_name: str, documents: dict):
+        """Asynchronously add documents to a collection."""
+        def _add():
+            try:
+                collection = self.client.get_or_create_collection(name=collection_name)
+                collection.add(**documents)
+                LOG.i(f"Added documents to collection '{collection_name}'")
+            except Exception as e:
+                LOG.i(f"Failed to add documents: {e}")
+                raise
+
+        await self.loop.run_in_executor(self.executor, _add)
+
+    async def query(self, user_input: str, n_results: int = 3, collection_name: str = "web_pages_2", debug: bool = False):
+        """Asynchronously query documents from a collection."""
+        user_embedding = await self.base_embedding(user_input)
+        async def _query():
+            try:
+                collection = self.client.get_or_create_collection(name=collection_name)
+                lp = asyncio.get_running_loop()
+                q = {
+                    "query_embeddings":[user_embedding],
+                    "n_results":n_results
+                }
+                results = await lp.run_in_executor(self.executor, collection.query, q)
+                # results = collection.query(
+                #     query_embeddings=[user_embedding],
+                #     n_results=n_results
+                # )
+
+                metadata = results.get('metadatas', [])[0]
+                LOG.i(f"Queried documents from collection '{collection_name}' - {results}")
+                if debug:
+                    for doc in metadata:
+                        print(DICT.get("title", doc, ""))
+                        print(DICT.get("topic", doc, ""))
+                        print(DICT.get("url", doc, ""))
+                        print(DICT.get("date", doc, ""))
+                return metadata
+            except Exception as e:
+                LOG.i(f"Failed to query documents: {e}")
+                raise
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(self.executor, _query)
+
+    def squery(self, user_input: str, n_results: int = 3, collection_name: str = "web_pages_2", debug: bool = False):
+        """Asynchronously query documents from a collection."""
+        try:
+            collection = self.client.get_or_create_collection(name=collection_name)
+            user_embedding = base_embedding(user_input)
+            results = collection.query(
+                query_embeddings=[user_embedding],
+                n_results=n_results
+            )
+            LOG.i(f"Queried documents from collection '{collection_name}'")
+            metadata = results.get('metadatas', [])[0]
+            if debug:
+                for doc in metadata:
+                    print(DICT.get("title", doc, ""))
+                    print(DICT.get("topic", doc, ""))
+                    print(DICT.get("url", doc, ""))
+                    print(DICT.get("date", doc, ""))
+            return metadata
+        except Exception as e:
+            LOG.i(f"Failed to query documents: {e}")
+            return {}
+
+
+
+    async def shutdown(self):
+        """Shut down the executor."""
+        LOG.i("Shutting down AsyncChromaDBClient")
+        self.executor.shutdown(wait=True)
+
+from F import OS
 
 
 class ChromaInstance:
@@ -91,10 +206,11 @@ class ChromaInstance:
         try:
             print("Chroma Host:", os.getenv("DEFAULT_CHROMA_SERVER_HOST"))
             print("Chroma Port:", os.getenv("DEFAULT_CHROMA_SERVER_PORT"))
+            print("Cached Directory:", os.path.dirname(os.path.abspath(__file__)))
             self.chroma_client = chromadb.Client(Settings(
                 chroma_server_host=os.getenv("DEFAULT_CHROMA_SERVER_HOST"),
                 chroma_server_http_port=os.getenv("DEFAULT_CHROMA_SERVER_PORT"),
-                persist_directory=os.getenv("DEFAULT_CHROMA_CACHE_FOLDER"),
+                persist_directory=f"/python-docker/assistant/chroma",
                 is_persistent=persistent,
             ))
             if collection_name:
@@ -120,12 +236,29 @@ class ChromaInstance:
         embeddings = openai.generate_embeddings(cleaned_text)
         return embeddings
 
-    def query(self, user_input: str, n_results: int = 3, debug: bool = False):
+    def chromadb_query_wrapper(self, embedding):
+        """Wrapper function to query ChromaDB synchronously."""
+        return self.collection.query(
+            query_embeddings=[embedding],
+            n_results=10
+        )
+
+    async def query_chromadb(self, embedding):
+        """Asynchronously query ChromaDB using embeddings."""
+        loop = asyncio.get_event_loop()
+        results = await loop.run_in_executor(
+            None,
+            self.chromadb_query_wrapper,
+            embedding
+        )
+        print(f"Query Results: {str(results)}")
+        return results
+
+    def query(self, user_input: str, n_results: int = 3, debug: bool = True):
         # Generate embedding for the user input using OpenAI embeddings
         user_embedding = self.base_embedding(user_input)
         # Query ChromaDB for similar documents
         print(self.collection.name)
-        # results = await to_thread(self.collection.query, {"query_embeddings":[user_embedding], "n_results":n_results} )
         results = self.collection.query(
             query_embeddings=[user_embedding],
             n_results=n_results
@@ -257,12 +390,3 @@ class ChromaInstance:
             logging.error(f"Failed to delete document {doc_id}: {e}")
             raise e
 
-async def run():
-    result = await query_chroma()
-    print(result)
-
-def runner():
-    run()
-if __name__ == "__main__":
-#     db = ChromaInstance(collection_name="web_pages_2")
-    runner()

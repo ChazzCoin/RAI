@@ -169,20 +169,7 @@ def extractor(text, output_file):
             continue  # Skip invalid JSON
     write_strings_to_jsonl(valid_json_objects, output_file)
     return valid_json_objects
-# def extractor(text):
-#     objs = []
-#     start = 0
-#     for currentIndex in text:
-#         char = text[currentIndex]
-#         char_1 = text[currentIndex + 1]
-#         char_2 = text[currentIndex + 2]
-#         if char == '{' and char_1 == "\"" and char_2 == "m":
-#             start = currentIndex
-#         elif char == '}' and char_1 == "]" and char_2 == "}":
-#             temp_obj = text[start:currentIndex + 2]
-#             objs.append(temp_obj)
-#         currentIndex += 1
-#     return objs
+
 
 def write_strings_to_jsonl(strings_list, output_file):
     with open(output_file, 'a', encoding='utf-8') as f:

@@ -1,5 +1,8 @@
+import asyncio
 import datetime
 import time
+
+import aiohttp
 from openai import OpenAI
 import os
 from dotenv import load_dotenv
@@ -15,6 +18,51 @@ embedding_model = os.getenv("DEFAULT_OPENAI_EMBEDDING_MODEL")
 def getClient():
     return OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+async def get_embeddings(text):
+    """Asynchronously get embeddings from OpenAI API."""
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {os.getenv("OPENAI_API_KEY")}',
+    }
+    data = {
+        'input': text,
+        'model': 'text-embedding-ada-002',
+    }
+    async with aiohttp.ClientSession() as session:
+        async with session.post('https://api.openai.com/v1/embeddings', headers=headers, json=data) as resp:
+            if resp.status != 200:
+                error = await resp.json()
+                raise Exception(f"Error from OpenAI API: {error}")
+            response_data = await resp.json()
+            embedding = response_data['data'][0]['embedding']
+            return embedding
+
+async def get_chat_completion(system_prompt, user_input):
+    """Asynchronously get chat completion from OpenAI API."""
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {os.getenv("OPENAI_API_KEY")}',
+    }
+    data = {
+        'model': 'gpt-4o-mini',  # Use 'gpt-4' if available
+        'messages': [
+            {'role': 'system', 'content': system_prompt},
+            {'role': 'user', 'content': user_input}
+        ],
+        'temperature': 0.7,
+    }
+    async with aiohttp.ClientSession() as session:
+        async with session.post('https://api.openai.com/v1/chat/completions', headers=headers, json=data) as resp:
+            if resp.status != 200:
+                error = await resp.json()
+                raise Exception(f"Error from OpenAI API: {error}")
+            response_data = await resp.json()
+            assistant_message = response_data['choices'][0]['message']['content']
+            return assistant_message
+
+def truncate_text(text, max_length):
+    """Truncate text to a maximum number of characters."""
+    return text[:max_length] if len(text) > max_length else text
 
 def generate_embeddings(text):
     print('Embedding Model:', embedding_model)

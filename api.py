@@ -1,14 +1,19 @@
 #!/bin/bash
+import asyncio
 import json
 import time
+from concurrent.futures import ThreadPoolExecutor
+from config import env
+import aiohttp
+from gevent.pywsgi import WSGIServer
 from quart import Quart, request, jsonify, Response
 import requests
 from F import DICT
 from F.LOG import Log
-from assistant.openai_client import get_current_timestamp, getClient
+from assistant.openai_client import get_current_timestamp, getClient, get_embeddings, truncate_text, get_chat_completion
 from config.RaiModels import RAI_MODELS, MODEL_MAP
 from assistant.rag import RAGWithChroma
-from asyncio import to_thread
+
 Log = Log("RAI API Bruno Canary")
 
 
@@ -22,13 +27,17 @@ CHAT_MESSAGE_OPENAI = lambda system, user: [
     ]
 ChatID = "111"
 
-collection = "web_pages_2"
-rag = RAGWithChroma(collection_name=collection)
-async def rag_search(user_prompt):
-    results = await rag.query(user_prompt)
-    Log.i("RAG Results:", len(results))
-    system_prompt = rag.inject_into_system_prompt(results)
-    return system_prompt, results
+collection_name = "web_pages_2"
+# rag = AsyncRagWithChroma()
+rag = RAGWithChroma(collection_name=collection_name)
+looper = asyncio.get_event_loop()
+executor = ThreadPoolExecutor(max_workers=1)
+
+# async def rag_search(user_prompt):
+#     results = await rag.query(user_prompt, n_results=5)
+#     Log.i("RAG Results:", len(results))
+#     system_prompt = rag.inject_into_system_prompt(results)
+#     return system_prompt, results
 
 def get_last_user_message(json_data):
     # Get the list of messages
@@ -41,6 +50,77 @@ def get_last_user_message(json_data):
             break
     return last_user_message
 
+async def generate_chat_completion(system_prompt, user_prompt, appended_message=""):
+    """Asynchronously stream chat completion from OpenAI API."""
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {env("OPENAI_API_KEY")}',
+    }
+    data = {
+        'model': "gpt-4o-mini",
+        'messages': [
+            {'role': 'system', 'content':  system_prompt },
+            {'role': 'user', 'content': user_prompt }
+        ],
+        'temperature': 0,
+        'stream': True
+    }
+    start_time = time.time()
+    collected_messages = []
+    prompt_eval_count = 0
+    eval_count = 0
+    prompt_eval_duration = 0  # Simulated prompt evaluation duration
+
+    async with aiohttp.ClientSession() as session:
+        async with session.post('https://api.openai.com/v1/chat/completions', headers=headers, json=data) as resp:
+            if resp.status != 200:
+                error = await resp.json()
+                raise Exception(f"Error from OpenAI API: {error}")
+            async for line in resp.content:
+                chunk_time = time.time() - start_time
+                timestamp = get_current_timestamp()
+                line = line.decode('utf-8').strip()
+                if not line:
+                    continue
+                if line.startswith('data: '):
+                    line = line[len('data: '):]
+                if line == '[DONE]':
+                    break
+                try:
+                    data = json.loads(line)
+                    choice = data['choices'][0]
+                    delta = choice.get('delta', {})
+                    chunk_message = delta.get('content', None)
+                    if chunk_message:
+                        collected_messages.append(chunk_message)
+                        response_obj = {
+                            "model": "gpt-4o-mini",
+                            "created_at": timestamp,
+                            "message": {
+                                "role": "assistant",
+                                "content": chunk_message
+                            },
+                            "done": False  # Indicate that the stream is not yet done
+                        }
+                        yield f"\n{json.dumps(response_obj)}\n"
+                    prompt_eval_count += 1
+                    eval_count += 1
+                except json.JSONDecodeError:
+                    continue
+
+    # Append any additional message at the end
+    if appended_message:
+        appended_obj = {
+            "model": "gpt-4o-mini",
+            "created_at": get_current_timestamp(),
+            "message": {
+                "role": "assistant",
+                "content": f"\n\n {appended_message}"
+            },
+            "done": False  # Indicate that the stream is not yet done
+        }
+        yield f"\n{json.dumps(appended_obj)}\n"
+
 @app.route('/api/chat', methods=['POST'])
 async def chat_completion():
     model = "gpt-4o-mini"
@@ -48,22 +128,25 @@ async def chat_completion():
     jbody = json.loads(data.decode('utf-8'))
     # jbody = await request.get_data()
     user_message = get_last_user_message(jbody)
-    appended_message = " Please Bitch "
+    appended_message = ""
     sys_prompt = "You are a useful assistant."
     modelIn = DICT.get('model', jbody, 'llama3:latest')
 
     Log.i("/api/chat", f"Model IN: {modelIn}")
     if modelIn == 'park-city:latest':
         model = MODEL_MAP[modelIn]
-        # sys_prompt = await to_thread(rag_search, user_message)
-        sys_prompt, metadatas = await rag_search(user_message)
-        print(sys_prompt)
-        # results = await rag.query(user_message, n_results=3)
-        # Log.i("RAG Results:", len(results))
-        # sys_prompt = rag.inject_into_system_prompt(results)
+        embeds = await get_embeddings(user_message)
+        results = await rag.query_chromadb(embeds)
+        Log.i("RAG Results ASYNC:", results)
+        # Extract documents from ChromaDB results
+        metadatas = results.get('metadatas', [])[0]  # Get the first list of documents
+        Log.i("RAG MetaDatas:", len(metadatas))
         for metadata in metadatas:
-            appended_message = f"\n\nSources:\n{DICT.get('url', metadata, '')}"
+            appended_message += f"\n\nSources:\n{DICT.get('url', metadata, '')}"
+        system_prompt = rag.inject_into_system_prompt(results)
+        Log.i("Model Setup Finished...")
 
+    Log.i("All Setup Finished...")
     Log.i("/api/chat", f"Model OUT: {model}")
     def generate(system_prompt, user_prompt):
 
@@ -139,7 +222,12 @@ async def chat_completion():
             "eval_duration": total_duration - prompt_eval_duration  # Simulated eval duration
         }
         yield f"\n{json.dumps(final_obj)}\n"
-    return Response(generate(sys_prompt, user_message), content_type='text/event-stream')
+
+    async def stream(system_prompt, user_message, appended_message):
+        async for chunk in generate_chat_completion(system_prompt, user_message, appended_message=appended_message):
+            yield chunk
+    Log.i("Responding...")
+    return Response(stream(system_prompt, user_message, appended_message), content_type='text/event-stream')
 
 @app.route('/v1/chat/completions', methods=['POST'])
 def chat_completed():
@@ -261,13 +349,16 @@ def help_api():
 def heartbeat():
     return "beat"
 
+
+
 if __name__ == '__main__':
     port = 11434
     debug = False
     host = "0.0.0.0"
     print(f"Starting Bruno Server. Host={host}, Port={port}, Debug={debug}")
-    app.run(host=host, port=port, debug=debug)
-    # app_server = gevent.pywsgi.WSGIServer((host, port), app)
+    app.run(host=host, port=port, debug=debug, loop=looper)
+    app_server = WSGIServer((host, port), app)
+    app_server.loop
     # app_server.serve_forever()
 
 

@@ -21,6 +21,7 @@ beautifulsoup4~=4.12.3
 selenium~=4.24.0
 webdriver-manager~=4.0.2
 faircore==5.0.2
+aiohttp==3.10.5
 #fairnlp==5.0.0
 #fairresources==5.0.0
 #fairweb==4.5.0
