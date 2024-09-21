@@ -243,8 +243,11 @@ class ChromaInstance:
             n_results=10
         )
 
-    async def query_chromadb(self, embedding):
+    async def query_chromadb(self, embedding, collection_name:str=None):
         """Asynchronously query ChromaDB using embeddings."""
+        if collection_name:
+            self.set_collection(collection_name)
+        print("Querying Collection", self.collection.name)
         loop = asyncio.get_event_loop()
         results = await loop.run_in_executor(
             None,

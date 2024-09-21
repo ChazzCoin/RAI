@@ -8,6 +8,16 @@ RAI_MODEL_MAP = {
     "park-city:gpt4o": "gpt-4o-mini",
 }
 
+RAI_COLLECTION_MAP = {
+    "llama3:latest": "documents",
+    "gpt-4o-mini": "documents",
+    "park-city:latest" : "web_pages_2",
+    "park-city:gpt4o": "web_pages_2",
+}
+
+def getMappedCollection(modelIn:str):
+    return DICT.get(modelIn, RAI_COLLECTION_MAP, "documents")
+
 def getMappedModel(modelIn:str):
     return DICT.get(modelIn, RAI_MODEL_MAP, "gpt-4o-mini")
 
