@@ -97,7 +97,7 @@ class RAGWithChroma(ChromaInstance):
         context = ""
         # Create a context from the retrieved documents
         for doc in metadata['metadatas'][0]:
-            context += f"- {doc['content']}\n"
+            context += f"- {doc['content']}\nSource: {doc['url']}\n"
         # Format the final prompt for OpenAI
         system_prompt = f"""
         You will read the following knowledge base dump and become an expert of the information.
@@ -105,7 +105,8 @@ class RAGWithChroma(ChromaInstance):
         Knowledge Base:
         {context}
 
-        Based on the knowledge base above, answer the following question(s)...
+        Based on the knowledge base above, answer the following question(s) and also attach the source url for any information you return.
+        If you do not know the answer, do not try to make something up, simply say you do not know.
         """
         return system_prompt
 

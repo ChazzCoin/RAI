@@ -8,10 +8,10 @@ import aiohttp
 from gevent.pywsgi import WSGIServer
 from quart import Quart, request, jsonify, Response
 import requests
-from F import DICT
+from F import DICT, LIST
 from F.LOG import Log
 from assistant.openai_client import get_current_timestamp, getClient, get_embeddings, truncate_text, get_chat_completion
-from config.RaiModels import RAI_MODELS, MODEL_MAP
+from config.RaiModels import RAI_MODELS, getMappedModel
 from assistant.rag import RAGWithChroma
 
 Log = Log("RAI API Bruno Canary")
@@ -32,12 +32,6 @@ collection_name = "web_pages_2"
 rag = RAGWithChroma(collection_name=collection_name)
 looper = asyncio.get_event_loop()
 executor = ThreadPoolExecutor(max_workers=1)
-
-# async def rag_search(user_prompt):
-#     results = await rag.query(user_prompt, n_results=5)
-#     Log.i("RAG Results:", len(results))
-#     system_prompt = rag.inject_into_system_prompt(results)
-#     return system_prompt, results
 
 def get_last_user_message(json_data):
     # Get the list of messages
@@ -70,7 +64,6 @@ async def generate_chat_completion(system_prompt, user_prompt, appended_message=
     prompt_eval_count = 0
     eval_count = 0
     prompt_eval_duration = 0  # Simulated prompt evaluation duration
-
     async with aiohttp.ClientSession() as session:
         async with session.post('https://api.openai.com/v1/chat/completions', headers=headers, json=data) as resp:
             if resp.status != 200:
@@ -107,7 +100,6 @@ async def generate_chat_completion(system_prompt, user_prompt, appended_message=
                     eval_count += 1
                 except json.JSONDecodeError:
                     continue
-
     # Append any additional message at the end
     if appended_message:
         appended_obj = {
@@ -126,139 +118,71 @@ async def chat_completion():
     model = "gpt-4o-mini"
     data = await request.get_data()
     jbody = json.loads(data.decode('utf-8'))
-    # jbody = await request.get_data()
-    user_message = get_last_user_message(jbody)
-    appended_message = ""
-    sys_prompt = "You are a useful assistant."
-    modelIn = DICT.get('model', jbody, 'llama3:latest')
 
+    modelIn = DICT.get('model', jbody, model)
+    model = getMappedModel(modelIn)
     Log.i("/api/chat", f"Model IN: {modelIn}")
-    if modelIn == 'park-city:latest':
-        model = MODEL_MAP[modelIn]
-        embeds = await get_embeddings(user_message)
-        results = await rag.query_chromadb(embeds)
-        Log.i("RAG Results ASYNC:", results)
-        # Extract documents from ChromaDB results
-        metadatas = results.get('metadatas', [])[0]  # Get the first list of documents
-        Log.i("RAG MetaDatas:", len(metadatas))
-        for metadata in metadatas:
-            appended_message += f"\n\nSources:\n{DICT.get('url', metadata, '')}"
-        system_prompt = rag.inject_into_system_prompt(results)
-        Log.i("Model Setup Finished...")
-
-    Log.i("All Setup Finished...")
     Log.i("/api/chat", f"Model OUT: {model}")
-    def generate(system_prompt, user_prompt):
 
-        """ 1. Stream Response. """
-        # Record the time before the request is sent
-        start_time = time.time()
-        response = getClient().chat.completions.create(
-            model=model,
-            messages=[
-                {'role': 'system', 'content':  system_prompt },
-                {'role': 'user', 'content': user_prompt }
-            ],
-            temperature=0,
-            stream=True
-        )
-        # Variables to collect the streamed chunks
-        collected_messages = []
-        prompt_eval_count = 0
-        eval_count = 0
-        prompt_eval_duration = 0  # Simulated prompt evaluation duration
-        for chunk in response:
-            chunk_time = time.time() - start_time  # Calculate the time delay of the chunk
-            timestamp = get_current_timestamp()  # Get the current timestamp
-            choice = chunk.choices[0]
-            delta = choice.delta
-            chunk_message = DICT.get('content', delta, None)
-            if chunk_message:
-                collected_messages.append(chunk_message)
-                response_obj = {
-                    "model": model,
-                    "created_at": timestamp,
-                    "message": {
-                        "role": "assistant",
-                        "content": chunk_message
-                    },
-                    "done": False  # Indicate that the stream is not yet done
-                }
-                yield f"\n{json.dumps(response_obj)}\n"
-            prompt_eval_count += 1
-            eval_count += 1
+    async def search(user_message):
+        embeds = await get_embeddings(user_message)
+        return await rag.query_chromadb(embeds)
 
-        """ 2. Append Text/Message to end of Response. """
-        if appended_message:
-            appended_obj = {
-                "model": model,
-                "created_at": get_current_timestamp(),
-                "message": {
-                    "role": "assistant",
-                    "content": f"\n\n {appended_message}" if appended_message else ""
-                },
-                "done": False  # Indicate that the stream is not yet done
-            }
-            yield f"\n{json.dumps(appended_obj)}\n"
+    def appendMessage(appended_message="", metadatas:[]=None, message:str=None):
+        if message:
+            appended_message += message
+        if metadatas:
+            for metadata in metadatas:
+                appended_message += f"\n\nSources:\n{DICT.get('url', metadata, '')}"
+        return appended_message
 
-        """ 3. Send Final Response. """
-        # Once the stream is finished, compute the total duration
-        total_duration = int((time.time() - start_time) * 1e9)  # Convert to nanoseconds
-        load_duration = total_duration - prompt_eval_duration  # Simulated load duration
-        final_obj = {
-            "model": model,
-            "created_at": get_current_timestamp(),
-            "message": {
-                "role": "assistant",
-                "content": ''  # Join collected messages as final content
-            },
-            "done_reason": "stop",
-            "done": True,  # Indicate that the stream is done
-            "total_duration": total_duration,
-            "load_duration": load_duration,
-            "prompt_eval_count": prompt_eval_count,
-            "prompt_eval_duration": prompt_eval_duration,
-            "eval_count": eval_count,
-            "eval_duration": total_duration - prompt_eval_duration  # Simulated eval duration
-        }
-        yield f"\n{json.dumps(final_obj)}\n"
+    async def interceptSystemPrompt(user_message:str):
+        if modelIn == 'park-city:latest' or modelIn == 'park-city:gpt4o':
+            results = await search(user_message)
+            metadatas = LIST.get(0, results.get('metadatas', []), [])
+            Log.i("RAG MetaDatas:", len(metadatas))
+            return rag.inject_into_system_prompt(results)
+        else:
+            return "You are a useful assistant."
 
+    user_message = get_last_user_message(jbody)
+    appended_message = appendMessage(message=f"Model Used: {model}")
+    sys_prompt = await interceptSystemPrompt(user_message)
     async def stream(system_prompt, user_message, appended_message):
         async for chunk in generate_chat_completion(system_prompt, user_message, appended_message=appended_message):
             yield chunk
-    Log.i("Responding...")
-    return Response(stream(system_prompt, user_message, appended_message), content_type='text/event-stream')
+    return Response(stream(sys_prompt, user_message, appended_message), content_type='text/event-stream')
 
-@app.route('/v1/chat/completions', methods=['POST'])
-def chat_completed():
-    print("Chat Completed.")
-    response = {
-        "model": "llama3:latest",
-        "messages": [
-            {
-                "id": "dd6c3f37-396b-4f1e-8f67-b2105e1855a6",
-                "role": "user",
-                "content": "hey!",
-                "timestamp": 1725999095
-            },
-            {
-                "id": "0d018a2d-0843-4ea3-b169-ae6e68dbfaa3",
-                "role": "assistant",
-                "content": "Hey! It's nice to meet you. Is there something I can help you with, or would you like to chat?",
-                "info": {
-                    "total_duration": 5248124406,
-                    "load_duration": 4317770731,
-                    "prompt_eval_count": 12,
-                    "prompt_eval_duration": 46358000,
-                    "eval_count": 26,
-                    "eval_duration": 837602000
-                },
-                "timestamp": 1725999095
-            }
-        ],
-        "chat_id": ChatID
-    }
-    return jsonify(response), 200
+# @app.route('/v1/chat/completions', methods=['POST'])
+# def chat_completed():
+#     print("Chat Completed.")
+#     response = {
+#         "model": "llama3:latest",
+#         "messages": [
+#             {
+#                 "id": "dd6c3f37-396b-4f1e-8f67-b2105e1855a6",
+#                 "role": "user",
+#                 "content": "hey!",
+#                 "timestamp": 1725999095
+#             },
+#             {
+#                 "id": "0d018a2d-0843-4ea3-b169-ae6e68dbfaa3",
+#                 "role": "assistant",
+#                 "content": "Hey! It's nice to meet you. Is there something I can help you with, or would you like to chat?",
+#                 "info": {
+#                     "total_duration": 5248124406,
+#                     "load_duration": 4317770731,
+#                     "prompt_eval_count": 12,
+#                     "prompt_eval_duration": 46358000,
+#                     "eval_count": 26,
+#                     "eval_duration": 837602000
+#                 },
+#                 "timestamp": 1725999095
+#             }
+#         ],
+#         "chat_id": ChatID
+#     }
+#     return jsonify(response), 200
 
 @app.route('/', methods=['GET'])
 async def heart():
