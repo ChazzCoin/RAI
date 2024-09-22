@@ -15,7 +15,7 @@ from selenium.common.exceptions import (
 )
 from bs4 import BeautifulSoup
 
-
+""" Master """
 class RaiCrawler:
     def __init__(self, base_url: str, output_dir: str = 'output'):
         self.base_url = base_url.rstrip('/')

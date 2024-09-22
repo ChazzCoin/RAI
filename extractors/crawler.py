@@ -3,7 +3,7 @@ from urllib.parse import urljoin, urlparse
 from files.FilePath import FilePath
 from files.save import DataSaver
 from dataset.DataTag import DataTag
-from extractors.extract_url import selenium_get_with_urls, selenium_get_core_page_details
+from extractors.extract_url import selenium_get_core_page_details
 from F.LOG import Log
 # Set to hold crawled URLs
 

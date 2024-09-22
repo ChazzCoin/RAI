@@ -1,45 +1,10 @@
 import os
 import uuid
-from F import DATE
+from F import DATE, LIST, DICT
 from assistant import openai_client as openai
-from config.chroma import ChromaInstance, AsyncChromaDBClient
+from config.chroma import ChromaInstance
 from dataset.TextCleaner import TextCleaner
 from dataset import load_txt_file, load_json_file
-
-class AsyncRagWithChroma(AsyncChromaDBClient):
-    @staticmethod
-    def inject_into_system_prompt(metadata: list) -> str:
-        context = ""
-        # Create a context from the retrieved documents
-        for doc in metadata:
-            context += f"- {doc['content']}\n"
-        # Format the final prompt for OpenAI
-        system_prompt = f"""
-            You will read the following knowledge base dump and become an expert of the information.
-
-            Knowledge Base:
-            {context}
-
-            Based on the knowledge base above, answer the following question(s)...
-            """
-        return system_prompt
-
-    @staticmethod
-    def append_metadata_to_response(chat_response: str, metadata: list) -> str:
-        # Prepare the sources section
-        sources_info = "\n\nSources:\n"
-
-        # Handle multiple or single documents
-        if len(metadata) == 1:
-            doc = metadata[0]
-            sources_info += f"- {doc['title']} by {doc['url']}"
-        else:
-            for i, doc in enumerate(metadata, start=1):
-                sources_info += f"{i}. {doc['title']} by {doc['url']}\n"
-
-        # Append sources to the original chat response
-        final_response = chat_response + sources_info
-        return final_response
 
 class RAGWithChroma(ChromaInstance):
 
@@ -93,11 +58,34 @@ class RAGWithChroma(ChromaInstance):
         return output
 
     @staticmethod
-    def inject_into_system_prompt(metadata: list) -> str:
-        context = ""
+    def parse_chromadb_results(results):
+        # Extract the relevant data from the results dictionary
+        documents = results.get('documents', [[]])[0]
+        metadatas = results.get('metadatas', [[]])[0]
+        # distances = results.get('distances', [[]])[0]
+
+        # Ensure all lists are of the same length
+        if len(documents) == len(metadatas):
+            for i in range(len(documents)):
+                yield {
+                    'document': documents[i],
+                    'metadata': metadatas[i]
+                }
+        else:
+            raise ValueError("The lengths of 'documents', 'metadatas', and 'distances' lists do not match.")
+
+    @staticmethod
+    def inject_into_system_prompt(docs, text:str=None) -> str:
+        context = "" if text is None else text
         # Create a context from the retrieved documents
-        for doc in metadata['metadatas'][0]:
-            context += f"- {doc['content']}\nSource: {doc['url']}\n"
+        # meta = DICT.get('metadatas', metadata, None)
+        # if meta:
+        # print("Adding Metadata")
+        for doc in RAGWithChroma.parse_chromadb_results(docs):
+            contents = DICT.get('document', doc, '')
+            context += contents
+            metadata = DICT.get('metadata', doc, {})
+            context += f"\nTitle: {DICT.get('title', metadata, '')}\nSource: {DICT.get('url', metadata, '')}\n"
         # Format the final prompt for OpenAI
         system_prompt = f"""
         You will read the following knowledge base dump and become an expert of the information.

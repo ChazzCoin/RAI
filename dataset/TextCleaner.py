@@ -298,13 +298,6 @@ class TextCleaner:
 
     @staticmethod
     def extract_text_between(text, start, stop):
-        """
-        Extracts the text between the given start and stop strings.
-        :param text: The full text to extract from.
-        :param start: The starting string.
-        :param stop: The stopping string.
-        :return: Text between start and stop, or an empty string if not found.
-        """
         # Find the start position
         start_index = text.find(start)
         if start_index == -1:
@@ -318,8 +311,31 @@ class TextCleaner:
         # Extract and return the text between start and stop
         return text[start_index:stop_index].strip()
 
+    @staticmethod
+    def split_string_by_limit(input_string, char_limit:int=1500):
+        words = input_string.split()
+        result = []
+        current_string = ""
 
+        for word in words:
+            # Check if adding the next word would exceed the character limit
+            if len(current_string) + len(word) + 1 <= char_limit:
+                # If not, add the word to the current string
+                if current_string:
+                    current_string += " " + word
+                else:
+                    current_string = word
+            else:
+                # If it would exceed the limit, append the current string to result
+                result.append(current_string)
+                # Start a new string with the current word
+                current_string = word
 
+        # Append the last string if it exists
+        if current_string:
+            result.append(current_string)
+
+        return result
 
 
 FORM_SENTENCE = lambda strContent, startIndex, endIndex, caboose: f"{strContent[startIndex:endIndex]}{caboose}"
@@ -476,20 +492,6 @@ def is_space_or_quotation(content):
     if is_quotation(content) or is_space(content):
         return True
     return False
-
-# def __is_sentence_ender(content):
-#     if str(content) in SENTENCE_ENDERS:
-#         return True
-#     return False
-#
-# def __is_sentence_beginner(content):
-#     if is_in_alphabet(content):
-#         return True
-#     elif is_quotation(content):
-#         return True
-#     elif is_single_number(content):
-#         return True
-#     return False
 
 if __name__ == '__main__':
     from files.read import read_file

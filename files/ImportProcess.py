@@ -58,7 +58,7 @@ class ToTrainingData:
                     print(f"Error decoding JSON: {e}")
         return documents
 
-    def _system_prompt2(self):
+    def _system_prompt(self):
         return """
         You are now my Dataset Training and Format Expert. 
         I will provide you with raw datasets and you will do the following.
@@ -77,37 +77,29 @@ class ToTrainingData:
         {"messages": [{"role": "system", "content": "You will answer my question based on the information at hand." }, {"role": "user", "content": "Question?"}, {"role": "assistant", "content": "Answer to the question..."}]}
         """
 
-    def _system_prompt(self) -> str:
-        return (
-            "You are an AI assistant tasked with creating training data for fine-tuning an AI model. "
-            "For each document provided, generate a set of question-and-answer pairs based on the content. "
-            "The answers should be long, thorough, and informative. Format the output as a JSONL where each line "
-            "is a JSON object with 'prompt' and 'completion' keys suitable for OpenAI fine-tuning."
-        )
-
-    def _verify_format(self, response: str) -> bool:
-        try:
-            lines = response.strip().split('\n')
-            for line in lines:
-                json_obj = json.loads(line)
-                if 'prompt' not in json_obj or 'completion' not in json_obj:
-                    return False
-            return True
-        except json.JSONDecodeError:
-            return False
-
-    def _format_response(self, response: str) -> str:
-        # Attempt to correct formatting issues
-        try:
-            lines = response.strip().split('\n')
-            formatted_lines = []
-            for line in lines:
-                json_obj = json.loads(line)
-                formatted_lines.append(json.dumps(json_obj, ensure_ascii=False))
-            return '\n'.join(formatted_lines)
-        except json.JSONDecodeError as e:
-            print(f"Formatting error: {e}")
-            return ""
+    # def _verify_format(self, response: str) -> bool:
+    #     try:
+    #         lines = response.strip().split('\n')
+    #         for line in lines:
+    #             json_obj = json.loads(line)
+    #             if 'prompt' not in json_obj or 'completion' not in json_obj:
+    #                 return False
+    #         return True
+    #     except json.JSONDecodeError:
+    #         return False
+    #
+    # def _format_response(self, response: str) -> str:
+    #     # Attempt to correct formatting issues
+    #     try:
+    #         lines = response.strip().split('\n')
+    #         formatted_lines = []
+    #         for line in lines:
+    #             json_obj = json.loads(line)
+    #             formatted_lines.append(json.dumps(json_obj, ensure_ascii=False))
+    #         return '\n'.join(formatted_lines)
+    #     except json.JSONDecodeError as e:
+    #         print(f"Formatting error: {e}")
+    #         return ""
 
     def _save_to_file(self, content: str):
         with self.data_lock:
@@ -122,7 +114,7 @@ class ToTrainingData:
 
         while retry_count < max_retries:
             try:
-                assistant_reply = chat_request(self._system_prompt2(), document['content'], model="gpt-4o-mini")
+                assistant_reply = chat_request(self._system_prompt(), document['content'], model="gpt-4o-mini")
                 print(assistant_reply)
                 # extractor(assistant_reply, self.output_file)
                 # write_strings_to_jsonl(results, self.output_file)
@@ -157,90 +149,25 @@ class ToTrainingData:
 
     def start(self):
         self.process_documents()
-def extractor(text, output_file):
-    pattern = r'(\{"messages":\s*\[.*?\]\s*\})'
-    matches = re.findall(pattern, text, re.DOTALL)
-    valid_json_objects = []
-    for match in matches:
-        try:
-            # obj = json.loads(match)
-            valid_json_objects.append(match)
-        except json.JSONDecodeError:
-            continue  # Skip invalid JSON
-    write_strings_to_jsonl(valid_json_objects, output_file)
-    return valid_json_objects
+
+# def extractor(text, output_file):
+#     pattern = r'(\{"messages":\s*\[.*?\]\s*\})'
+#     matches = re.findall(pattern, text, re.DOTALL)
+#     valid_json_objects = []
+#     for match in matches:
+#         try:
+#             # obj = json.loads(match)
+#             valid_json_objects.append(match)
+#         except json.JSONDecodeError:
+#             continue  # Skip invalid JSON
+#     write_strings_to_jsonl(valid_json_objects, output_file)
+#     return valid_json_objects
 
 
-def write_strings_to_jsonl(strings_list, output_file):
-    with open(output_file, 'a', encoding='utf-8') as f:
-        for s in strings_list:
-            f.write(s + '\n')
-
-def find_matching_objects(text):
-    def split_json_objects(s):
-        json_objects = []
-        brace_level = 0
-        current_obj = ''
-        in_string = False
-        escape = False
-        for i, c in enumerate(s):
-            current_obj += c
-            if escape:
-                escape = False
-                continue
-            if c == '\\':
-                escape = True
-                continue
-            if c == '"':
-                in_string = not in_string
-                continue
-            if not in_string:
-                if c == '{':
-                    brace_level += 1
-                elif c == '}':
-                    brace_level -= 1
-                if brace_level == 0 and current_obj.strip():
-                    json_objects.append((current_obj.strip(), i))
-                    current_obj = ''
-        return json_objects
-    # Remove any leading/trailing whitespace
-    text = text.strip()
-    # Extract potential JSON objects from the text
-    potential_objects = split_json_objects(text)
-    matching_objects = []
-    for obj_str, end_idx in potential_objects:
-        matching_objects.append(obj_str)
-        # try:
-        #     obj = json.loads(obj_str)
-        # except json.JSONDecodeError:
-        #     continue  # Skip invalid JSON objects
-        # # Check if the object matches the required format
-        # if is_matching_format(obj):
-        #     matching_objects.append(obj)
-    return matching_objects
-
-def is_matching_format(obj):
-    # Check if the object is a dictionary with 'messages' as the only key
-    if not isinstance(obj, dict) or set(obj.keys()) != {'messages'}:
-        return False
-    messages = obj['messages']
-    # Check if 'messages' is a list with exactly 3 items
-    if not isinstance(messages, list) or len(messages) != 3:
-        return False
-    # Define the expected roles in order
-    expected_roles = ['system', 'user', 'assistant']
-    for message, expected_role in zip(messages, expected_roles):
-        # Check if each message is a dictionary
-        if not isinstance(message, dict):
-            return False
-        # Check for 'role' and 'content' keys
-        if set(message.keys()) != {'role', 'content'}:
-            return False
-        # Check if the 'role' matches the expected role
-        if message['role'] != expected_role:
-            return False
-        # 'content' can be any text, so we don't need to check its value
-    return True
+# def write_strings_to_jsonl(strings_list, output_file):
+#     with open(output_file, 'a', encoding='utf-8') as f:
+#         for s in strings_list:
+#             f.write(s + '\n')
 
 if __name__ == '__main__':
     # ImportProcessor.process_raw_files()

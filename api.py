@@ -15,17 +15,15 @@ from config.RaiModels import RAI_MODELS, getMappedModel, getMappedCollection
 from assistant.rag import RAGWithChroma
 
 Log = Log("RAI API Bruno Canary")
-
-
 app = Quart(__name__)
 
 # Configure OpenAI API key
-default_model = "gpt-4o"
-CHAT_MESSAGE_OPENAI = lambda system, user: [
-      {"role": "system", "content": system },
-      {"role": "user", "content": user }
-    ]
-ChatID = "111"
+# default_model = "gpt-4o"
+# CHAT_MESSAGE_OPENAI = lambda system, user: [
+#       {"role": "system", "content": system },
+#       {"role": "user", "content": user }
+#     ]
+# ChatID = "111"
 
 collection_name = "web_pages_2"
 # rag = AsyncRagWithChroma()
@@ -124,33 +122,40 @@ async def chat_completion():
     Log.i("/api/chat", f"Model IN: {modelIn}")
     Log.i("/api/chat", f"Model OUT: {model}")
 
-    async def search(user_message):
+    async def search(user_message:str, collection_name:str):
         embeds = await get_embeddings(user_message)
-        return await rag.query_chromadb(embeds, getMappedCollection(modelIn))
-
-    def appendMessage(appended_message="", metadatas:[]=None, message:str=None):
+        results = await rag.query_chromadb(embeds, collection_name)
+        Log.i("Search Result Count:", results)
+        return results
+    def appender(appended_message="", metadatas:[]=None, message:str=None):
         if message:
             appended_message += message
         if metadatas:
             for metadata in metadatas:
                 appended_message += f"\n\nSources:\n{DICT.get('url', metadata, '')}"
         return appended_message
+
     async def interceptSystemPrompt(user_message:str):
         if modelIn == 'park-city:latest' or modelIn == 'park-city:gpt4o':
-            results = await search(user_message)
-            metadatas = LIST.get(0, results.get('metadatas', []), [])
-            Log.i("RAG MetaDatas:", len(metadatas))
-            return rag.inject_into_system_prompt(results)
+            results = await search(user_message, getMappedCollection(modelIn))
+        elif modelIn == 'ChromaDB:search':
+            collection_name = extract_args(user_message, 1)
+            results = await search(user_message, collection_name)
         else:
+            Log.i("Returning Generic SYS Prompt")
             return "You are a useful assistant."
+        syspromp = rag.inject_into_system_prompt(docs=results)
+        Log.i("Returning custom SYS Prompt.", results)
+        return syspromp
 
     user_message = get_last_user_message(jbody)
-    appended_message = appendMessage(message=f"Model Used: {model}")
-    sys_prompt = await interceptSystemPrompt(user_message)
+    appended_message = appender(message=f"Model Used: {model}")
+    system_prompt = await interceptSystemPrompt(user_message)
+    print(system_prompt)
     async def stream(system_prompt, user_message, appended_message):
         async for chunk in generate_chat_completion(system_prompt, user_message, appended_message=appended_message):
             yield chunk
-    return Response(stream(sys_prompt, user_message, appended_message), content_type='text/event-stream')
+    return Response(stream(system_prompt, user_message, appended_message), content_type='text/event-stream')
 
 @app.route('/', methods=['GET'])
 async def heart():
@@ -208,6 +213,14 @@ def help_api():
 def heartbeat():
     return "beat"
 
+def extract_args(input_string, word_count):
+    """Extract the first 'word_count' words from the input string."""
+    # Split the string into words
+    words = input_string.split()
+    # Return the first 'word_count' words
+    args = words[:word_count]
+    Log.i(f"Args: {args}")
+    return str(LIST.get(0, args, "")).strip()
 
 
 if __name__ == '__main__':
