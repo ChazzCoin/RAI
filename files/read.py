@@ -36,12 +36,12 @@ def read_file(file_path):
         elif file_ext == '.csv':
             return _read_csv(file_path)
         else:
-            raise ValueError(f"Unsupported file format: {file_ext}")
+            Log.e(f"Unsupported file format: {file_ext}")
+            return "No Content"
 
     except Exception as e:
         Log.e(f"Error reading file {file_path}: {e}")
-        raise ValueError(f"Failed to read the file: {e}")
-
+        return "No Content"
 
 # Helper functions for different file formats
 
@@ -58,9 +58,13 @@ def _read_pdf(file_path):
     text = []
     with open(file_path, 'rb') as file:
         reader = pdf_to_txt(file)
-        for page_num in range(len(reader.pages)):
-            page = reader.pages[page_num]
-            text.append(page.extract_text())
+        try:
+            for page_num in range(len(reader.pages)):
+                page = reader.pages[page_num]
+                text.append(page.extract_text())
+        except Exception as e:
+            Log.w(f"Error reading PDF Pages. Switching to Fallback... {file_path}: {e}")
+            text.append(reader)
     return '\n'.join(text)
 
 

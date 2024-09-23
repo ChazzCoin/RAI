@@ -172,6 +172,6 @@ class ToTrainingData:
 if __name__ == '__main__':
     # ImportProcessor.process_raw_files()
     ToTrainingData(
-        "/Users/chazzromeo/ChazzCoin/MedRefs/extractors/output/www_parkcitysoccer_org.json",
+        "/extractors/output/www_parkcitysoccer_org1.json",
         "/Users/chazzromeo/ChazzCoin/MedRefs/extractors/output/parkcitysoccer.jsonl"
     ).start()

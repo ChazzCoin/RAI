@@ -1,48 +1,44 @@
 import os
 import json
-import time
 import threading
 from typing import Set, List
 from urllib.parse import urljoin, urlparse
-from selenium.webdriver.chrome.service import Service as ChromeService
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
+
+from F import DICT
 from selenium.common.exceptions import (
     WebDriverException,
     TimeoutException,
     NoSuchElementException,
 )
 from bs4 import BeautifulSoup
+from extractors.extract_url import selenium_get_core_page_details_v2
+
+def base_url_extractor(url):
+    return urlparse(url).netloc
 
 """ Master """
 class RaiCrawler:
+    base = ""
+
     def __init__(self, base_url: str, output_dir: str = 'output'):
         self.base_url = base_url.rstrip('/')
         self.output_dir = output_dir
+        self.base = base_url_extractor(self.base_url)
         self.domain_name = urlparse(self.base_url).netloc.replace('.', '_')
-        self.output_file = os.path.join(self.output_dir, f"{self.domain_name}.json")
+        self.output_file = os.path.join(self.output_dir, f"{self.domain_name}.jsonl")
         self.visited_urls: Set[str] = set()
         self.to_visit_urls: Set[str] = set([self.base_url])
         self.data_lock = threading.Lock()
-        self.driver = self._init_driver()
         self._prepare_output_directory()
         self._load_existing_data()
 
+    def is_within_base_site(self, url: str) -> bool:
+        if self.base == base_url_extractor(url):
+            return True
+        return False
+
     def _prepare_output_directory(self):
         os.makedirs(self.output_dir, exist_ok=True)
-
-    def _init_driver(self):
-        chrome_options = Options()
-        chrome_options.add_argument("--headless")
-        chrome_options.add_argument("--disable-gpu")
-        chrome_options.add_argument("--log-level=3")
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--disable-dev-shm-usage")
-        driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=chrome_options)
-        # driver = webdriver.Chrome(options=chrome_options)
-        driver.set_page_load_timeout(30)
-        return driver
 
     def _load_existing_data(self):
         if os.path.exists(self.output_file):
@@ -70,26 +66,17 @@ class RaiCrawler:
         parsed_url = urlparse(url)
         return parsed_url.netloc == parsed_base.netloc
 
-    def _extract_links(self, soup: BeautifulSoup) -> List[str]:
-        links = []
-        for link in soup.find_all('a', href=True):
-            href = link['href']
-            full_url = urljoin(self.base_url, href)
-            if self._is_valid_url(full_url):
-                links.append(full_url.split('#')[0].rstrip('/'))
-        return links
-
     def _scrape_page(self, url: str):
         try:
-            self.driver.get(url)
-            time.sleep(2)  # Allow dynamic content to load
-            page_source = self.driver.page_source
-            soup = BeautifulSoup(page_source, 'html.parser')
+            results = selenium_get_core_page_details_v2(url)
+            text = results['content']
+            details = results['details']
+            new_links = results['urls']
+            filtered_links = []
+            for link in new_links:
+                if self._is_valid_url(link):
+                    filtered_links.append(link)
 
-            # Extract and clean text
-            for script in soup(['script', 'style', 'noscript']):
-                script.extract()
-            text = soup.get_text(separator=' ')
             cleaned_text = self._clean_text(text)
 
             if not cleaned_text:
@@ -97,16 +84,14 @@ class RaiCrawler:
 
             data = {
                 'url': url,
-                'title': soup.title.string if soup.title else '',
+                'title': DICT.get('title', details, url),
                 'content': cleaned_text
             }
 
             self._save_data(data)
-
             # Extract new links to visit
-            new_links = self._extract_links(soup)
             with self.data_lock:
-                for link in new_links:
+                for link in filtered_links:
                     if link not in self.visited_urls:
                         self.to_visit_urls.add(link)
 
@@ -123,7 +108,7 @@ class RaiCrawler:
             self.visited_urls.add(current_url)
             self._scrape_page(current_url)
 
-        self.driver.quit()
+        # self.driver.quit()
         print("Crawling completed.")
 
     def start(self):

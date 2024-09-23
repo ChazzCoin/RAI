@@ -80,6 +80,7 @@ class ChromaInstance:
                 chroma_server_host=os.getenv("DEFAULT_CHROMA_SERVER_HOST"),
                 chroma_server_http_port=os.getenv("DEFAULT_CHROMA_SERVER_PORT"),
                 persist_directory=f"/python-docker/assistant/chroma",
+                # persist_directory=f"/Users/chazzromeo/ChazzCoin/MedRefs/assistant/chroma",
                 is_persistent=persistent,
             ))
             if collection_name:
@@ -143,7 +144,60 @@ class ChromaInstance:
                 print(DICT.get("topic", doc, ""))
                 print(DICT.get("url", doc, ""))
                 print(DICT.get("date", doc, ""))
-        return metadata
+        return results
+
+    def get_all_documents_merge(self):
+        try:
+            # Retrieve all documents, including their ids, texts, metadata, and embeddings
+            results = self.collection.get()
+            if results and 'documents' in results:
+                documents = []
+                for i, doc_text in enumerate(results['documents']):
+                    doc = {
+                        'id': results['ids'][i],
+                        'text': doc_text,
+                        'metadata': results['metadatas'][i] if 'metadatas' in results else {},
+                        'embeddings': results['embeddings'][i] if results.get('embeddings') else None
+                    }
+                    documents.append(doc)
+                print(f"Retrieved {len(documents)} documents from the collection.")
+                return documents
+            else:
+                print("No documents found in the collection.")
+                return []
+        except Exception as e:
+            print(f"Failed to retrieve documents from collection: {e}")
+            raise e
+
+    def merge_collections(self, source_collection_name: str, target_collection_name: str):
+        """Merge all documents from source collection into the target collection."""
+        try:
+            # Set the source collection
+            self.set_collection(source_collection_name)
+            source_documents = self.get_all_documents_merge()
+
+            if not source_documents:
+                print(f"No documents found in the source collection: {source_collection_name}")
+                return
+
+            # Set the target collection
+            self.set_collection(target_collection_name)
+
+            # Add all documents to the target collection
+            for doc in source_documents:
+                self.__insert(
+                    doc_id=doc['id'],
+                    doc_text=doc['text'],
+                    metadata=doc.get('metadata', {}),
+                    embeddings=doc.get('embeddings')
+                )
+
+            print(
+                f"Successfully merged {len(source_documents)} documents from {source_collection_name} to {target_collection_name}.")
+
+        except Exception as e:
+            print(f"Failed to merge collections: {e}")
+            raise e
 
     """ Base Add/Insert Function """
     def add_chroma_documents(self, *documents: ChromaDocument) -> None:
@@ -262,3 +316,6 @@ class ChromaInstance:
             logging.error(f"Failed to delete document {doc_id}: {e}")
             raise e
 
+if __name__ == '__main__':
+    chroma = ChromaInstance()
+    chroma.merge_collections('parkcitysc_docs', 'parckcitysc')

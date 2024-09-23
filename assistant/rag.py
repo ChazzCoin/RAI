@@ -138,7 +138,7 @@ def extract_page_extension(url: str) -> str:
 
 # Usage Example
 if __name__ == "__main__":
-    collect = "web_pages_2"
+    collect = "parkcitysc"
     rag_system = RAGWithChroma(collection_name=collect)
     # query = "Tell me about the futures program at park city soccer club..."
     # query = "What is the core philosophy of park citys competitive program?"
