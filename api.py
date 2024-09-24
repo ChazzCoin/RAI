@@ -45,13 +45,12 @@ async def chat_completion():
     Log.i("/api/chat", f"Model IN: {modelIn}")
     Log.i("/api/chat", f"Model OUT: {model}")
 
-    async def search(user_message: str, collection_name: str):
+    async def search(user_message:str, collection_name:str):
         embeds = await get_embeddings(user_message)
         results = await rag.query_chromadb(embeds, collection_name)
         Log.i("Search Result Count:", results)
         return results
-
-    def appender(appended_message="", metadatas: [] = None, message: str = None):
+    def appender(appended_message="", metadatas:[]=None, message:str=None):
         if message:
             appended_message += message
         if metadatas:
@@ -59,8 +58,8 @@ async def chat_completion():
                 appended_message += f"\n\nSources:\n{DICT.get('url', metadata, '')}"
         return appended_message
 
-    async def interceptSystemPrompt(user_message: str):
-        if modelIn == "park-city:web" or modelIn == "park-city:latest" or modelIn == "park-city:gpt4o":
+    async def interceptSystemPrompt(user_message:str):
+        if str(modelIn) == "park-city:web":
             Log.i("Park-City Flow", modelIn)
             collection = getMappedCollection(modelIn)
             Log.i("Using Park-City Collection", collection)
@@ -71,36 +70,24 @@ async def chat_completion():
         else:
             Log.i("Returning Generic SYS Prompt")
             return "You are a useful assistant."
-        syspromp = rag.inject_into_system_prompt(docs=results)
-        # Log.i("Returning custom SYS Prompt.", syspromp)
-        return syspromp
+        Log.i("Returning custom SYS Prompt.")
+        return rag.inject_into_system_prompt(docs=results)
 
-    async def stream(messages, appended_message):
-        async for chunk in generate_chat_completion(messages, appended_message=appended_message):
+
+    async def stream(sp, user_message, appended_message):
+        async for chunk in generate_chat_completion(sp, user_message, appended_message=appended_message):
             yield chunk
 
-    # Get messages from the request body
-    messages = jbody.get('messages', [])
-
-    # Get the last user message
-    last_user_message = get_last_user_message(messages)
-
+    user_message = get_last_user_message(jbody)
     appended_message = appender(message=f"Model Used: {model}")
+    system_prompt = await interceptSystemPrompt(user_message)
+    print(system_prompt)
+    await asyncio.sleep(1)
+    return Response(stream(system_prompt, user_message, appended_message), content_type='text/event-stream')
 
-    # Get system prompt based on the last user message
-    system_prompt = await interceptSystemPrompt(last_user_message)
-
-    # Update the system prompt in messages
-    if messages and messages[0].get('role') == 'system':
-        messages[0]['content'] = system_prompt
-    else:
-        messages.insert(0, {'role': 'system', 'content': system_prompt})
-
-    print(messages)
-
-    return Response(stream(messages, appended_message), content_type='text/event-stream')
-
-def get_last_user_message(messages):
+def get_last_user_message(json_data):
+    # Get the list of messages
+    messages = json_data.get('messages', [])
     # Filter to find the last message with role 'user'
     last_user_message = None
     for message in reversed(messages):
@@ -109,7 +96,7 @@ def get_last_user_message(messages):
             break
     return last_user_message
 
-async def generate_chat_completion(messages, appended_message=""):
+async def generate_chat_completion(system_prompt, user_prompt, appended_message=""):
     """Asynchronously stream chat completion from OpenAI API."""
     headers = {
         'Content-Type': 'application/json',
@@ -117,7 +104,10 @@ async def generate_chat_completion(messages, appended_message=""):
     }
     data = {
         'model': "gpt-4o-mini",
-        'messages': messages,
+        'messages': [
+            {'role': 'system', 'content':  system_prompt },
+            {'role': 'user', 'content': user_prompt }
+        ],
         'temperature': 0,
         'stream': True
     }
@@ -174,6 +164,147 @@ async def generate_chat_completion(messages, appended_message=""):
             "done": False  # Indicate that the stream is not yet done
         }
         yield f"\n{json.dumps(appended_obj)}\n"
+
+# @app.route('/api/chat', methods=['POST'])
+# async def chat_completion():
+#     model = "gpt-4o-mini"
+#     data = await request.get_data()
+#     jbody = json.loads(data.decode('utf-8'))
+#
+#     modelIn = DICT.get('model', jbody, model)
+#     model = getMappedModel(modelIn)
+#     Log.i("/api/chat", f"Model IN: {modelIn}")
+#     Log.i("/api/chat", f"Model OUT: {model}")
+#
+#     async def search(user_message: str, collection_name: str):
+#         embeds = await get_embeddings(user_message)
+#         results = await rag.query_chromadb(embeds, collection_name)
+#         Log.i("Search Result Count:", results)
+#         return results
+#
+#     def appender(appended_message="", metadatas: [] = None, message: str = None):
+#         if message:
+#             appended_message += message
+#         if metadatas:
+#             for metadata in metadatas:
+#                 appended_message += f"\n\nSources:\n{DICT.get('url', metadata, '')}"
+#         return appended_message
+#
+#     async def interceptSystemPrompt(user_message: str):
+#         if modelIn == "park-city:web" or modelIn == "park-city:latest" or modelIn == "park-city:gpt4o":
+#             Log.i("Park-City Flow", modelIn)
+#             collection = getMappedCollection(modelIn)
+#             Log.i("Using Park-City Collection", collection)
+#             results = await search(user_message, collection)
+#         elif modelIn == 'ChromaDB:search':
+#             collection_name = extract_args(user_message, 1)
+#             results = await search(user_message, collection_name)
+#         else:
+#             Log.i("Returning Generic SYS Prompt")
+#             return "You are a useful assistant."
+#         syspromp = rag.inject_into_system_prompt(docs=results)
+#         # Log.i("Returning custom SYS Prompt.", syspromp)
+#         return syspromp
+#
+#     async def stream(messages, appended_message):
+#         async for chunk in generate_chat_completion(messages, appended_message=appended_message):
+#             yield chunk
+#
+#     # Get messages from the request body
+#     messages = jbody.get('messages', [])
+#
+#     # Get the last user message
+#     last_user_message = get_last_user_message(messages)
+#
+#     appended_message = appender(message=f"Model Used: {model}")
+#
+#     # Get system prompt based on the last user message
+#     system_prompt = await interceptSystemPrompt(last_user_message)
+#
+#     # Update the system prompt in messages
+#     if messages and messages[0].get('role') == 'system':
+#         messages[0]['content'] = system_prompt
+#     else:
+#         messages.insert(0, {'role': 'system', 'content': system_prompt})
+#
+#     print(messages)
+#
+#     return Response(stream(messages, appended_message), content_type='text/event-stream')
+#
+# def get_last_user_message(messages):
+#     # Filter to find the last message with role 'user'
+#     last_user_message = None
+#     for message in reversed(messages):
+#         if message.get('role') == 'user':
+#             last_user_message = message.get('content')
+#             break
+#     return last_user_message
+#
+# async def generate_chat_completion(messages, appended_message=""):
+#     """Asynchronously stream chat completion from OpenAI API."""
+#     headers = {
+#         'Content-Type': 'application/json',
+#         'Authorization': f'Bearer {env("OPENAI_API_KEY")}',
+#     }
+#     data = {
+#         'model': "gpt-4o-mini",
+#         'messages': messages,
+#         'temperature': 0,
+#         'stream': True
+#     }
+#     start_time = time.time()
+#     collected_messages = []
+#     prompt_eval_count = 0
+#     eval_count = 0
+#     prompt_eval_duration = 0  # Simulated prompt evaluation duration
+#     async with aiohttp.ClientSession() as session:
+#         async with session.post('https://api.openai.com/v1/chat/completions', headers=headers, json=data) as resp:
+#             if resp.status != 200:
+#                 error = await resp.json()
+#                 raise Exception(f"Error from OpenAI API: {error}")
+#             async for line in resp.content:
+#                 chunk_time = time.time() - start_time
+#                 timestamp = get_current_timestamp()
+#                 line = line.decode('utf-8').strip()
+#                 if not line:
+#                     continue
+#                 if line.startswith('data: '):
+#                     line = line[len('data: '):]
+#                 if line == '[DONE]':
+#                     break
+#                 try:
+#                     data = json.loads(line)
+#                     choice = data['choices'][0]
+#                     delta = choice.get('delta', {})
+#                     chunk_message = delta.get('content', None)
+#                     if chunk_message:
+#                         collected_messages.append(chunk_message)
+#                         response_obj = {
+#                             "model": "gpt-4o-mini",
+#                             "created_at": timestamp,
+#                             "message": {
+#                                 "role": "assistant",
+#                                 "content": chunk_message
+#                             },
+#                             "done": False  # Indicate that the stream is not yet done
+#                         }
+#                         yield f"\n{json.dumps(response_obj)}\n"
+#                     prompt_eval_count += 1
+#                     eval_count += 1
+#                 except json.JSONDecodeError:
+#                     continue
+#     # Append any additional message at the end
+#     if appended_message:
+#         appended_obj = {
+#             "model": "gpt-4o-mini",
+#             "created_at": get_current_timestamp(),
+#             "message": {
+#                 "role": "assistant",
+#                 "content": f"\n\n {appended_message}"
+#             },
+#             "done": False  # Indicate that the stream is not yet done
+#         }
+#         yield f"\n{json.dumps(appended_obj)}\n"
 
 @app.route('/', methods=['GET'])
 async def heart():

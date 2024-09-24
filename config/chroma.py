@@ -110,7 +110,7 @@ class ChromaInstance:
         """Wrapper function to query ChromaDB synchronously."""
         return self.collection.query(
             query_embeddings=[embedding],
-            n_results=10
+            n_results=5
         )
 
     async def query_chromadb(self, embedding, collection_name:str=None):
