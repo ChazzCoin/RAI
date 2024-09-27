@@ -92,7 +92,6 @@ class FilePath:
     def ensure_directory_exists(directory_path):
         """
         Checks if the specified directory exists, and if it doesn't, creates it.
-
         :param directory_path: Path to the directory.
         """
         if not os.path.exists(directory_path):

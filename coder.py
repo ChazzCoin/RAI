@@ -1,5 +1,5 @@
 from assistant import openai_client as api
-from assistant.rag import RAGWithChroma
+from chdb.rag import RAGWithChroma
 
 user_prompt = f"""
 Tell me about the futures program at park city soccer club...

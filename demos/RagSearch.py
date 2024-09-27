@@ -1,6 +1,5 @@
-import os
 from assistant import openai_client as api
-from assistant.rag import RAGWithChroma
+from chdb.rag import RAGWithChroma
 
 # model = os.getenv("DEFAULT_OPENAI_MODEL")
 model = "gpt-4o-mini"

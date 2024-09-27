@@ -18,6 +18,7 @@ embedding_model = os.getenv("DEFAULT_OPENAI_EMBEDDING_MODEL")
 def getClient():
     return OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+
 async def get_embeddings(text):
     """Asynchronously get embeddings from OpenAI API."""
     headers = {

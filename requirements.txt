@@ -25,3 +25,10 @@ aiohttp==3.10.5
 #fairnlp==5.0.0
 #fairresources==5.0.0
 #fairweb==4.5.0
+torch~=2.4.1
+transformers~=4.44.2
+datasets~=3.0.0
+redis~=5.0.8
+flask~=3.0.3
+pillow~=10.4.0
+weasyprint~=62.3
