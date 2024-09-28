@@ -41,7 +41,10 @@ def getMappedCollection(modelIn:str):
     return DICT.get(modelIn, RAI_COLLECTION_MAP, "parkcitysc")
 
 def getMappedModel(modelIn:str):
-    return DICT.get(modelIn, RAI_MODEL_MAP, "gpt-4o-mini")
+    print("/api/chat", f"Model IN: {modelIn}")
+    modelOut = DICT.get(modelIn, RAI_MODEL_MAP, "gpt-4o-mini")
+    print("/api/chat", f"Model OUT: {modelOut}")
+    return modelOut
 
 def getMappedPrompt(modelIn:str):
     return DICT.get(modelIn, RAI_PROMPT_MAP, REP_PARK_CITY)

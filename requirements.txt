@@ -3,9 +3,8 @@ openpyxl==3.2.0b1
 python-pptx~=1.0.2
 gevent~=24.2.1
 requests~=2.32.3
-#flask~=3.0.3
-#Flask-Cors~=5.0.0
 quart==0.19.6
+hypercorn==0.17.3
 chromadb~=0.5.5
 python-dotenv~=1.0.1
 psycopg~=3.2.1

@@ -2,8 +2,6 @@
 import asyncio
 import json
 import os.path
-import time
-import uuid
 from concurrent.futures import ThreadPoolExecutor
 from config import env
 import aiohttp
@@ -20,7 +18,7 @@ from assistant.context import ContextHelper
 Log = Log("RAI API Bruno Canary")
 app = Quart(__name__)
 
-collection_name = "web_pages_2"
+collection_name = "documents"
 contexter = ContextHelper()
 cache = RedisClient()
 rag = RAGWithChroma(collection_name=collection_name)
@@ -29,56 +27,95 @@ executor = ThreadPoolExecutor(max_workers=1)
 
 IMAGE_FOLDER = f"{os.path.dirname(__file__)}/files/images"
 
-RAI_VERSION = "0.1.1"
+RAI_VERSION = "0.1.1:canary"
+RAI_FOOTER_MESSAGE = lambda model, text: f"""\n
+{text}\n
+| Rai Youth Sports Chat | AI Model: {model} | API Version: {RAI_VERSION} |
+"""
 
 @app.route('/api/chat', methods=['POST'])
 async def chat_completion():
+
+    """     PARSE REQUEST IN    """
     model = "gpt-4o-mini"
     data = await request.get_data()
     jbody = json.loads(data.decode('utf-8'))
     messages = jbody.get('messages', [])
 
-    # chatId = DICT.get('chatId', data, False)
-    # print(chatId)
+    chatId = DICT.get('chatId', request, False)
+    print(chatId)
 
+    """     GET MAPPED MODEL      """
     modelIn = DICT.get('model', jbody, model)
     model = getMappedModel(modelIn)
-    cache_queue = cache.get_queued_chat_data(model)
-    print(cache_queue)
-    Log.i("/api/chat", f"Model IN: {modelIn}")
-    Log.i("/api/chat", f"Model OUT: {model}")
 
-    user_message = get_last_user_message(jbody)
+    """     CACHE OUT    """
+    cache_queue = cache.get_queued_chat_data(modelIn)
+
     """     USER PROMPT INTERCEPTOR    """
-    user_prompt = await interceptUserPrompt(modelIn=modelIn, user_message=user_message)
-    print("--User Prompt--")
-    print(user_prompt)
+    user_message = get_last_user_message(jbody)
+    user_prompt = await interceptUserPrompt(modelIn=modelIn, user_message=user_message, debug=True)
     new_user_message = { 'role': 'user', 'content': user_prompt }
-    messages = jbody.get('messages', [])
+
+    """     SETUP MESSAGES FOR CHAT SEQUENCE   """
+    messages = setupMessagesForChatSequence(messages, modelIn, new_user_message)
+
+    """     GENERATE AI CHAT RESPONSE   """
+    ai_response = await get_chat_completion(messages, debug=True)
+
+    """     CACHE IN    """
+    cache.queue_chat_data(modelIn, ai_response)
+
+    """     FOOTER MESSAGE     """
+    appended_message = RAI_FOOTER_MESSAGE(model, "")
+
+    """     PREPARE AND SEND FINAL RESPONSE     """
+    appended_response = appender(response_message=ai_response, message_to_append=appended_message)
+    final_response = to_chat_response(appended_response, role="assistant")
+    return Response(f"\n{json.dumps(final_response)}\n", content_type='text/event-stream')
+
+""" 
+GENERATE AI CHAT RESPONSE 
+"""
+async def get_chat_completion(messages:[], debug:bool=False):
+    """Asynchronously get chat completion from OpenAI API."""
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {env("OPENAI_API_KEY")}',
+    }
+    data = {
+        'model': "gpt-4o-mini",
+        'messages': messages,
+        'temperature': 0,
+        'stream': False
+    }
+    async with aiohttp.ClientSession() as session:
+        async with session.post('https://api.openai.com/v1/chat/completions', headers=headers, json=data) as resp:
+            if resp.status != 200:
+                error = await resp.json()
+                raise Exception(f"Error from OpenAI API: {error}")
+            response_data = await resp.json()
+            assistant_message = response_data['choices'][0]['message']['content']
+            if debug:
+                print("--AI Response--")
+                print(assistant_message)
+            return assistant_message
+"""     
+SETUP MESSAGES FOR CHAT SEQUENCE   
+"""
+def setupMessagesForChatSequence(messages, modelIn, new_user_message):
     if len(messages) <= 1:
         Log.i("Creating New Message...")
         new_system_prompt = getMappedPrompt(modelIn=modelIn)
         temp = [
-            { 'role': 'system', 'content': new_system_prompt },
+            {'role': 'system', 'content': new_system_prompt},
             LIST.get(0, messages, new_user_message)
         ]
         messages = temp
     else:
         Log.i("Appending New Message...")
         messages.append(new_user_message)
-    """     GENERATE AI CHAT RESPONSE   """
-    ai_response = await get_chat_completion(messages)
-    print("--AI Response--")
-    print(ai_response)
-
-    # cache.queue_chat_data(model, system_prompt)
-    appended_message = f"""
-    \n\nRAI Youth Sports Chat\nAI Model: {model}\nRai Version: {RAI_VERSION}
-    """
-    appended_response = appender(response_message=ai_response, message_to_append=appended_message)
-    final_response = to_chat_response(appended_response, role="assistant")
-    return Response(f"\n{json.dumps(final_response)}\n", content_type='text/event-stream')
-
+    return messages
 """     
 CHROMADB SEARCH     
 """
@@ -90,7 +127,7 @@ async def search(user_message:str, collection_name:str):
 """     
 USER PROMPT INTERCEPTOR   
 """
-async def interceptUserPrompt(modelIn, user_message:str):
+async def interceptUserPrompt(modelIn, user_message:str, debug:bool=False):
     if str(modelIn) == "park-city:web":
         Log.i("Park-City Flow", modelIn)
         collection = getMappedCollection(modelIn)
@@ -103,6 +140,11 @@ async def interceptUserPrompt(modelIn, user_message:str):
         Log.i("Returning Generic SYS Prompt")
         return "You are a useful assistant."
     Log.i("Returning custom SYS Prompt.")
+    if debug:
+        user_prompt = rag.inject_into_system_prompt(user_message, docs=results)
+        print("--User Prompt--")
+        print(user_prompt)
+        return user_prompt
     return rag.inject_into_system_prompt(user_message, docs=results)
 """     
 RESPONSE MESSAGE APPENDER   
@@ -126,6 +168,15 @@ def get_last_user_message(json_data):
             break
     return last_user_message
 """ HELPER """
+def extract_args(input_string, word_count):
+    """Extract the first 'word_count' words from the input string."""
+    # Split the string into words
+    words = input_string.split()
+    # Return the first 'word_count' words
+    args = words[:word_count]
+    Log.i(f"Args: {args}")
+    return str(LIST.get(0, args, "")).strip()
+""" HELPER """
 def to_chat_response(message:str, role:str="user", model:str="gpt-4o-mini", isDone:bool=False):
     return {
         "model": model,
@@ -136,29 +187,7 @@ def to_chat_response(message:str, role:str="user", model:str="gpt-4o-mini", isDo
         },
         "done": isDone  # Indicate that the stream is not yet done
     }
-""" 
-GENERATE AI CHAT RESPONSE 
-"""
-async def get_chat_completion(messages:[]):
-    """Asynchronously get chat completion from OpenAI API."""
-    headers = {
-        'Content-Type': 'application/json',
-        'Authorization': f'Bearer {env("OPENAI_API_KEY")}',
-    }
-    data = {
-        'model': "gpt-4o-mini",
-        'messages': messages,
-        'temperature': 0,
-        'stream': False
-    }
-    async with aiohttp.ClientSession() as session:
-        async with session.post('https://api.openai.com/v1/chat/completions', headers=headers, json=data) as resp:
-            if resp.status != 200:
-                error = await resp.json()
-                raise Exception(f"Error from OpenAI API: {error}")
-            response_data = await resp.json()
-            assistant_message = response_data['choices'][0]['message']['content']
-            return assistant_message
+
 
 """
     -> API HEALTH CHECKS AND SUCH
@@ -171,7 +200,6 @@ def get_image():
         return send_file(file_path, mimetype='image/png')
     except FileNotFoundError:
         return {"error": "File not found"}, 404
-
 @app.route('/', methods=['GET'])
 async def heart():
     response = {
@@ -190,19 +218,16 @@ async def get_status():
         "version": "1.0.0"  # mock server version
     }
     return jsonify(response), 200
-
 @app.route("/api/version", methods=['GET'])
 def version():
     print("version")
     return jsonify({
         "version": "0.1.45",
     }), 200
-
 @app.route('/api/tags', methods=['GET'])
 def models_api():
     print("Calling Models")
     return RAI_MODELS
-
 @app.route('/api/tags2', methods=['GET'])
 def forward_models_call_to_ollama():
     print("Calling Models")
@@ -219,23 +244,13 @@ def forward_models_call_to_ollama():
             return jsonify({"error": f"Failed to retrieve models, status code: {response.status_code}"})
     except requests.exceptions.RequestException as e:
         return jsonify({"error": str(e)})
-
 @app.route("/help")
 def help_api():
     return "I will not help you sir."
-
 @app.route("/heart")
 def heartbeat():
     return "beat"
 
-def extract_args(input_string, word_count):
-    """Extract the first 'word_count' words from the input string."""
-    # Split the string into words
-    words = input_string.split()
-    # Return the first 'word_count' words
-    args = words[:word_count]
-    Log.i(f"Args: {args}")
-    return str(LIST.get(0, args, "")).strip()
 
 
 if __name__ == '__main__':
