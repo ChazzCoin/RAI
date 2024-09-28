@@ -1,5 +1,14 @@
 from F import DICT
 
+
+REP_PARK_CITY = """
+Your name is Park City Rep and you are here to serve at the pleasure of the members of the soccer club, Park City Soccer Club.
+
+You are going to be a detailed and honest customer service representative who will answer questions based on information given to you.
+You specialize in understanding youth soccer clubs, organizational structure, youth soccer parents, youth soccer coaches, youth soccer players.
+If you do not know the answer based on information I give you, please just state you don't know.
+"""
+
 RAI_MODEL_MAP = {
     "llama3:latest": "gpt-4o-mini",
     "ChromaDB:search": "gpt-4o-mini",
@@ -16,14 +25,26 @@ RAI_COLLECTION_MAP = {
     "park-city:latest" : "parkcitysc",
     "park-city:gpt4o": "parkcitysc",
     "park-city:web": "parkcitysc",
-    "park-city:docs": "parkcitysc_docs",
+    "park-city:docs": "parkcitysc-docs",
+}
+
+RAI_PROMPT_MAP = {
+    "llama3:latest": "documents",
+    "gpt-4o-mini": "documents",
+    "park-city:latest" : REP_PARK_CITY,
+    "park-city:gpt4o": REP_PARK_CITY,
+    "park-city:web": REP_PARK_CITY,
+    "park-city:docs": REP_PARK_CITY,
 }
 
 def getMappedCollection(modelIn:str):
-    return DICT.get(modelIn, RAI_COLLECTION_MAP, "documents")
+    return DICT.get(modelIn, RAI_COLLECTION_MAP, "parkcitysc")
 
 def getMappedModel(modelIn:str):
     return DICT.get(modelIn, RAI_MODEL_MAP, "gpt-4o-mini")
+
+def getMappedPrompt(modelIn:str):
+    return DICT.get(modelIn, RAI_PROMPT_MAP, REP_PARK_CITY)
 
 
 RAI_MODELS = {

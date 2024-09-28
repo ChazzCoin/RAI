@@ -84,9 +84,10 @@ class ChromaInstance:
             self.chroma_client = chromadb.Client(Settings(
                 chroma_server_host=os.getenv("DEFAULT_CHROMA_SERVER_HOST"),
                 chroma_server_http_port=os.getenv("DEFAULT_CHROMA_SERVER_PORT"),
-                # persist_directory=f"/python-docker/chdb/chroma",
+                persist_directory=f"/python-docker/chdb/chroma",
                 is_persistent=persistent,
             ))
+
             print(self.chroma_client.get_settings().persist_directory)
             if collection_name:
                 self.set_collection(collection_name)
@@ -115,7 +116,7 @@ class ChromaInstance:
         """Wrapper function to query ChromaDB synchronously."""
         return self.collection.query(
             query_embeddings=[embedding],
-            n_results=10
+            n_results=20
         )
 
     async def query_chromadb(self, embedding, collection_name:str=None):

@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import json
 import time
 
 import aiohttp
@@ -9,6 +10,9 @@ from dotenv import load_dotenv
 from openai.types.chat import ChatCompletion
 from F.LOG import Log
 from F import DICT
+
+from config import env
+
 load_dotenv()
 
 default_model = os.getenv("DEFAULT_OPENAI_MODEL")
@@ -264,6 +268,77 @@ def stream_chat_completion2(system: str, user: str, model: str = "llama3:latest"
     # print("Finished:", final_obj)
     yield final_obj
 
+
+async def generate_chat_completion(system_prompt, user_prompt, appended_message="", messages:[]=None):
+    """Asynchronously stream chat completion from OpenAI API."""
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {env("OPENAI_API_KEY")}',
+    }
+    if not messages:
+        messages = [
+                {'role': 'system', 'content':  system_prompt },
+                {'role': 'user', 'content': user_prompt }
+            ]
+    data = {
+        'model': "gpt-4o-mini",
+        'messages': messages,
+        'temperature': 0,
+        'stream': True
+    }
+    start_time = time.time()
+    collected_messages = []
+    prompt_eval_count = 0
+    eval_count = 0
+    prompt_eval_duration = 0  # Simulated prompt evaluation duration
+    async with aiohttp.ClientSession() as session:
+        async with session.post('https://api.openai.com/v1/chat/completions', headers=headers, json=data) as resp:
+            if resp.status != 200:
+                error = await resp.json()
+                raise Exception(f"Error from OpenAI API: {error}")
+            async for line in resp.content:
+                chunk_time = time.time() - start_time
+                timestamp = get_current_timestamp()
+                line = line.decode('utf-8').strip()
+                if not line:
+                    continue
+                if line.startswith('data: '):
+                    line = line[len('data: '):]
+                if line == '[DONE]':
+                    break
+                try:
+                    data = json.loads(line)
+                    choice = data['choices'][0]
+                    delta = choice.get('delta', {})
+                    chunk_message = delta.get('content', None)
+                    if chunk_message:
+                        collected_messages.append(chunk_message)
+                        response_obj = {
+                            "model": "gpt-4o-mini",
+                            "created_at": timestamp,
+                            "message": {
+                                "role": "assistant",
+                                "content": chunk_message
+                            },
+                            "done": False  # Indicate that the stream is not yet done
+                        }
+                        yield f"\n{json.dumps(response_obj)}\n"
+                    prompt_eval_count += 1
+                    eval_count += 1
+                except json.JSONDecodeError:
+                    continue
+    # Append any additional message at the end
+    if appended_message:
+        appended_obj = {
+            "model": "gpt-4o-mini",
+            "created_at": get_current_timestamp(),
+            "message": {
+                "role": "assistant",
+                "content": f"\n\n {appended_message}"
+            },
+            "done": False  # Indicate that the stream is not yet done
+        }
+        yield f"\n{json.dumps(appended_obj)}\n"
 
 if __name__ == "__main__":
     system = "You are a knowledgeable assistant for the Park City Soccer Club, providing information about soccer programs and club activities."

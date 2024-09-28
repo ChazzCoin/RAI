@@ -30,6 +30,8 @@ class FileToChromaConverter(RAGWithChroma):
         self.add_documents(documents)
         print(f"Successfully imported {len(documents)} documents from {url} into ChromaDB.")
 
+
+
     # Step 3: Create ChromaDB documents from the list of strings.
     def create_documents(self, text, file_path, topic:str=""):
         chunks = TextCleaner.split_string_by_limit(text, char_limit=self.character_limit)
@@ -73,6 +75,20 @@ class FileToChromaConverter(RAGWithChroma):
                 return
             self.create_jsonl_documents(id=id, text=text_content, url=url, title=title, topic=topic)
 
+    def import_json_file(self, id, file_path, collection_name, topic=""):
+        """Imports a .jsonl file and adds its contents to ChromaDB."""
+        self.set_collection(collection_name)
+        # Step 6: Call each inner function step by step.
+        from files.open import DataLoader
+        objs = DataLoader(data_directory="/Users/chazzromeo/ChazzCoin/MedRefs/files/pending").load_json("park_city_webpages")
+        for obj in objs.keys():
+            url = obj
+            text_content = objs[obj]
+            if not text_content:
+                print("No content to process.")
+                return
+            self.create_jsonl_documents(id=id, text=text_content, url=url, title=url, topic=topic)
+
     def import_directory(self, directory, collection_name, topic=""):
         for file_path in self.yield_file_paths(directory):
             if file_path.endswith(".DS_Store"):
@@ -87,12 +103,17 @@ class FileToChromaConverter(RAGWithChroma):
 
 
 if __name__ == '__main__':
-    ftoc = FileToChromaConverter(collection_name="parkcitysc-main")
-    ftoc.delete_collection('parkcitysc-main')
-    time.sleep(3)
-    ftoc.import_jsonl_file(
+    ftoc = FileToChromaConverter(collection_name="parkcitysc")
+    # ftoc.delete_collection('parkcitysc-main')
+    time.sleep(1)
+    # ftoc.import_jsonl_file(
+    #     "pcsc_website",
+    #     "/Users/chazzromeo/ChazzCoin/MedRefs/extractors/output/www_parkcitysoccer_org.jsonl",
+    #     "parkcitysc"
+    # )
+    ftoc.import_json_file(
         "pcsc_website",
-        "/Users/chazzromeo/ChazzCoin/MedRefs/extractors/output/www_parkcitysoccer_org.jsonl",
+        "/Users/chazzromeo/ChazzCoin/MedRefs/files/pending/park_city_webpages.json",
         "parkcitysc"
     )
-    ftoc.import_directory("/Users/chazzromeo/Desktop/ParkCityTrainingData", 'parkcitysc')
+    # ftoc.import_directory("/Users/chazzromeo/Desktop/ParkCityTrainingData", 'parkcitysc-main')

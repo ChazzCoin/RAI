@@ -145,9 +145,10 @@ if __name__ == "__main__":
     rag_system = RAGWithChroma(collection_name=collect)
     # query = "Tell me about the futures program at park city soccer club..."
     # query = "What is the core philosophy of park citys competitive program?"
-    # query = "What do you offer for goalkeepers?"
+    query = "Joel person"
     # query = "What tournaments does the club host? What are their names?"
-    query = "How do I register my child for tryouts?"
+    # query = "How do I register my child for tryouts?"
+    print(rag_system.get_all_documents())
     print(rag_system.query(query))
     # all_docs = rag_system.query(user_input=query, debug=True)
     # answer = rag_system.generate_answer(query)

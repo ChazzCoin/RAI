@@ -12,7 +12,7 @@ import requests
 from F import DICT, LIST
 from F.LOG import Log
 from assistant.openai_client import get_current_timestamp, get_embeddings
-from config.RaiModels import RAI_MODELS, getMappedModel, getMappedCollection
+from config.RaiModels import RAI_MODELS, getMappedModel, getMappedCollection, getMappedPrompt
 from chdb.rag import RAGWithChroma
 from config.redisdb import RedisClient
 from assistant.context import ContextHelper
@@ -29,14 +29,7 @@ executor = ThreadPoolExecutor(max_workers=1)
 
 IMAGE_FOLDER = f"{os.path.dirname(__file__)}/files/images"
 
-@app.route('/image/remarkable')
-def get_image():
-    # Assuming the images are stored in the 'images' directory
-    file_path = f'{IMAGE_FOLDER}/suspended.png'
-    try:
-        return send_file(file_path, mimetype='image/png')
-    except FileNotFoundError:
-        return {"error": "File not found"}, 404
+RAI_VERSION = "0.1.1"
 
 @app.route('/api/chat', methods=['POST'])
 async def chat_completion():
@@ -45,6 +38,9 @@ async def chat_completion():
     jbody = json.loads(data.decode('utf-8'))
     messages = jbody.get('messages', [])
 
+    # chatId = DICT.get('chatId', data, False)
+    # print(chatId)
+
     modelIn = DICT.get('model', jbody, model)
     model = getMappedModel(modelIn)
     cache_queue = cache.get_queued_chat_data(model)
@@ -52,57 +48,16 @@ async def chat_completion():
     Log.i("/api/chat", f"Model IN: {modelIn}")
     Log.i("/api/chat", f"Model OUT: {model}")
 
-    """ CHROMADB SEARCH """
-    async def search(user_message:str, collection_name:str):
-        embeds = await get_embeddings(user_message)
-        results = await rag.query_chromadb(embeds, collection_name)
-        Log.i("Search Result Count:", results)
-        return results
-
-    """ RESPONSE MESSAGE APPENDER """
-    def appender(response_message="", metadatas:[]=None, message_to_append:str=None):
-        if message_to_append:
-            response_message += message_to_append
-        if metadatas:
-            for metadata in metadatas:
-                response_message += f"\n\nSources:\n{DICT.get('url', metadata, '')}"
-        return response_message
-
-    """ SYSTEM PROMPT INTERCEPTOR """
-    async def interceptUserPrompt(user_message:str):
-        if str(modelIn) == "park-city:web":
-            Log.i("Park-City Flow", modelIn)
-            collection = getMappedCollection(modelIn)
-            Log.i("Using Park-City Collection", collection)
-            results = await search(user_message, collection)
-        elif modelIn == 'ChromaDB:search':
-            collection_name = extract_args(user_message, 1)
-            results = await search(user_message, collection_name)
-        else:
-            Log.i("Returning Generic SYS Prompt")
-            return "You are a useful assistant."
-        Log.i("Returning custom SYS Prompt.")
-        return rag.inject_into_system_prompt(user_message, docs=results)
-
-    """ STREAM FINAL AI CHAT RESPONSE """
-    async def stream(sp, user_message, appended_message, messages):
-        async for chunk in generate_chat_completion(sp, user_message, appended_message=appended_message, messages=messages):
-            yield chunk
-
     user_message = get_last_user_message(jbody)
-    user_prompt = await interceptUserPrompt(user_message)
+    """     USER PROMPT INTERCEPTOR    """
+    user_prompt = await interceptUserPrompt(modelIn=modelIn, user_message=user_message)
+    print("--User Prompt--")
+    print(user_prompt)
     new_user_message = { 'role': 'user', 'content': user_prompt }
     messages = jbody.get('messages', [])
     if len(messages) <= 1:
         Log.i("Creating New Message...")
-        new_system_prompt = """
-        
-        Your name is Park City Rep and you are here to serve at the pleasure of the members of the soccer club, Park City Soccer Club.
-        
-        You are going to be a detailed and honest customer service representative who will answer questions based on information given to you.
-        You specialize in understanding youth soccer clubs, organizational structure, youth soccer parents, youth soccer coaches, youth soccer players.
-        If you do not know the answer based on information I give you, please just state you don't know.
-        """
+        new_system_prompt = getMappedPrompt(modelIn=modelIn)
         temp = [
             { 'role': 'system', 'content': new_system_prompt },
             LIST.get(0, messages, new_user_message)
@@ -111,17 +66,55 @@ async def chat_completion():
     else:
         Log.i("Appending New Message...")
         messages.append(new_user_message)
-
+    """     GENERATE AI CHAT RESPONSE   """
     ai_response = await get_chat_completion(messages)
+    print("--AI Response--")
+    print(ai_response)
 
     # cache.queue_chat_data(model, system_prompt)
     appended_message = f"""
-    \n\nRAI Youth Sports Chat: {model}
+    \n\nRAI Youth Sports Chat\nAI Model: {model}\nRai Version: {RAI_VERSION}
     """
     appended_response = appender(response_message=ai_response, message_to_append=appended_message)
     final_response = to_chat_response(appended_response, role="assistant")
     return Response(f"\n{json.dumps(final_response)}\n", content_type='text/event-stream')
 
+"""     
+CHROMADB SEARCH     
+"""
+async def search(user_message:str, collection_name:str):
+    embeds = await get_embeddings(user_message)
+    results = await rag.query_chromadb(embeds, collection_name)
+    Log.i("Search Result Count:", results)
+    return results
+"""     
+USER PROMPT INTERCEPTOR   
+"""
+async def interceptUserPrompt(modelIn, user_message:str):
+    if str(modelIn) == "park-city:web":
+        Log.i("Park-City Flow", modelIn)
+        collection = getMappedCollection(modelIn)
+        Log.i("Using Park-City Collection", collection)
+        results = await search(user_message, collection)
+    elif modelIn == 'ChromaDB:search':
+        collection_name = extract_args(user_message, 1)
+        results = await search(user_message, collection_name)
+    else:
+        Log.i("Returning Generic SYS Prompt")
+        return "You are a useful assistant."
+    Log.i("Returning custom SYS Prompt.")
+    return rag.inject_into_system_prompt(user_message, docs=results)
+"""     
+RESPONSE MESSAGE APPENDER   
+"""
+def appender(response_message="", metadatas:[]=None, message_to_append:str=None):
+    if message_to_append:
+        response_message += message_to_append
+    if metadatas:
+        for metadata in metadatas:
+            response_message += f"\n\nSources:\n{DICT.get('url', metadata, '')}"
+    return response_message
+""" HELPER """
 def get_last_user_message(json_data):
     # Get the list of messages
     messages = json_data.get('messages', [])
@@ -132,7 +125,7 @@ def get_last_user_message(json_data):
             last_user_message = message.get('content')
             break
     return last_user_message
-
+""" HELPER """
 def to_chat_response(message:str, role:str="user", model:str="gpt-4o-mini", isDone:bool=False):
     return {
         "model": model,
@@ -143,7 +136,9 @@ def to_chat_response(message:str, role:str="user", model:str="gpt-4o-mini", isDo
         },
         "done": isDone  # Indicate that the stream is not yet done
     }
-
+""" 
+GENERATE AI CHAT RESPONSE 
+"""
 async def get_chat_completion(messages:[]):
     """Asynchronously get chat completion from OpenAI API."""
     headers = {
@@ -165,76 +160,17 @@ async def get_chat_completion(messages:[]):
             assistant_message = response_data['choices'][0]['message']['content']
             return assistant_message
 
-async def generate_chat_completion(system_prompt, user_prompt, appended_message="", messages:[]=None):
-    """Asynchronously stream chat completion from OpenAI API."""
-    headers = {
-        'Content-Type': 'application/json',
-        'Authorization': f'Bearer {env("OPENAI_API_KEY")}',
-    }
-    if not messages:
-        messages = [
-                {'role': 'system', 'content':  system_prompt },
-                {'role': 'user', 'content': user_prompt }
-            ]
-    data = {
-        'model': "gpt-4o-mini",
-        'messages': messages,
-        'temperature': 0,
-        'stream': True
-    }
-    start_time = time.time()
-    collected_messages = []
-    prompt_eval_count = 0
-    eval_count = 0
-    prompt_eval_duration = 0  # Simulated prompt evaluation duration
-    async with aiohttp.ClientSession() as session:
-        async with session.post('https://api.openai.com/v1/chat/completions', headers=headers, json=data) as resp:
-            if resp.status != 200:
-                error = await resp.json()
-                raise Exception(f"Error from OpenAI API: {error}")
-            async for line in resp.content:
-                chunk_time = time.time() - start_time
-                timestamp = get_current_timestamp()
-                line = line.decode('utf-8').strip()
-                if not line:
-                    continue
-                if line.startswith('data: '):
-                    line = line[len('data: '):]
-                if line == '[DONE]':
-                    break
-                try:
-                    data = json.loads(line)
-                    choice = data['choices'][0]
-                    delta = choice.get('delta', {})
-                    chunk_message = delta.get('content', None)
-                    if chunk_message:
-                        collected_messages.append(chunk_message)
-                        response_obj = {
-                            "model": "gpt-4o-mini",
-                            "created_at": timestamp,
-                            "message": {
-                                "role": "assistant",
-                                "content": chunk_message
-                            },
-                            "done": False  # Indicate that the stream is not yet done
-                        }
-                        yield f"\n{json.dumps(response_obj)}\n"
-                    prompt_eval_count += 1
-                    eval_count += 1
-                except json.JSONDecodeError:
-                    continue
-    # Append any additional message at the end
-    if appended_message:
-        appended_obj = {
-            "model": "gpt-4o-mini",
-            "created_at": get_current_timestamp(),
-            "message": {
-                "role": "assistant",
-                "content": f"\n\n {appended_message}"
-            },
-            "done": False  # Indicate that the stream is not yet done
-        }
-        yield f"\n{json.dumps(appended_obj)}\n"
+"""
+    -> API HEALTH CHECKS AND SUCH
+"""
+@app.route('/image/remarkable')
+def get_image():
+    # Assuming the images are stored in the 'images' directory
+    file_path = f'{IMAGE_FOLDER}/suspended.png'
+    try:
+        return send_file(file_path, mimetype='image/png')
+    except FileNotFoundError:
+        return {"error": "File not found"}, 404
 
 @app.route('/', methods=['GET'])
 async def heart():
