@@ -31,13 +31,12 @@ def get_ollama_models(api_url="http://192.168.1.6:11434/api/models"):
     :param api_url: The URL for the Ollama models endpoint.
     :return: A list of models or an error message.
     """
-    key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQzMDM5N2NlLWVkN2EtNDIxMi05NTUzLWE1ZTAyNjUwMjVkMSJ9.w82jx_2M_-ikF5sXM6TKlopenWfQF9pw0aqDqw1AGos"
+    key = ""
     try:
         # Make a GET request to the Ollama /api/models endpoint
         headers = {'Content-Type': 'application/json',
                    'Authorization': 'Bearer ' + key,
-                   "User-Agent": "Ollama-Client/1.0"
-                   }
+                   "User-Agent": "Ollama-Client/1.0"}
         response = requests.get(api_url, headers=headers)
 
         # Check if the response status code is 200 (OK)

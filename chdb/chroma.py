@@ -75,14 +75,19 @@ class ChromaInstance:
         try:
             print("Chroma Host:", os.getenv("DEFAULT_CHROMA_SERVER_HOST"))
             print("Chroma Port:", os.getenv("DEFAULT_CHROMA_SERVER_PORT"))
-            print("Cached Directory:", os.path.dirname(os.path.abspath(__file__)))
+            for item in os.listdir("/"):
+                item_path = os.path.join("/", item)
+                if os.path.isfile(item_path):
+                    print(f"File: {item}")
+                elif os.path.isdir(item_path):
+                    print(f"Directory: {item}")
             self.chroma_client = chromadb.Client(Settings(
                 chroma_server_host=os.getenv("DEFAULT_CHROMA_SERVER_HOST"),
                 chroma_server_http_port=os.getenv("DEFAULT_CHROMA_SERVER_PORT"),
-                # persist_directory=f"/python-docker/assistant/chroma",
-                persist_directory=f"/Users/chazzromeo/ChazzCoin/MedRefs/assistant/chroma",
+                # persist_directory=f"/python-docker/chdb/chroma",
                 is_persistent=persistent,
             ))
+            print(self.chroma_client.get_settings().persist_directory)
             if collection_name:
                 self.set_collection(collection_name)
             else:
@@ -317,5 +322,6 @@ class ChromaInstance:
             raise e
 
 if __name__ == '__main__':
-    chroma = ChromaInstance()
-    chroma.merge_collections('parkcitysc_docs', 'parckcitysc')
+    chroma = ChromaInstance(collection_name="parkcitysc")
+    print(chroma.query("Who are the coaching staff?"))
+    print(chroma.get_all_documents())

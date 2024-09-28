@@ -11,3 +11,4 @@ chroma/*
 *.png
 *.jpg
 *.jpeg
+/chroma

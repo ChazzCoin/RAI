@@ -15,11 +15,13 @@ from assistant.openai_client import get_current_timestamp, get_embeddings
 from config.RaiModels import RAI_MODELS, getMappedModel, getMappedCollection
 from chdb.rag import RAGWithChroma
 from config.redisdb import RedisClient
+from assistant.context import ContextHelper
 
 Log = Log("RAI API Bruno Canary")
 app = Quart(__name__)
 
 collection_name = "web_pages_2"
+contexter = ContextHelper()
 cache = RedisClient()
 rag = RAGWithChroma(collection_name=collection_name)
 looper = asyncio.get_event_loop()
@@ -80,7 +82,6 @@ async def chat_completion():
             Log.i("Returning Generic SYS Prompt")
             return "You are a useful assistant."
         Log.i("Returning custom SYS Prompt.")
-        # await asyncio.sleep(1)
         return rag.inject_into_system_prompt(user_message, docs=results)
 
     """ STREAM FINAL AI CHAT RESPONSE """

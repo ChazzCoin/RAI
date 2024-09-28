@@ -87,12 +87,8 @@ class FileToChromaConverter(RAGWithChroma):
 
 
 if __name__ == '__main__':
-    ftoc = FileToChromaConverter()
-    # ftoc.set_collection("parkcitysc_docs")
-    # ftoc.delete_collection("parkcitysc_docs")
-    # results = ftoc.query("Tell me some key parts of the players handbook...")
-    # print(results)
-    ftoc.delete_collection('parkcitysc')
+    ftoc = FileToChromaConverter(collection_name="parkcitysc-main")
+    ftoc.delete_collection('parkcitysc-main')
     time.sleep(3)
     ftoc.import_jsonl_file(
         "pcsc_website",
