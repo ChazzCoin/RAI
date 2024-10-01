@@ -10,8 +10,8 @@ from dotenv import load_dotenv
 from openai.types.chat import ChatCompletion
 from F.LOG import Log
 from F import DICT
-
 from config import env
+from assistant.models import ApiEngines as engine
 
 load_dotenv()
 
@@ -22,7 +22,6 @@ embedding_model = os.getenv("DEFAULT_OPENAI_EMBEDDING_MODEL")
 def getClient():
     return OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-
 async def get_embeddings(text):
     """Asynchronously get embeddings from OpenAI API."""
     headers = {
@@ -31,7 +30,7 @@ async def get_embeddings(text):
     }
     data = {
         'input': text,
-        'model': 'text-embedding-ada-002',
+        'model': engine.Embedding_MODELS.OpenAI,
     }
     async with aiohttp.ClientSession() as session:
         async with session.post('https://api.openai.com/v1/embeddings', headers=headers, json=data) as resp:
@@ -41,15 +40,14 @@ async def get_embeddings(text):
             response_data = await resp.json()
             embedding = response_data['data'][0]['embedding']
             return embedding
-
-async def get_chat_completion(system_prompt, user_input):
+async def get_chat_completion(system_prompt, user_input, model:str=None):
     """Asynchronously get chat completion from OpenAI API."""
     headers = {
         'Content-Type': 'application/json',
-        'Authorization': f'Bearer {os.getenv("OPENAI_API_KEY")}',
+        'Authorization': f'Bearer {engine.OPENAI.KEY}',
     }
     data = {
-        'model': 'gpt-4o-mini',  # Use 'gpt-4' if available
+        'model': engine.OPENAI.default_model(override=model),  # Use 'gpt-4' if available
         'messages': [
             {'role': 'system', 'content': system_prompt},
             {'role': 'user', 'content': user_input}
@@ -57,18 +55,16 @@ async def get_chat_completion(system_prompt, user_input):
         'temperature': 0.7,
     }
     async with aiohttp.ClientSession() as session:
-        async with session.post('https://api.openai.com/v1/chat/completions', headers=headers, json=data) as resp:
+        async with session.post(engine.OPENAI.route("/chat/completions"), headers=headers, json=data) as resp:
             if resp.status != 200:
                 error = await resp.json()
                 raise Exception(f"Error from OpenAI API: {error}")
             response_data = await resp.json()
             assistant_message = response_data['choices'][0]['message']['content']
             return assistant_message
-
 def truncate_text(text, max_length):
     """Truncate text to a maximum number of characters."""
     return text[:max_length] if len(text) > max_length else text
-
 def generate_embeddings(text):
     print('Embedding Model:', embedding_model)
     response = getClient().embeddings.create(
@@ -76,8 +72,6 @@ def generate_embeddings(text):
         model=embedding_model
     )
     return response.data[0].embedding
-
-
 def chat_request(system: str, user: str, model: str = default_model, content_only: bool = True):
     print(f"Model: {model}")
     response = getClient().chat.completions.create(
@@ -92,18 +86,16 @@ def chat_request(system: str, user: str, model: str = default_model, content_onl
     if content_only:
         return response.choices[0].message.content
     return response
-
 """
 {"model":"llama3:latest","created_at":"2024-09-16T02:10:32.443679033Z","message":{"role":"assistant","content":"?"},"done":false}
 {"model":"llama3:latest","created_at":"2024-09-16T02:10:32.477253839Z","message":{"role":"assistant","content":""},"done_reason":"stop","done":true,"total_duration":4659202790,"load_duration":4270615787,"prompt_eval_count":22,"prompt_eval_duration":52448000,"eval_count":7,"eval_duration":201934000}
-
 """
 def chat_request_stream(system: str, user: str, model: str = default_model, content_only: bool = True):
     print(f"Model: {model}")
 
     # Assuming getClient().chat.completions.create is compatible with streaming
     response_stream = getClient().chat.completions.create(
-        model=model,
+        model=engine.OPENAI.default_model(override=model),
         stream=True,  # Enable streaming
         response_format={"type": "text"},
         messages=[
@@ -127,8 +119,6 @@ def chat_request_stream(system: str, user: str, model: str = default_model, cont
     if content_only:
         return ''.join(collected_response)  # Return the full content if content_only is True
     return collected_response  # Return the full response chunks if not content_only
-
-
 def chat_request_forward(messages: [], model: str = default_model) -> ChatCompletion:
     response = getClient().chat.completions.create(
         model=model,
@@ -136,12 +126,9 @@ def chat_request_forward(messages: [], model: str = default_model) -> ChatComple
         messages=messages
     )
     return response
-
-
 def get_current_timestamp():
     """Utility function to get the current timestamp in the required format."""
     return datetime.datetime.utcnow().isoformat() + 'Z'
-
 def stream_chat_completion(system: str, user: str, model: str = "llama3:latest"):
     # Record the time before the request is sent
     start_time = time.time()
@@ -182,8 +169,6 @@ def stream_chat_completion(system: str, user: str, model: str = "llama3:latest")
 
     # Return the full response content
     return full_reply_content
-
-
 def stream_chat_completion2(system: str, user: str, model: str = "llama3:latest"):
     # Record the time before the request is sent
     start_time = time.time()
@@ -267,8 +252,6 @@ def stream_chat_completion2(system: str, user: str, model: str = "llama3:latest"
     # Yield the final completion message
     # print("Finished:", final_obj)
     yield final_obj
-
-
 async def generate_chat_completion(system_prompt, user_prompt, appended_message="", messages:[]=None):
     """Asynchronously stream chat completion from OpenAI API."""
     headers = {

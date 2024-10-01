@@ -10,7 +10,7 @@ import requests
 from F import DICT, LIST
 from F.LOG import Log
 from assistant.openai_client import get_current_timestamp, get_embeddings
-from config.RaiModels import RAI_MODELS, getMappedModel, getMappedCollection, getMappedPrompt
+from config.RaiModels import RAI_MODELS, RAI_MODs, getMappedModel, getMappedCollection, getMappedPrompt
 from chdb.rag import RAGWithChroma
 from config.redisdb import RedisClient
 from assistant.context import ContextHelper
@@ -27,7 +27,7 @@ executor = ThreadPoolExecutor(max_workers=1)
 
 IMAGE_FOLDER = f"{os.path.dirname(__file__)}/files/images"
 
-RAI_VERSION = "0.1.1:canary"
+RAI_VERSION = "0.2.2:hypercorn"
 RAI_FOOTER_MESSAGE = lambda model, text: f"""\n
 {text}\n
 | Rai Youth Sports Chat | AI Model: {model} | API Version: {RAI_VERSION} |
@@ -47,6 +47,9 @@ async def chat_completion():
 
     """     GET MAPPED MODEL      """
     modelIn = DICT.get('model', jbody, model)
+    modelIn_data = DICT.get(modelIn, RAI_MODs)
+    modelOut = DICT.get('openai', modelIn_data, 'gpt-4o-mini')
+    zip = DICT.get('zip', modelIn_data, '00000')
     model = getMappedModel(modelIn)
 
     """     CACHE OUT    """
@@ -54,14 +57,36 @@ async def chat_completion():
 
     """     USER PROMPT INTERCEPTOR    """
     user_message = get_last_user_message(jbody)
-    user_prompt = await interceptUserPrompt(modelIn=modelIn, user_message=user_message, debug=True)
+    pre_user_messages = get_previous_user_messages(jbody)
+    ollama_prompt = f"""
+    1. Add keywords to add context to users questions.
+    2. Keywords should be based on youth soccer organizations and clubs.
+    3. If the question has enough context, just return it back unmodified.
+    4. Use previous messages accordingly.
+    
+    Examples: 
+    - If they are asking about a persons name, 'coach', 'staff' and other keywords should be added.
+    - "coach" = staff, employee, director
+    - "fee" = money, cost, costs, annual fees, fees, payment
+    - "field" = complex, fields, stadium, location
+    
+    PREVIOUS USER INPUTS/QUESTIONS FOR BETTER CONTEXT:
+    {reversed(pre_user_messages)}
+    
+    RESPONSE RULE: Only return the Users Input with keywords and nothing else.
+    """
+
+    ollama_request = await ollama_quick_generation(ollama_prompt, user_message)
+    print(ollama_request)
+    final_user_prompt = f"{user_message}\n{ollama_request}"
+    user_prompt = await interceptUserPrompt(modelIn=modelIn, user_message=final_user_prompt, debug=True)
     new_user_message = { 'role': 'user', 'content': user_prompt }
 
     """     SETUP MESSAGES FOR CHAT SEQUENCE   """
     messages = setupMessagesForChatSequence(messages, modelIn, new_user_message)
 
     """     GENERATE AI CHAT RESPONSE   """
-    ai_response = await get_chat_completion(messages, debug=True)
+    ai_response = await openai_chat_generation(messages, debug=True)
 
     """     CACHE IN    """
     cache.queue_chat_data(modelIn, ai_response)
@@ -74,10 +99,23 @@ async def chat_completion():
     final_response = to_chat_response(appended_response, role="assistant")
     return Response(f"\n{json.dumps(final_response)}\n", content_type='text/event-stream')
 
+
+""" 
+CACHE WEATHER
+"""
+def cache_weather(zip):
+    from agents.weather import get_weather_by_zip
+    weather_cache = cache.get_data(f"weather:{zip}")
+    if weather_cache:
+        return weather_cache
+    weather_result = get_weather_by_zip(zip)
+    cache.add_data(f"weather:{zip}", data=weather_result, ttl=50000)
+    return weather_result
+
 """ 
 GENERATE AI CHAT RESPONSE 
 """
-async def get_chat_completion(messages:[], debug:bool=False):
+async def openai_chat_generation(messages:[], debug:bool=False):
     """Asynchronously get chat completion from OpenAI API."""
     headers = {
         'Content-Type': 'application/json',
@@ -93,9 +131,58 @@ async def get_chat_completion(messages:[], debug:bool=False):
         async with session.post('https://api.openai.com/v1/chat/completions', headers=headers, json=data) as resp:
             if resp.status != 200:
                 error = await resp.json()
-                raise Exception(f"Error from OpenAI API: {error}")
+                raise Exception(f"Error from Open AI: {error}")
             response_data = await resp.json()
             assistant_message = response_data['choices'][0]['message']['content']
+            if debug:
+                print("--AI Response--")
+                print(assistant_message)
+            return assistant_message
+async def ollama_chat_generation(messages:[], debug:bool=False):
+    """Asynchronously get chat completion from OpenAI API."""
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {env("OPENAI_API_KEY")}',
+    }
+    data = {
+        'model': "llama3:latest",
+        'messages': messages,
+        'temperature': 0,
+        'stream': False
+    }
+    async with aiohttp.ClientSession() as session:
+        async with session.post('http://192.168.1.6:11434/api/chat', headers=headers, json=data) as resp:
+            if resp.status != 200:
+                error = await resp.json()
+                raise Exception(f"Error from Ollama AI: {error}")
+            response_data = await resp.json()
+            assistant_message = response_data['message']['content']
+            if debug:
+                print("--AI Response--")
+                print(assistant_message)
+            return assistant_message
+async def ollama_quick_generation(system_prompt, user_prompt, debug:bool=False):
+    """Asynchronously get chat completion from OpenAI API."""
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {env("OPENAI_API_KEY")}',
+    }
+    data = {
+        'model': "llama3:latest",
+        "messages": [
+            { "role": "system", "content": system_prompt },
+            { "role": "user", "content": user_prompt }
+        ],
+        'temperature': 0,
+        'stream': False
+    }
+    async with aiohttp.ClientSession() as session:
+        async with session.post('http://192.168.1.6:11434/api/chat', headers=headers, json=data) as resp:
+            if resp.status != 200:
+                error = await resp.json()
+                raise Exception(f"Error from Ollama AI: {error}")
+            response_data = await resp.json()
+            assistant_message = response_data['message']['content']
             if debug:
                 print("--AI Response--")
                 print(assistant_message)
@@ -128,7 +215,7 @@ async def search(user_message:str, collection_name:str):
 USER PROMPT INTERCEPTOR   
 """
 async def interceptUserPrompt(modelIn, user_message:str, debug:bool=False):
-    if str(modelIn) == "park-city:web":
+    if str(modelIn) == "park-city:latest" or str(modelIn) == "park-city:assistant":
         Log.i("Park-City Flow", modelIn)
         collection = getMappedCollection(modelIn)
         Log.i("Using Park-City Collection", collection)
@@ -167,6 +254,20 @@ def get_last_user_message(json_data):
             last_user_message = message.get('content')
             break
     return last_user_message
+
+def get_previous_user_messages(json_data):
+    # Get the list of messages
+    messages = json_data.get('messages', [])
+    # Filter to find the last message with role 'user'
+    last_user_messages = []
+    count = 0
+    for message in reversed(messages):
+        # if message.get('role') == 'user':
+        if count == 0:
+            count += 1
+            continue
+        last_user_messages.append(message.get('content'))
+    return last_user_messages
 """ HELPER """
 def extract_args(input_string, word_count):
     """Extract the first 'word_count' words from the input string."""

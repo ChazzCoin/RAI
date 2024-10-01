@@ -85,6 +85,7 @@ class ChromaInstance:
                 chroma_server_host=os.getenv("DEFAULT_CHROMA_SERVER_HOST"),
                 chroma_server_http_port=os.getenv("DEFAULT_CHROMA_SERVER_PORT"),
                 persist_directory=f"/python-docker/chdb/chroma",
+                # persist_directory=f"/Users/chazzromeo/ChazzCoin/MedRefs/chdb/chroma",
                 is_persistent=persistent,
             ))
 

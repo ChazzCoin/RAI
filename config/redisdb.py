@@ -175,6 +175,19 @@ class RedisClient:
             print(f"Failed to get chat data from queue '{queue_name}': {e}")
             raise
 
+    def add_data(self, queue_name:str, data, ttl=None):
+        try:
+            self.set_key(f"{queue_name}", data, ttl)
+            print(f"Chat data added with ID '{queue_name}'.")
+        except Exception as e:
+            print(f"Failed to add chat data with ID '{queue_name}': {e}")
+            raise
+    def get_data(self, queue_name:str):
+        try:
+            return self.get_key(f"{queue_name}")
+        except Exception as e:
+            print(f"Failed to get chat data with ID '{queue_name}': {e}")
+            raise
     @overload
     def add_chat_data(self, chatId:str, messageId:str, data, ttl=None):
         try:

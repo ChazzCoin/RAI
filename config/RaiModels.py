@@ -2,21 +2,21 @@ from F import DICT
 
 
 REP_PARK_CITY = """
-Your name is Park City Rep and you are here to serve at the pleasure of the members of the soccer club, Park City Soccer Club.
+Your name is Bruno, Park City Soccer Club's Personal Customer Representative.
+You are here to serve at the pleasure of the members of the soccer club.
 
 You are going to be a detailed and honest customer service representative who will answer questions based on information given to you.
 You specialize in understanding youth soccer clubs, organizational structure, youth soccer parents, youth soccer coaches, youth soccer players.
 If you do not know the answer based on information I give you, please just state you don't know.
 """
 
+
 RAI_MODEL_MAP = {
     "llama3:latest": "gpt-4o-mini",
     "ChromaDB:search": "gpt-4o-mini",
     "gpt-4o-mini": "gpt-4o-mini",
-    "park-city:latest" : "ft:gpt-4o-mini-2024-07-18:personal:pcsc-canary-1:A5Q7aqpL:ckpt-step-323",
-    "park-city:gpt4o": "gpt-4o-mini",
-    "park-city:web": "gpt-4o-mini",
-    "park-city:docs": "gpt-4o-mini",
+    "park-city:assistant" : "ft:gpt-4o-mini-2024-07-18:personal:pcsc-canary-1:A5Q7aqpL:ckpt-step-323",
+    "park-city:latest": "gpt-4o-mini",
 }
 
 RAI_COLLECTION_MAP = {
@@ -24,8 +24,6 @@ RAI_COLLECTION_MAP = {
     "gpt-4o-mini": "documents",
     "park-city:latest" : "parkcitysc",
     "park-city:gpt4o": "parkcitysc",
-    "park-city:web": "parkcitysc",
-    "park-city:docs": "parkcitysc-docs",
 }
 
 RAI_PROMPT_MAP = {
@@ -33,8 +31,6 @@ RAI_PROMPT_MAP = {
     "gpt-4o-mini": "documents",
     "park-city:latest" : REP_PARK_CITY,
     "park-city:gpt4o": REP_PARK_CITY,
-    "park-city:web": REP_PARK_CITY,
-    "park-city:docs": REP_PARK_CITY,
 }
 
 def getMappedCollection(modelIn:str):
@@ -52,16 +48,28 @@ def getMappedPrompt(modelIn:str):
 
 RAI_MODELS = {
     'models': [
-        {'name': 'park-city:latest', 'model': 'park-city:latest', 'modified_at': '2024-07-02T06:32:47.913084094Z', 'size': 177669289, 'digest': 'c4ff0145029b23c94b81626b5cdd671a5c48140a3f8d972575efb9d145527581', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'gpt2', 'families': ['gpt2'], 'parameter_size': '163.04M', 'quantization_level': 'Q8_0' }},
-        {'name': 'park-city:gpt4o', 'model': 'park-city:gpt4o', 'modified_at': '2024-07-02T06:32:47.913084094Z', 'size': 177669289, 'digest': 'c4ff0145029b23c94b81626b5cdd6743434343sdfsfefb9d145527581', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'gpt2', 'families': ['gpt2'], 'parameter_size': '163.04M', 'quantization_level': 'Q8_0'}},
-        {'name': 'park-city:web', 'model': 'park-city:web', 'modified_at': '2024-07-02T06:32:47.913084094Z',
-         'size': 177669289, 'digest': 'webc4ff0145029b23c94b81626b5cdd6743434343sdfsfefb9d145527581',
-         'details': {'parent_model': '', 'format': 'gguf', 'family': 'gpt2', 'families': ['gpt2'],
-                     'parameter_size': '163.04M', 'quantization_level': 'Q8_0'}},
-        {'name': 'park-city:docs', 'model': 'park-city:docs', 'modified_at': '2024-07-02T06:32:47.913084094Z',
-         'size': 177669289, 'digest': 'docs4ff0145029b23c94b81626b5cdd6743434343sdfsfefb9d145527581',
-         'details': {'parent_model': '', 'format': 'gguf', 'family': 'gpt2', 'families': ['gpt2'],
-                     'parameter_size': '163.04M', 'quantization_level': 'Q8_0'}},
+        {
+            'name': 'park-city:latest',
+            'model': 'park-city:latest',
+            'zip':'84098',
+            'address': '',
+            'title': '',
+            'collection': 'parkcitysc',
+            'prompt': REP_PARK_CITY,
+            'modified_at': '2024-07-02T06:32:47.913084094Z',
+            'size': 177669289,
+            'digest': 'c4ff0145029b23c94b81626b5cdd671a5c48140a3f8d972575efb9d145527581',
+            'details': {
+                'parent_model': '',
+                'format': 'gguf',
+                'family': 'gpt2',
+                'families': ['gpt2'],
+                'parameter_size': '163.04M',
+                'quantization_level': 'Q8_0'
+            }
+         },
+
+        {'name': 'park-city:assistant', 'model': 'park-city:assistant', 'modified_at': '2024-07-02T06:32:47.913084094Z', 'size': 177669289, 'digest': 'c4ff0145029b23c94b81626b5cdd6743434343sdfsfefb9d145527581', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'gpt2', 'families': ['gpt2'], 'parameter_size': '163.04M', 'quantization_level': 'Q8_0'}},
         {'name': 'llama3:latest', 'model': 'llama3:latest', 'modified_at': '2024-06-29T06:01:38.340493962Z', 'size': 4661224676, 'digest': '365c0bd3c000a25d28ddbf732fe1c6add414de7275464c4e4d1c3b5fcb5d8ad1', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'llama', 'families': ['llama'], 'parameter_size': '8.0B', 'quantization_level': 'Q4_0'}},
         {'name': 'ChromaDB:search', 'model': 'ChromaDB:search', 'modified_at': '2024-06-29T06:01:38.340493962Z', 'size': 4661224676, 'digest': '365c0bd3c000a25d28dsearch1c6add414de7275464c4e4d1c3b5fcb5d8ad1', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'llama', 'families': ['llama'], 'parameter_size': '8.0B', 'quantization_level': 'Q4_0'}},
         {'name': 'nous-hermes2-mixtral:8x7b', 'model': 'nous-hermes2-mixtral:8x7b', 'modified_at': '2024-06-29T06:24:46.894948698Z', 'size': 26442493141, 'digest': '599da8dce2c14e54737c51f9668961bbc3526674249d3850b0875638a3e5e268', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'llama', 'families': ['llama'], 'parameter_size': '47B', 'quantization_level': 'Q4_0'}},
@@ -73,6 +81,33 @@ RAI_MODELS = {
             ]
     }
 
+RAI_MODs = {
+    'park-city:latest': {
+            'name': 'park-city:latest',
+            'model': 'park-city:latest',
+            'zip':'84098',
+            'address': '',
+            'title': 'Park City Soccer Club',
+            'openai': 'gpt-4o-mini',
+            'ollama': 'llama3:latest',
+            'org_type': 'Soccer Club',
+            'modified_at': '2024-07-02T06:32:47.913084094Z',
+            'size': 177669289,
+            'digest': 'c4ff0145029b23c94b81626b5cdd671a5c48140a3f8d972575efb9d145527581',
+            'details': {
+                'parent_model': '',
+                'format': 'gguf',
+                'family': 'gpt2',
+                'families': ['gpt2'],
+                'parameter_size': '163.04M',
+                'quantization_level': 'Q8_0'
+            }
+         },
+    'park-city:assistant': {'name': 'park-city:assistant', 'model': 'park-city:assistant', 'modified_at': '2024-07-02T06:32:47.913084094Z', 'size': 177669289, 'digest': 'c4ff0145029b23c94b81626b5cdd6743434343sdfsfefb9d145527581', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'gpt2', 'families': ['gpt2'], 'parameter_size': '163.04M', 'quantization_level': 'Q8_0'}},
+    'llama3:latest': {'name': 'llama3:latest', 'model': 'llama3:latest', 'modified_at': '2024-06-29T06:01:38.340493962Z', 'size': 4661224676, 'digest': '365c0bd3c000a25d28ddbf732fe1c6add414de7275464c4e4d1c3b5fcb5d8ad1', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'llama', 'families': ['llama'], 'parameter_size': '8.0B', 'quantization_level': 'Q4_0'}},
+    'ChromaDB:search': {'name': 'ChromaDB:search', 'model': 'ChromaDB:search', 'modified_at': '2024-06-29T06:01:38.340493962Z', 'size': 4661224676, 'digest': '365c0bd3c000a25d28dsearch1c6add414de7275464c4e4d1c3b5fcb5d8ad1', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'llama', 'families': ['llama'], 'parameter_size': '8.0B', 'quantization_level': 'Q4_0'}},
+    'sqlcoder:15b': {'name': 'sqlcoder:15b', 'model': 'sqlcoder:15b', 'modified_at': '2024-06-29T06:01:39.480494281Z', 'size': 8987630230, 'digest': '93bb0e8a904ff98bcc6fa5cf3b8e63dc69203772f4bc713f761c82684541d08d', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'starcoder', 'families': None, 'parameter_size': '15B', 'quantization_level': 'Q4_0'}},
+}
 
 MODEL_MAP = {
     "llama3:latest": "gpt-4o-mini",
