@@ -84,8 +84,8 @@ class ChromaInstance:
             self.chroma_client = chromadb.Client(Settings(
                 chroma_server_host=os.getenv("DEFAULT_CHROMA_SERVER_HOST"),
                 chroma_server_http_port=os.getenv("DEFAULT_CHROMA_SERVER_PORT"),
-                persist_directory=f"/python-docker/chdb/chroma",
-                # persist_directory=f"/Users/chazzromeo/ChazzCoin/MedRefs/chdb/chroma",
+                # persist_directory=f"/python-docker/chdb/chroma",
+                persist_directory=f"/Users/chazzromeo/ChazzCoin/MedRefs/chdb/chroma",
                 is_persistent=persistent,
             ))
 
@@ -324,6 +324,6 @@ class ChromaInstance:
             raise e
 
 if __name__ == '__main__':
-    chroma = ChromaInstance(collection_name="parkcitysc")
-    print(chroma.query("Who are the coaching staff?"))
+    chroma = ChromaInstance(collection_name="neuro")
+    # print(chroma.query("Who are the coaching staff?"))
     print(chroma.get_all_documents())

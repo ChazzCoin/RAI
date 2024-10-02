@@ -10,7 +10,7 @@ import requests
 from F import DICT, LIST
 from F.LOG import Log
 from assistant.openai_client import get_current_timestamp, get_embeddings
-from config.RaiModels import RAI_MODELS, RAI_MODs, getMappedModel, getMappedCollection, getMappedPrompt
+from config.RaiModels import RAI_MODELS, RAI_MODs
 from chdb.rag import RAGWithChroma
 from config.redisdb import RedisClient
 from assistant.context import ContextHelper
@@ -27,7 +27,7 @@ executor = ThreadPoolExecutor(max_workers=1)
 
 IMAGE_FOLDER = f"{os.path.dirname(__file__)}/files/images"
 
-RAI_VERSION = "0.2.2:hypercorn"
+RAI_VERSION = "0.3.0:hypercorn"
 RAI_FOOTER_MESSAGE = lambda model, text: f"""\n
 {text}\n
 | Rai Youth Sports Chat | AI Model: {model} | API Version: {RAI_VERSION} |
@@ -37,62 +37,53 @@ RAI_FOOTER_MESSAGE = lambda model, text: f"""\n
 async def chat_completion():
 
     """     PARSE REQUEST IN    """
-    model = "gpt-4o-mini"
     data = await request.get_data()
     jbody = json.loads(data.decode('utf-8'))
     messages = jbody.get('messages', [])
 
-    chatId = DICT.get('chatId', request, False)
-    print(chatId)
+    # chatId = DICT.get('chatId', request, False)
+    # print(chatId)
 
     """     GET MAPPED MODEL      """
-    modelIn = DICT.get('model', jbody, model)
-    modelIn_data = DICT.get(modelIn, RAI_MODs)
-    modelOut = DICT.get('openai', modelIn_data, 'gpt-4o-mini')
-    zip = DICT.get('zip', modelIn_data, '00000')
-    model = getMappedModel(modelIn)
+    request_in_model = DICT.get('model', jbody, 'gpt-4o-mini')
+    modelIn_data = DICT.get(request_in_model, RAI_MODs)
 
-    """     CACHE OUT    """
-    cache_queue = cache.get_queued_chat_data(modelIn)
+    mod_title = DICT.get('title', modelIn_data)
+    mod_ai_name = DICT.get('ai_name', modelIn_data)
+    mod_org_rep_type = DICT.get('org_rep_type', modelIn_data)
+    mod_collection = DICT.get('collection', modelIn_data)
+    # zip = DICT.get('zip', modelIn_data, '00000')
+    mod_specialty = DICT.get('org_specialty', modelIn_data)
+    mod_system_prompt_lambda = DICT.get('prompt', modelIn_data)(mod_ai_name, mod_title, mod_org_rep_type, mod_specialty)
+    mod_context_prompt_lambda = DICT.get('context_prompt', modelIn_data)
+    mod_openai_model = DICT.get('openai', modelIn_data, 'gpt-4o-mini')
+    mod_ollama_model = DICT.get('ollama', modelIn_data, 'llama3:latest')
+
+    """ TODO     CACHE OUT    """
+    # cache_queue = cache.get_queued_chat_data(modelIn)
 
     """     USER PROMPT INTERCEPTOR    """
     user_message = get_last_user_message(jbody)
     pre_user_messages = get_previous_user_messages(jbody)
-    ollama_prompt = f"""
-    1. Add keywords to add context to users questions.
-    2. Keywords should be based on youth soccer organizations and clubs.
-    3. If the question has enough context, just return it back unmodified.
-    4. Use previous messages accordingly.
-    
-    Examples: 
-    - If they are asking about a persons name, 'coach', 'staff' and other keywords should be added.
-    - "coach" = staff, employee, director
-    - "fee" = money, cost, costs, annual fees, fees, payment
-    - "field" = complex, fields, stadium, location
-    
-    PREVIOUS USER INPUTS/QUESTIONS FOR BETTER CONTEXT:
-    {reversed(pre_user_messages)}
-    
-    RESPONSE RULE: Only return the Users Input with keywords and nothing else.
-    """
+    ollama_prompt = mod_context_prompt_lambda(pre_user_messages)
 
-    ollama_request = await ollama_quick_generation(ollama_prompt, user_message)
+    ollama_request = await ollama_quick_generation(ollama_prompt, user_message, modelIn=mod_ollama_model)
     print(ollama_request)
     final_user_prompt = f"{user_message}\n{ollama_request}"
-    user_prompt = await interceptUserPrompt(modelIn=modelIn, user_message=final_user_prompt, debug=True)
+    user_prompt = await interceptUserPrompt(collection=mod_collection, user_message=final_user_prompt, debug=True)
     new_user_message = { 'role': 'user', 'content': user_prompt }
 
     """     SETUP MESSAGES FOR CHAT SEQUENCE   """
-    messages = setupMessagesForChatSequence(messages, modelIn, new_user_message)
+    messages = setupMessagesForChatSequence(mod_system_prompt_lambda, messages, new_user_message)
 
     """     GENERATE AI CHAT RESPONSE   """
-    ai_response = await openai_chat_generation(messages, debug=True)
+    ai_response = await openai_chat_generation(messages, modelIn=mod_openai_model, debug=True)
 
-    """     CACHE IN    """
-    cache.queue_chat_data(modelIn, ai_response)
+    """ TODO    CACHE IN    """
+    # cache.queue_chat_data(modelIn, ai_response)
 
     """     FOOTER MESSAGE     """
-    appended_message = RAI_FOOTER_MESSAGE(model, "")
+    appended_message = RAI_FOOTER_MESSAGE(mod_openai_model, "")
 
     """     PREPARE AND SEND FINAL RESPONSE     """
     appended_response = appender(response_message=ai_response, message_to_append=appended_message)
@@ -115,14 +106,14 @@ def cache_weather(zip):
 """ 
 GENERATE AI CHAT RESPONSE 
 """
-async def openai_chat_generation(messages:[], debug:bool=False):
+async def openai_chat_generation(messages:[], modelIn:str="gpt-4o-mini", debug:bool=False):
     """Asynchronously get chat completion from OpenAI API."""
     headers = {
         'Content-Type': 'application/json',
         'Authorization': f'Bearer {env("OPENAI_API_KEY")}',
     }
     data = {
-        'model': "gpt-4o-mini",
+        'model': modelIn,
         'messages': messages,
         'temperature': 0,
         'stream': False
@@ -161,14 +152,14 @@ async def ollama_chat_generation(messages:[], debug:bool=False):
                 print("--AI Response--")
                 print(assistant_message)
             return assistant_message
-async def ollama_quick_generation(system_prompt, user_prompt, debug:bool=False):
+async def ollama_quick_generation(system_prompt, user_prompt, modelIn:str="llama3:latest", debug:bool=False):
     """Asynchronously get chat completion from OpenAI API."""
     headers = {
         'Content-Type': 'application/json',
         'Authorization': f'Bearer {env("OPENAI_API_KEY")}',
     }
     data = {
-        'model': "llama3:latest",
+        'model': modelIn,
         "messages": [
             { "role": "system", "content": system_prompt },
             { "role": "user", "content": user_prompt }
@@ -190,12 +181,11 @@ async def ollama_quick_generation(system_prompt, user_prompt, debug:bool=False):
 """     
 SETUP MESSAGES FOR CHAT SEQUENCE   
 """
-def setupMessagesForChatSequence(messages, modelIn, new_user_message):
+def setupMessagesForChatSequence(system_prompt, messages, new_user_message):
     if len(messages) <= 1:
         Log.i("Creating New Message...")
-        new_system_prompt = getMappedPrompt(modelIn=modelIn)
         temp = [
-            {'role': 'system', 'content': new_system_prompt},
+            {'role': 'system', 'content': system_prompt},
             LIST.get(0, messages, new_user_message)
         ]
         messages = temp
@@ -214,18 +204,12 @@ async def search(user_message:str, collection_name:str):
 """     
 USER PROMPT INTERCEPTOR   
 """
-async def interceptUserPrompt(modelIn, user_message:str, debug:bool=False):
-    if str(modelIn) == "park-city:latest" or str(modelIn) == "park-city:assistant":
-        Log.i("Park-City Flow", modelIn)
-        collection = getMappedCollection(modelIn)
-        Log.i("Using Park-City Collection", collection)
-        results = await search(user_message, collection)
-    elif modelIn == 'ChromaDB:search':
+async def interceptUserPrompt(collection, user_message:str, debug:bool=False):
+    if collection == 'search':
         collection_name = extract_args(user_message, 1)
         results = await search(user_message, collection_name)
     else:
-        Log.i("Returning Generic SYS Prompt")
-        return "You are a useful assistant."
+        results = await search(user_message, collection)
     Log.i("Returning custom SYS Prompt.")
     if debug:
         user_prompt = rag.inject_into_system_prompt(user_message, docs=results)

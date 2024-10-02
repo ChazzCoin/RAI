@@ -30,7 +30,9 @@ class FileToChromaConverter(RAGWithChroma):
         self.add_documents(documents)
         print(f"Successfully imported {len(documents)} documents from {url} into ChromaDB.")
 
-
+    def create_documents_v2(self, text, file_path, topic):
+        documents = self.prepare_raw_text(text, os.path.basename(file_path), topic)
+        self.add_documents(documents)
 
     # Step 3: Create ChromaDB documents from the list of strings.
     def create_documents(self, text, file_path, topic:str=""):
@@ -59,7 +61,7 @@ class FileToChromaConverter(RAGWithChroma):
         if not text_content:
             print("No content to process.")
             return
-        self.create_documents(text_content, file_path, topic)
+        self.create_documents_v2(text_content, file_path, topic)
 
     def import_jsonl_file(self, id, file_path, collection_name, topic=""):
         """Imports a .jsonl file and adds its contents to ChromaDB."""
@@ -90,10 +92,17 @@ class FileToChromaConverter(RAGWithChroma):
             self.create_jsonl_documents(id=id, text=text_content, url=url, title=url, topic=topic)
 
     def import_directory(self, directory, collection_name, topic=""):
+        files = []
         for file_path in self.yield_file_paths(directory):
             if file_path.endswith(".DS_Store"):
                 continue
-            self.import_file(file_path, collection_name, topic)
+            elif file_path.endswith(".jsonl"):
+                self.import_jsonl_file('website', file_path, collection_name, topic)
+                files.append(file_path)
+            else:
+                self.import_file(file_path, collection_name, topic)
+                files.append(file_path)
+        print(f"Successfully imported {len(files)} files.")
 
     def yield_file_paths(self, directory):
         """Yield the full file path for each file in the given directory."""
@@ -103,17 +112,18 @@ class FileToChromaConverter(RAGWithChroma):
 
 
 if __name__ == '__main__':
-    ftoc = FileToChromaConverter(collection_name="parkcitysc")
-    # ftoc.delete_collection('parkcitysc-main')
+    ftoc = FileToChromaConverter(collection_name="parkcitysc-new")
+    ftoc.delete_collection('parkcitysc-new')
     time.sleep(1)
     # ftoc.import_jsonl_file(
     #     "pcsc_website",
     #     "/Users/chazzromeo/ChazzCoin/MedRefs/extractors/output/www_parkcitysoccer_org.jsonl",
     #     "parkcitysc"
     # )
-    ftoc.import_json_file(
-        "pcsc_website",
-        "/Users/chazzromeo/ChazzCoin/MedRefs/files/pending/park_city_webpages.json",
-        "parkcitysc"
-    )
-    # ftoc.import_directory("/Users/chazzromeo/Desktop/ParkCityTrainingData", 'parkcitysc-main')
+    # ftoc.import_json_file(
+    #     "pcsc_documents",
+    #     "/Users/chazzromeo/ChazzCoin/MedRefs/files/pending/park_city_webpages.json",
+    #     "parkcitysc-main"
+    # )
+    ftoc.import_directory("/Users/chazzromeo/Desktop/ParkCityTrainingData2", 'parkcitysc-new', 'general')
+    # ftoc.import_file("/Users/chazzromeo/Desktop/ParkCityTrainingData/Park City Soccer Club LTADM.pdf", 'parkcitysc-main', 'ltadm')

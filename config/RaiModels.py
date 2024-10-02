@@ -1,13 +1,22 @@
 from F import DICT
+from agents.prompts import context
 
+# REP_PARK_CITY = """
+# Your name is Bruno, Park City Soccer Club's Personal Customer Representative.
+# You are here to serve at the pleasure of the members of the soccer club.
+#
+# You are going to be a detailed and honest customer service representative who will answer questions based on information given to you.
+# You specialize in understanding youth soccer clubs, organizational structure, youth soccer parents, youth soccer coaches, youth soccer players.
+# If you do not know the answer based on information I give you, please just state you don't know.
+# """
 
-REP_PARK_CITY = """
-Your name is Bruno, Park City Soccer Club's Personal Customer Representative.
-You are here to serve at the pleasure of the members of the soccer club.
+SOCCER_PROMPT = lambda ai_name, org_name, org_rep_type, specialty: f"""
+Your name is {ai_name}, {org_name}'s {org_rep_type}.
+You are here to serve at the pleasure of the members of {org_name}.
 
 You are going to be a detailed and honest customer service representative who will answer questions based on information given to you.
-You specialize in understanding youth soccer clubs, organizational structure, youth soccer parents, youth soccer coaches, youth soccer players.
-If you do not know the answer based on information I give you, please just state you don't know.
+{specialty}
+GOLDEN RULE: If you do not know the answer based on information I give you, please just state you don't know.
 """
 
 
@@ -22,40 +31,34 @@ RAI_MODEL_MAP = {
 RAI_COLLECTION_MAP = {
     "llama3:latest": "documents",
     "gpt-4o-mini": "documents",
-    "park-city:latest" : "parkcitysc",
+    "park-city:latest" : "parkcitysc-new",
     "park-city:gpt4o": "parkcitysc",
 }
 
-RAI_PROMPT_MAP = {
-    "llama3:latest": "documents",
-    "gpt-4o-mini": "documents",
-    "park-city:latest" : REP_PARK_CITY,
-    "park-city:gpt4o": REP_PARK_CITY,
-}
+# RAI_PROMPT_MAP = {
+#     "llama3:latest": "documents",
+#     "gpt-4o-mini": "documents",
+#     "park-city:latest" : REP_PARK_CITY,
+#     "park-city:gpt4o": REP_PARK_CITY,
+# }
 
-def getMappedCollection(modelIn:str):
-    return DICT.get(modelIn, RAI_COLLECTION_MAP, "parkcitysc")
+# def getMappedCollection(modelIn:str):
+#     return DICT.get(modelIn, RAI_COLLECTION_MAP, "parkcitysc")
+#
+# def getMappedModel(modelIn:str):
+#     print("/api/chat", f"Model IN: {modelIn}")
+#     modelOut = DICT.get(modelIn, RAI_MODEL_MAP, "gpt-4o-mini")
+#     print("/api/chat", f"Model OUT: {modelOut}")
+#     return modelOut
 
-def getMappedModel(modelIn:str):
-    print("/api/chat", f"Model IN: {modelIn}")
-    modelOut = DICT.get(modelIn, RAI_MODEL_MAP, "gpt-4o-mini")
-    print("/api/chat", f"Model OUT: {modelOut}")
-    return modelOut
-
-def getMappedPrompt(modelIn:str):
-    return DICT.get(modelIn, RAI_PROMPT_MAP, REP_PARK_CITY)
+# def getMappedPrompt(modelIn:str):
+#     return DICT.get(modelIn, RAI_MODs, REP_PARK_CITY)
 
 
-RAI_MODELS = {
-    'models': [
+RAI_MODELS = {'models': [
         {
             'name': 'park-city:latest',
             'model': 'park-city:latest',
-            'zip':'84098',
-            'address': '',
-            'title': '',
-            'collection': 'parkcitysc',
-            'prompt': REP_PARK_CITY,
             'modified_at': '2024-07-02T06:32:47.913084094Z',
             'size': 177669289,
             'digest': 'c4ff0145029b23c94b81626b5cdd671a5c48140a3f8d972575efb9d145527581',
@@ -68,18 +71,20 @@ RAI_MODELS = {
                 'quantization_level': 'Q8_0'
             }
          },
-
+        {'name': 'ussf:latest', 'model': 'ussf:latest', 'modified_at': '2024-07-02T06:32:47.913084094Z',
+         'size': 177669289, 'digest': 'c4ff0145029bussf26b5cdd6743434343sdfsfefb9d145527581',
+         'details': {'parent_model': '', 'format': 'gguf', 'family': 'gpt2', 'families': ['gpt2'],
+                     'parameter_size': '163.04M', 'quantization_level': 'Q8_0'}},
         {'name': 'park-city:assistant', 'model': 'park-city:assistant', 'modified_at': '2024-07-02T06:32:47.913084094Z', 'size': 177669289, 'digest': 'c4ff0145029b23c94b81626b5cdd6743434343sdfsfefb9d145527581', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'gpt2', 'families': ['gpt2'], 'parameter_size': '163.04M', 'quantization_level': 'Q8_0'}},
         {'name': 'llama3:latest', 'model': 'llama3:latest', 'modified_at': '2024-06-29T06:01:38.340493962Z', 'size': 4661224676, 'digest': '365c0bd3c000a25d28ddbf732fe1c6add414de7275464c4e4d1c3b5fcb5d8ad1', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'llama', 'families': ['llama'], 'parameter_size': '8.0B', 'quantization_level': 'Q4_0'}},
         {'name': 'ChromaDB:search', 'model': 'ChromaDB:search', 'modified_at': '2024-06-29T06:01:38.340493962Z', 'size': 4661224676, 'digest': '365c0bd3c000a25d28dsearch1c6add414de7275464c4e4d1c3b5fcb5d8ad1', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'llama', 'families': ['llama'], 'parameter_size': '8.0B', 'quantization_level': 'Q4_0'}},
-        {'name': 'nous-hermes2-mixtral:8x7b', 'model': 'nous-hermes2-mixtral:8x7b', 'modified_at': '2024-06-29T06:24:46.894948698Z', 'size': 26442493141, 'digest': '599da8dce2c14e54737c51f9668961bbc3526674249d3850b0875638a3e5e268', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'llama', 'families': ['llama'], 'parameter_size': '47B', 'quantization_level': 'Q4_0'}},
-        {'name': 'sqlcoder:15b', 'model': 'sqlcoder:15b', 'modified_at': '2024-06-29T06:01:39.480494281Z', 'size': 8987630230, 'digest': '93bb0e8a904ff98bcc6fa5cf3b8e63dc69203772f4bc713f761c82684541d08d', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'starcoder', 'families': None, 'parameter_size': '15B', 'quantization_level': 'Q4_0'}},
-        {'name': 'phi3:medium', 'model': 'phi3:medium', 'modified_at': '2024-06-29T06:01:39.060494165Z', 'size': 7897126241, 'digest': '1e67dff39209b792d22a20f30ebabe679c64db83de91544693c4915b57e475aa', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'phi3', 'families': ['phi3'], 'parameter_size': '14.0B', 'quantization_level': 'F16'}},
-        {'name': 'codellama:34b', 'model': 'codellama:34b', 'modified_at': '2024-06-29T06:01:38.020493877Z', 'size': 19052049085, 'digest': '685be00e1532e01f795e04bc59c67bc292d9b1f80b5136d4fbdebe6830402132', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'llama', 'families': None, 'parameter_size': '34B', 'quantization_level': 'Q4_0'}},
-        {'name': 'llava:34b', 'model': 'llava:34b', 'modified_at': '2024-06-29T06:01:38.736494074Z', 'size': 20166497526, 'digest': '3d2d24f4667475bd28d515495b0dcc03b5a951be261a0babdb82087fc11620ee', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'llama', 'families': ['llama', 'clip'], 'parameter_size': '34B', 'quantization_level': 'Q4_0'}},
-        {'name': 'codellama:13b', 'model': 'codellama:13b', 'modified_at': '2024-06-29T06:01:37.620493765Z', 'size': 7365960935, 'digest': '9f438cb9cd581fc025612d27f7c1a6669ff83a8bb0ed86c94fcf4c5440555697', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'llama', 'families': None, 'parameter_size': '13B', 'quantization_level': 'Q4_0'}}
-            ]
-    }
+        # {'name': 'nous-hermes2-mixtral:8x7b', 'model': 'nous-hermes2-mixtral:8x7b', 'modified_at': '2024-06-29T06:24:46.894948698Z', 'size': 26442493141, 'digest': '599da8dce2c14e54737c51f9668961bbc3526674249d3850b0875638a3e5e268', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'llama', 'families': ['llama'], 'parameter_size': '47B', 'quantization_level': 'Q4_0'}},
+        # {'name': 'sqlcoder:15b', 'model': 'sqlcoder:15b', 'modified_at': '2024-06-29T06:01:39.480494281Z', 'size': 8987630230, 'digest': '93bb0e8a904ff98bcc6fa5cf3b8e63dc69203772f4bc713f761c82684541d08d', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'starcoder', 'families': None, 'parameter_size': '15B', 'quantization_level': 'Q4_0'}},
+        # {'name': 'phi3:medium', 'model': 'phi3:medium', 'modified_at': '2024-06-29T06:01:39.060494165Z', 'size': 7897126241, 'digest': '1e67dff39209b792d22a20f30ebabe679c64db83de91544693c4915b57e475aa', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'phi3', 'families': ['phi3'], 'parameter_size': '14.0B', 'quantization_level': 'F16'}},
+        # {'name': 'codellama:34b', 'model': 'codellama:34b', 'modified_at': '2024-06-29T06:01:38.020493877Z', 'size': 19052049085, 'digest': '685be00e1532e01f795e04bc59c67bc292d9b1f80b5136d4fbdebe6830402132', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'llama', 'families': None, 'parameter_size': '34B', 'quantization_level': 'Q4_0'}},
+        # {'name': 'llava:34b', 'model': 'llava:34b', 'modified_at': '2024-06-29T06:01:38.736494074Z', 'size': 20166497526, 'digest': '3d2d24f4667475bd28d515495b0dcc03b5a951be261a0babdb82087fc11620ee', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'llama', 'families': ['llama', 'clip'], 'parameter_size': '34B', 'quantization_level': 'Q4_0'}},
+        # {'name': 'codellama:13b', 'model': 'codellama:13b', 'modified_at': '2024-06-29T06:01:37.620493765Z', 'size': 7365960935, 'digest': '9f438cb9cd581fc025612d27f7c1a6669ff83a8bb0ed86c94fcf4c5440555697', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'llama', 'families': None, 'parameter_size': '13B', 'quantization_level': 'Q4_0'}}
+            ]}
 
 RAI_MODs = {
     'park-city:latest': {
@@ -88,9 +93,18 @@ RAI_MODs = {
             'zip':'84098',
             'address': '',
             'title': 'Park City Soccer Club',
+            'initials': 'PCSC',
+            'ai_name': 'Bruno',
+            'org_rep_type': 'Personal Customer Representative',
+            'collection': 'parkcitysc-new',
+            'prompt': SOCCER_PROMPT,
+            'context_prompt': context.SOCCER_CLUB_CONTEXT_EXPANDER,
             'openai': 'gpt-4o-mini',
             'ollama': 'llama3:latest',
             'org_type': 'Soccer Club',
+            'org_specialty': f"""
+                You specialize in understanding youth soccer clubs, organizational structure, youth soccer parents, youth soccer coaches, youth soccer players.
+            """,
             'modified_at': '2024-07-02T06:32:47.913084094Z',
             'size': 177669289,
             'digest': 'c4ff0145029b23c94b81626b5cdd671a5c48140a3f8d972575efb9d145527581',
@@ -103,10 +117,109 @@ RAI_MODs = {
                 'quantization_level': 'Q8_0'
             }
          },
-    'park-city:assistant': {'name': 'park-city:assistant', 'model': 'park-city:assistant', 'modified_at': '2024-07-02T06:32:47.913084094Z', 'size': 177669289, 'digest': 'c4ff0145029b23c94b81626b5cdd6743434343sdfsfefb9d145527581', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'gpt2', 'families': ['gpt2'], 'parameter_size': '163.04M', 'quantization_level': 'Q8_0'}},
-    'llama3:latest': {'name': 'llama3:latest', 'model': 'llama3:latest', 'modified_at': '2024-06-29T06:01:38.340493962Z', 'size': 4661224676, 'digest': '365c0bd3c000a25d28ddbf732fe1c6add414de7275464c4e4d1c3b5fcb5d8ad1', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'llama', 'families': ['llama'], 'parameter_size': '8.0B', 'quantization_level': 'Q4_0'}},
-    'ChromaDB:search': {'name': 'ChromaDB:search', 'model': 'ChromaDB:search', 'modified_at': '2024-06-29T06:01:38.340493962Z', 'size': 4661224676, 'digest': '365c0bd3c000a25d28dsearch1c6add414de7275464c4e4d1c3b5fcb5d8ad1', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'llama', 'families': ['llama'], 'parameter_size': '8.0B', 'quantization_level': 'Q4_0'}},
-    'sqlcoder:15b': {'name': 'sqlcoder:15b', 'model': 'sqlcoder:15b', 'modified_at': '2024-06-29T06:01:39.480494281Z', 'size': 8987630230, 'digest': '93bb0e8a904ff98bcc6fa5cf3b8e63dc69203772f4bc713f761c82684541d08d', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'starcoder', 'families': None, 'parameter_size': '15B', 'quantization_level': 'Q4_0'}},
+    'park-city:assistant': {
+        'name': 'park-city:assistant',
+        'model': 'park-city:assistant',
+        'zip':'84098',
+        'address': '',
+        'title': 'Park City Soccer Club',
+        'initials': 'PCSC',
+        'ai_name': 'Bruno',
+        'org_rep_type': 'Personal Customer Representative',
+        'collection': 'parkcitysc-new',
+        'prompt': SOCCER_PROMPT,
+        'context_prompt': context.SOCCER_CLUB_CONTEXT_EXPANDER,
+        'openai': 'gpt-4o-mini',
+        'ollama': 'llama3:latest',
+        'org_type': 'Soccer Club',
+        'org_specialty': f"""
+            You specialize in understanding youth soccer clubs, organizational structure, youth soccer parents, youth soccer coaches, youth soccer players.
+        """,
+        'modified_at': '2024-07-02T06:32:47.913084094Z',
+        'size': 177669289,
+        'digest': 'c4ff0145029b23c94b81626b5cdd6743434343sdfsfefb9d145527581',
+        'details': {'parent_model': '', 'format': 'gguf', 'family': 'gpt2', 'families': ['gpt2'], 'parameter_size': '163.04M', 'quantization_level': 'Q8_0'}},
+    'ussf:latest': {
+        'name': 'ussf:latest',
+        'model': 'ussf:latest',
+        'zip':'',
+        'address': '',
+        'title': 'United States Soccer Federation',
+        'initials': 'USSF',
+        'ai_name': 'Kevin',
+        'org_rep_type': 'Personal Knowledge Base Master',
+        'collection': 'ussf-main',
+        'prompt': SOCCER_PROMPT,
+        'context_prompt': context.SOCCER_CLUB_CONTEXT_EXPANDER,
+        'openai': 'gpt-4o-mini',
+        'ollama': 'llama3:latest',
+        'org_type': 'Governing Body of Soccer',
+        'org_specialty': f"""
+            Governing Body of American Soccer
+            You specialize in understanding soccer in the united states of america as the national governing body.
+            From Players to Parents and Coaches at any level or age, you understand the rules and the ussf principles.
+        """,
+        'modified_at': '2024-07-02T06:32:47.913084094Z',
+        'size': 177669289,
+        'digest': 'c4ff0145029b2cdd6743434343sdfsfefb9d145527581',
+        'details': {'parent_model': '', 'format': 'gguf', 'family': 'gpt2', 'families': ['gpt2'], 'parameter_size': '163.04M', 'quantization_level': 'Q8_0'}},
+    'llama3:latest': {
+        'name': 'llama3:latest',
+        'model': 'llama3:latest',
+        'zip':'84098',
+        'address': '',
+        'title': 'Park City Soccer Club',
+        'initials': 'PCSC',
+        'ai_name': 'Bruno',
+        'org_rep_type': 'Personal Customer Representative',
+        'collection': 'parkcitysc-new',
+        'prompt': SOCCER_PROMPT,
+        'context_prompt': context.SOCCER_CLUB_CONTEXT_EXPANDER,
+        'openai': 'gpt-4o-mini',
+        'ollama': 'llama3:latest',
+        'org_type': 'Soccer Club',
+        'modified_at': '2024-06-29T06:01:38.340493962Z',
+        'size': 4661224676,
+        'digest': '365c0bd3c000a25d28ddbf732fe1c6add414de7275464c4e4d1c3b5fcb5d8ad1',
+        'details': {'parent_model': '', 'format': 'gguf', 'family': 'llama', 'families': ['llama'], 'parameter_size': '8.0B', 'quantization_level': 'Q4_0'}},
+    'ChromaDB:search': {
+        'name': 'ChromaDB:search',
+        'model': 'ChromaDB:search',
+        'zip': '84098',
+        'address': '',
+        'title': 'Park City Soccer Club',
+        'initials': 'PCSC',
+        'ai_name': 'Bruno',
+        'org_rep_type': 'Personal Customer Representative',
+        'collection': 'parkcitysc-new',
+        'prompt': SOCCER_PROMPT,
+        'context_prompt': context.SOCCER_CLUB_CONTEXT_EXPANDER,
+        'openai': 'gpt-4o-mini',
+        'ollama': 'llama3:latest',
+        'org_type': 'Soccer Club',
+        'modified_at': '2024-06-29T06:01:38.340493962Z',
+        'size': 4661224676,
+        'digest': '365c0bd3c000a25d28dsearch1c6add414de7275464c4e4d1c3b5fcb5d8ad1',
+        'details': {'parent_model': '', 'format': 'gguf', 'family': 'llama', 'families': ['llama'], 'parameter_size': '8.0B', 'quantization_level': 'Q4_0'}},
+    'sqlcoder:15b': {
+        'name': 'sqlcoder:15b',
+        'model': 'sqlcoder:15b',
+        'zip':'84098',
+        'address': '',
+        'title': 'Park City Soccer Club',
+        'initials': 'PCSC',
+        'ai_name': 'Bruno',
+        'org_rep_type': 'Personal Customer Representative',
+        'collection': 'parkcitysc-new',
+        'prompt': SOCCER_PROMPT,
+        'context_prompt': context.SOCCER_CLUB_CONTEXT_EXPANDER,
+        'openai': 'gpt-4o-mini',
+        'ollama': 'llama3:latest',
+        'org_type': 'Soccer Club',
+        'modified_at': '2024-06-29T06:01:39.480494281Z',
+        'size': 8987630230,
+        'digest': '93bb0e8a904ff98bcc6fa5cf3b8e63dc69203772f4bc713f761c82684541d08d',
+        'details': {'parent_model': '', 'format': 'gguf', 'family': 'starcoder', 'families': None, 'parameter_size': '15B', 'quantization_level': 'Q4_0'}},
 }
 
 MODEL_MAP = {
