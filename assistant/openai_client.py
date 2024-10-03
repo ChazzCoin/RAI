@@ -20,7 +20,7 @@ embedding_model = os.getenv("DEFAULT_OPENAI_EMBEDDING_MODEL")
 
 
 def getClient():
-    return OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    return OpenAI(api_key=os.getenv("OPENAI_API_KEY"), timeout=10, max_retries=3)
 
 async def get_embeddings(text):
     """Asynchronously get embeddings from OpenAI API."""
@@ -67,11 +67,16 @@ def truncate_text(text, max_length):
     return text[:max_length] if len(text) > max_length else text
 def generate_embeddings(text):
     print('Embedding Model:', embedding_model)
-    response = getClient().embeddings.create(
-        input=text,
-        model=embedding_model
-    )
-    return response.data[0].embedding
+    try:
+        response = getClient().embeddings.create(
+            input=text,
+            model=embedding_model
+        )
+        return response.data[0].embedding
+    except Exception as e:
+        print(f"Failed to embed text with openai: {e}")
+        return []
+
 def chat_request(system: str, user: str, model: str = default_model, content_only: bool = True):
     print(f"Model: {model}")
     response = getClient().chat.completions.create(

@@ -4,6 +4,7 @@ from pdfminer.layout import LAParams
 from pdfminer.pdfpage import PDFPage
 from io import StringIO
 from dataset import TextCleaner
+# from fitz import tools
 # import fitz
 from F import OS
 
@@ -34,14 +35,14 @@ class FPDF:
         for file_path in self.file_paths:
             try:
                 text = ""
-                textOne = self.extract_text_from_pdf_v2(file_path)
-                textTwo = self.extract_text_from_pdf(file_path)
-                if textOne != "":
-                    text = textOne
-                elif textTwo != "":
-                    text = textTwo
-                else:
-                    continue
+                # textOne = self.extract_text_from_pdf_v2(file_path)
+                text = self.extract_text_from_pdf(file_path)
+                # if textOne != "":
+                #     text = textOne
+                # elif textTwo != "":
+                #     text = textTwo
+                # else:
+                #     continue
                 sents = self.post_process_text(text)
                 cleaned = []
                 for s in sents:
@@ -64,7 +65,8 @@ class FPDF:
         text_out = TextCleaner.to_sentences(text_in)
         return text_out
 
-    def extract_text_from_pdf(self, path):
+    @staticmethod
+    def extract_text_from_pdf(path):
         rsrcmgr = PDFResourceManager()
         retstr = StringIO()
         laparams = LAParams()
@@ -98,7 +100,8 @@ class FPDF:
     #     """
     #     try:
     #         # Open the PDF file
-    #         pdf_document = fitz.open(pdf_path)
+    #         tools.run_parser(pdf_path)
+    #         pdf_document = tools.open(pdf_path)
     #
     #         # Initialize an empty string to store the text
     #         extracted_text = ""

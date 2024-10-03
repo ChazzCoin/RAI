@@ -1,14 +1,4 @@
-from F import DICT
 from agents.prompts import context
-
-# REP_PARK_CITY = """
-# Your name is Bruno, Park City Soccer Club's Personal Customer Representative.
-# You are here to serve at the pleasure of the members of the soccer club.
-#
-# You are going to be a detailed and honest customer service representative who will answer questions based on information given to you.
-# You specialize in understanding youth soccer clubs, organizational structure, youth soccer parents, youth soccer coaches, youth soccer players.
-# If you do not know the answer based on information I give you, please just state you don't know.
-# """
 
 SOCCER_PROMPT = lambda ai_name, org_name, org_rep_type, specialty: f"""
 Your name is {ai_name}, {org_name}'s {org_rep_type}.
@@ -20,41 +10,7 @@ GOLDEN RULE: If you do not know the answer based on information I give you, plea
 """
 
 
-RAI_MODEL_MAP = {
-    "llama3:latest": "gpt-4o-mini",
-    "ChromaDB:search": "gpt-4o-mini",
-    "gpt-4o-mini": "gpt-4o-mini",
-    "park-city:assistant" : "ft:gpt-4o-mini-2024-07-18:personal:pcsc-canary-1:A5Q7aqpL:ckpt-step-323",
-    "park-city:latest": "gpt-4o-mini",
-}
-
-RAI_COLLECTION_MAP = {
-    "llama3:latest": "documents",
-    "gpt-4o-mini": "documents",
-    "park-city:latest" : "parkcitysc-new",
-    "park-city:gpt4o": "parkcitysc",
-}
-
-# RAI_PROMPT_MAP = {
-#     "llama3:latest": "documents",
-#     "gpt-4o-mini": "documents",
-#     "park-city:latest" : REP_PARK_CITY,
-#     "park-city:gpt4o": REP_PARK_CITY,
-# }
-
-# def getMappedCollection(modelIn:str):
-#     return DICT.get(modelIn, RAI_COLLECTION_MAP, "parkcitysc")
-#
-# def getMappedModel(modelIn:str):
-#     print("/api/chat", f"Model IN: {modelIn}")
-#     modelOut = DICT.get(modelIn, RAI_MODEL_MAP, "gpt-4o-mini")
-#     print("/api/chat", f"Model OUT: {modelOut}")
-#     return modelOut
-
-# def getMappedPrompt(modelIn:str):
-#     return DICT.get(modelIn, RAI_MODs, REP_PARK_CITY)
-
-
+""" -- YOU MUST ADD THE MODEL HERE FOR IT TO SHOW UP IN OPEN WEBUI -- """
 RAI_MODELS = {'models': [
         {
             'name': 'park-city:latest',
@@ -86,6 +42,8 @@ RAI_MODELS = {'models': [
         # {'name': 'codellama:13b', 'model': 'codellama:13b', 'modified_at': '2024-06-29T06:01:37.620493765Z', 'size': 7365960935, 'digest': '9f438cb9cd581fc025612d27f7c1a6669ff83a8bb0ed86c94fcf4c5440555697', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'llama', 'families': None, 'parameter_size': '13B', 'quantization_level': 'Q4_0'}}
             ]}
 
+
+""" -- YOU MUST ADD THE MODEL HERE FOR IT TO 'MOLD' TO YOUR CONFIGURATION -- """
 RAI_MODs = {
     'park-city:latest': {
             'name': 'park-city:latest',
@@ -158,6 +116,8 @@ RAI_MODs = {
             Governing Body of American Soccer
             You specialize in understanding soccer in the united states of america as the national governing body.
             From Players to Parents and Coaches at any level or age, you understand the rules and the ussf principles.
+            SPECIAL RULE 1: When forming the response from the knowledge base, prioritize and focus on top main level principles then sub lower level principles next. 
+            SPECIAL RULE 2: Stick to copying the knowledge base directly instead of summarizing. 
         """,
         'modified_at': '2024-07-02T06:32:47.913084094Z',
         'size': 177669289,
@@ -168,11 +128,11 @@ RAI_MODs = {
         'model': 'llama3:latest',
         'zip':'84098',
         'address': '',
-        'title': 'Park City Soccer Club',
-        'initials': 'PCSC',
-        'ai_name': 'Bruno',
-        'org_rep_type': 'Personal Customer Representative',
-        'collection': 'parkcitysc-new',
+        'title': '',
+        'initials': '',
+        'ai_name': '',
+        'org_rep_type': '',
+        'collection': 'none',
         'prompt': SOCCER_PROMPT,
         'context_prompt': context.SOCCER_CLUB_CONTEXT_EXPANDER,
         'openai': 'gpt-4o-mini',
@@ -220,9 +180,4 @@ RAI_MODs = {
         'size': 8987630230,
         'digest': '93bb0e8a904ff98bcc6fa5cf3b8e63dc69203772f4bc713f761c82684541d08d',
         'details': {'parent_model': '', 'format': 'gguf', 'family': 'starcoder', 'families': None, 'parameter_size': '15B', 'quantization_level': 'Q4_0'}},
-}
-
-MODEL_MAP = {
-    "llama3:latest": "gpt-4o-mini",
-    "park-city:latest" : "ft:gpt-4o-mini-2024-07-18:personal:pcsc-canary-1:A5Q7aqpL:ckpt-step-323"
 }

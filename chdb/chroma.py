@@ -68,7 +68,7 @@ class ChromaDocument:
         }
 
 class ChromaInstance:
-    chroma_client: chromadb.Client
+    chroma_client: chromadb.HttpClient
     collection: chromadb.Collection
 
     def __init__(self, collection_name:str=None, persistent:bool=True):
@@ -81,23 +81,16 @@ class ChromaInstance:
                     print(f"File: {item}")
                 elif os.path.isdir(item_path):
                     print(f"Directory: {item}")
-            self.chroma_client = chromadb.Client(Settings(
-                chroma_server_host=os.getenv("DEFAULT_CHROMA_SERVER_HOST"),
-                chroma_server_http_port=os.getenv("DEFAULT_CHROMA_SERVER_PORT"),
-                # persist_directory=f"/python-docker/chdb/chroma",
-                persist_directory=f"/Users/chazzromeo/ChazzCoin/MedRefs/chdb/chroma",
-                is_persistent=persistent,
-            ))
-
-            print(self.chroma_client.get_settings().persist_directory)
-            if collection_name:
-                self.set_collection(collection_name)
-            else:
-                self.set_collection(os.getenv("DEFAULT_CHROMA_COLLECTION"))
+            self.chroma_client = chromadb.HttpClient(
+                host=os.getenv("DEFAULT_CHROMA_SERVER_HOST"),
+                port=int(os.getenv("DEFAULT_CHROMA_SERVER_PORT"))
+            )
+            print(self.chroma_client)
         except Exception as e:
             print(f"Failed to initialize ChromaInstance: {e}")
             raise e
-
+    async def getClient(self):
+        self.chroma_client = await chromadb.AsyncHttpClient(host='localhost', port=8000)
     def set_collection(self, collection_name: str):
         try:
             self.collection = self.chroma_client.get_or_create_collection(name=collection_name)
@@ -113,11 +106,12 @@ class ChromaInstance:
         embeddings = openai.generate_embeddings(cleaned_text)
         return embeddings
 
-    def chromadb_query_wrapper(self, embedding):
+    def chromadb_query_wrapper(self, embedding, collection):
         """Wrapper function to query ChromaDB synchronously."""
-        return self.collection.query(
+        collect = self.chroma_client.get_or_create_collection(collection)
+        return collect.query(
             query_embeddings=[embedding],
-            n_results=20
+            n_results=25
         )
 
     async def query_chromadb(self, embedding, collection_name:str=None):
@@ -129,17 +123,18 @@ class ChromaInstance:
         results = await loop.run_in_executor(
             None,
             self.chromadb_query_wrapper,
-            embedding
+            embedding, collection_name
         )
         print(f"Query Results: {str(results)}")
         return results
 
-    def query(self, user_input: str, n_results: int = 3, debug: bool = True):
+    def query(self, collection, user_input: str, n_results: int = 3, debug: bool = True):
         # Generate embedding for the user input using OpenAI embeddings
         user_embedding = self.base_embedding(user_input)
         # Query ChromaDB for similar documents
-        print(self.collection.name)
-        results = self.collection.query(
+        print(f"Query ChromaDB: {self.collection.name}")
+        collect = self.chroma_client.get_or_create_collection(collection)
+        results = collect.query(
             query_embeddings=[user_embedding],
             n_results=n_results
         )
@@ -207,26 +202,27 @@ class ChromaInstance:
             raise e
 
     """ Base Add/Insert Function """
-    def add_chroma_documents(self, *documents: ChromaDocument) -> None:
+    def add_chroma_documents(self, collection, *documents: ChromaDocument) -> None:
         for doc in documents:
             # Generate embeddings using OpenAI
             embeddings = self.base_embedding(doc.text)
             # Add the embeddings and document to the ChromaDB collection
-            self.__base_insert(doc.toJson(embeddings))
+            self.__base_insert(collection, doc.toJson(embeddings))
         print(f"Added {len(documents)} documents to ChromaDB.")
 
-    def add_documents(self, documents: List[Dict[str, str]]) -> None:
+    def add_documents(self, collection, documents: List[Dict[str, str]]) -> None:
         for doc in documents:
             # Generate embeddings using OpenAI
             embeddings = self.base_embedding(doc['text'])
             document = DOCUMENT_TEMPLATE(doc['id'], doc['text'], doc.get('metadata', {}), embeddings)
             # Add the embeddings and document to the ChromaDB collection
-            self.__base_insert(document)
+            self.__base_insert(collection, document)
         print(f"Added {len(documents)} documents to ChromaDB.")
 
-    def __base_insert(self, document: dict):
+    def __base_insert(self, collection, document: dict):
         try:
             self.__insert(
+                collection=collection,
                 doc_id=document.get("id"),
                 doc_text=document.get("text"),
                 metadata=document.get("metadata"),
@@ -237,10 +233,11 @@ class ChromaInstance:
             print(f"Document format error: missing {e}")
             raise e
 
-    def __insert(self, doc_id: str, doc_text: str, metadata: dict, embeddings: list = None):
+    def __insert(self, collection, doc_id: str, doc_text: str, metadata: dict, embeddings: list = None):
         try:
             # Insert document with optional embeddings
-            self.collection.add(
+            collect = self.chroma_client.get_collection(collection)
+            collect.add(
                 documents=[doc_text],
                 metadatas=[metadata],
                 ids=[doc_id],
@@ -267,10 +264,11 @@ class ChromaInstance:
             LOG.e(f"Failed to retrieve documents from collection: {e}")
             raise e
 
-    def get_all_documents(self):
+    def get_all_documents(self, collection):
         try:
             # Retrieve all documents from the collection
-            results = self.collection.get()
+            collect = self.chroma_client.get_collection(name=collection)
+            results = collect.get()
             # Check if any documents were found
             if results and 'documents' in results:
                 LOG.s(f"Retrieved {len(results['documents'])} documents from the collection.")
@@ -324,6 +322,7 @@ class ChromaInstance:
             raise e
 
 if __name__ == '__main__':
-    chroma = ChromaInstance(collection_name="neuro")
-    # print(chroma.query("Who are the coaching staff?"))
-    print(chroma.get_all_documents())
+    chroma = ChromaInstance(collection_name="parkcitysc-new")
+    # print(chroma.query("parkcitysc-new", "Quinns Field D 2024-08-12"))
+    print(chroma.get_all_documents("parkcitysc-new"))
+    # print(chroma.chroma_client.list_collections())

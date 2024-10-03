@@ -75,7 +75,7 @@ class RAGWithChroma(ChromaInstance):
             raise ValueError("The lengths of 'documents', 'metadatas', and 'distances' lists do not match.")
 
     @staticmethod
-    def inject_into_system_prompt(user_message:str, docs, text:str=None) -> str:
+    def inject_into_system_prompt(user_message:str, specialty:str, docs, text:str=None) -> str:
         context = "" if text is None else text
         # Create a context from the retrieved documents
         # meta = DICT.get('metadatas', metadata, None)
@@ -91,13 +91,17 @@ class RAGWithChroma(ChromaInstance):
         Knowledge Base:
         {context}
 
-        Rules:
+        General Rules:
         1. Based on the knowledge base above, answer the following question(s) and also attach the source url for any information you return.
         2. If you do not know the answer, do not try to make something up, simply say you do not know.
         3. You will cite any sources you used at the bottom of the message for reference.
         4. Format the response in a human-friendly way to read and understand.
         
-        Question/Request: {user_message}
+        User Rules:
+        {specialty}
+        
+        User Prompt:
+        {user_message}
         """
         return system_prompt
 
@@ -141,14 +145,14 @@ def extract_page_extension(url: str) -> str:
 
 # Usage Example
 if __name__ == "__main__":
-    collect = "parkcitysc"
+    collect = "parkcitysc-new"
     rag_system = RAGWithChroma(collection_name=collect)
     # query = "Tell me about the futures program at park city soccer club..."
     # query = "What is the core philosophy of park citys competitive program?"
     query = "Joel person"
     # query = "What tournaments does the club host? What are their names?"
     # query = "How do I register my child for tryouts?"
-    print(rag_system.get_all_documents())
-    print(rag_system.query(query))
+    print(rag_system.get_all_documents(collection=collect))
+    # print(rag_system.query(collection=collect, user_input=query))
     # all_docs = rag_system.query(user_input=query, debug=True)
     # answer = rag_system.generate_answer(query)

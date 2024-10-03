@@ -12,7 +12,7 @@ from dataset.intake.Jsonr import read_jsonl_file
 class FileToChromaConverter(RAGWithChroma):
     character_limit = 1500
 
-    def create_jsonl_documents(self, id, text, url, title, topic):
+    def __create_jsonl_documents(self, collection, id, text, url, title, topic):
         chunks = TextCleaner.split_string_by_limit(text, char_limit=self.character_limit)
         documents = []
         for i, chunk in enumerate(chunks):
@@ -27,15 +27,15 @@ class FileToChromaConverter(RAGWithChroma):
                 }
             }
             documents.append(doc)
-        self.add_documents(documents)
+        self.add_documents(collection, documents)
         print(f"Successfully imported {len(documents)} documents from {url} into ChromaDB.")
 
-    def create_documents_v2(self, text, file_path, topic):
+    def __create_documents_v2(self, collection, text, file_path, topic):
         documents = self.prepare_raw_text(text, os.path.basename(file_path), topic)
-        self.add_documents(documents)
+        self.add_documents(collection, documents)
 
     # Step 3: Create ChromaDB documents from the list of strings.
-    def create_documents(self, text, file_path, topic:str=""):
+    def __create_documents(self, collection, text, file_path, topic:str=""):
         chunks = TextCleaner.split_string_by_limit(text, char_limit=self.character_limit)
         documents = []
         for i, chunk in enumerate(chunks):
@@ -50,7 +50,7 @@ class FileToChromaConverter(RAGWithChroma):
                 }
             }
             documents.append(doc)
-        self.add_documents(documents)
+        self.add_documents(collection, documents)
         print(f"Successfully imported {len(documents)} documents from {file_path} into ChromaDB.")
 
     def import_file(self, file_path, collection_name, topic=""):
@@ -61,7 +61,7 @@ class FileToChromaConverter(RAGWithChroma):
         if not text_content:
             print("No content to process.")
             return
-        self.create_documents_v2(text_content, file_path, topic)
+        self.__create_documents(collection_name, text_content, file_path, topic)
 
     def import_jsonl_file(self, id, file_path, collection_name, topic=""):
         """Imports a .jsonl file and adds its contents to ChromaDB."""
@@ -75,25 +75,25 @@ class FileToChromaConverter(RAGWithChroma):
             if not text_content:
                 print("No content to process.")
                 return
-            self.create_jsonl_documents(id=id, text=text_content, url=url, title=title, topic=topic)
+            self.__create_jsonl_documents(collection_name, id=id, text=text_content, url=url, title=title, topic=topic)
 
-    def import_json_file(self, id, file_path, collection_name, topic=""):
-        """Imports a .jsonl file and adds its contents to ChromaDB."""
-        self.set_collection(collection_name)
-        # Step 6: Call each inner function step by step.
-        from files.open import DataLoader
-        objs = DataLoader(data_directory="/Users/chazzromeo/ChazzCoin/MedRefs/files/pending").load_json("park_city_webpages")
-        for obj in objs.keys():
-            url = obj
-            text_content = objs[obj]
-            if not text_content:
-                print("No content to process.")
-                return
-            self.create_jsonl_documents(id=id, text=text_content, url=url, title=url, topic=topic)
+    # def import_json_file(self, id, file_path, collection_name, topic=""):
+    #     """Imports a .jsonl file and adds its contents to ChromaDB."""
+    #     self.set_collection(collection_name)
+    #     # Step 6: Call each inner function step by step.
+    #     from files.open import DataLoader
+    #     objs = DataLoader(data_directory="/Users/chazzromeo/ChazzCoin/MedRefs/files/pending").load_json("park_city_webpages")
+    #     for obj in objs.keys():
+    #         url = obj
+    #         text_content = objs[obj]
+    #         if not text_content:
+    #             print("No content to process.")
+    #             return
+    #         self.__create_jsonl_documents(id=id, text=text_content, url=url, title=url, topic=topic)
 
     def import_directory(self, directory, collection_name, topic=""):
         files = []
-        for file_path in self.yield_file_paths(directory):
+        for file_path in self.__yield_file_paths(directory):
             if file_path.endswith(".DS_Store"):
                 continue
             elif file_path.endswith(".jsonl"):
@@ -102,9 +102,10 @@ class FileToChromaConverter(RAGWithChroma):
             else:
                 self.import_file(file_path, collection_name, topic)
                 files.append(file_path)
+            time.sleep(1)
         print(f"Successfully imported {len(files)} files.")
 
-    def yield_file_paths(self, directory):
+    def __yield_file_paths(self, directory):
         """Yield the full file path for each file in the given directory."""
         for root, dirs, files in os.walk(directory):
             for file in files:
@@ -112,18 +113,11 @@ class FileToChromaConverter(RAGWithChroma):
 
 
 if __name__ == '__main__':
-    ftoc = FileToChromaConverter(collection_name="parkcitysc-new")
-    ftoc.delete_collection('parkcitysc-new')
+    from config.RaiModels import RAI_MODs
+    collection = RAI_MODs['park-city:latest']['collection']
+    ftoc = FileToChromaConverter(collection_name=collection)
+    # ftoc.delete_collection(collection)
     time.sleep(1)
-    # ftoc.import_jsonl_file(
-    #     "pcsc_website",
-    #     "/Users/chazzromeo/ChazzCoin/MedRefs/extractors/output/www_parkcitysoccer_org.jsonl",
-    #     "parkcitysc"
-    # )
-    # ftoc.import_json_file(
-    #     "pcsc_documents",
-    #     "/Users/chazzromeo/ChazzCoin/MedRefs/files/pending/park_city_webpages.json",
-    #     "parkcitysc-main"
-    # )
-    ftoc.import_directory("/Users/chazzromeo/Desktop/ParkCityTrainingData2", 'parkcitysc-new', 'general')
-    # ftoc.import_file("/Users/chazzromeo/Desktop/ParkCityTrainingData/Park City Soccer Club LTADM.pdf", 'parkcitysc-main', 'ltadm')
+
+    ftoc.import_directory("/Users/chazzromeo/Desktop/ParkCityTrainingData", collection, 'soccer club general info')
+    # ftoc.import_file("/Users/chazzromeo/Desktop/ParkCityTrainingData", collection, 'soccer club general info')

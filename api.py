@@ -1,5 +1,6 @@
 #!/bin/bash
 import asyncio
+import base64
 import json
 import os.path
 from concurrent.futures import ThreadPoolExecutor
@@ -27,69 +28,93 @@ executor = ThreadPoolExecutor(max_workers=1)
 
 IMAGE_FOLDER = f"{os.path.dirname(__file__)}/files/images"
 
-RAI_VERSION = "0.3.0:hypercorn"
+RAI_VERSION = "0.4.0:hypercorn"
 RAI_FOOTER_MESSAGE = lambda model, text: f"""\n
 {text}\n
 | Rai Youth Sports Chat | AI Model: {model} | API Version: {RAI_VERSION} |
 """
+
+def decode_and_save_image(encoded_image):
+    image_data = base64.b64decode(encoded_image)
+    # Write the binary data to a file
+    with open('/Users/chazzromeo/Desktop/chat_image.png', 'wb') as f:
+        f.write(image_data)
+    print('Image successfully saved as output_image.png')
+
 
 @app.route('/api/chat', methods=['POST'])
 async def chat_completion():
 
     """     PARSE REQUEST IN    """
     data = await request.get_data()
-    jbody = json.loads(data.decode('utf-8'))
-    messages = jbody.get('messages', [])
-
+    jbody: dict = json.loads(data.decode('utf-8'))
+    messages: list = jbody.get('messages', [])
     # chatId = DICT.get('chatId', request, False)
     # print(chatId)
+    mes = "Thinking..."
+    # for i in range(5):
+    #     await asyncio.sleep(1)  # Simulate delay or processing time
+    #     yield f"\n{json.dumps(to_chat_response(message=mes))}\n"
 
     """     GET MAPPED MODEL      """
-    request_in_model = DICT.get('model', jbody, 'gpt-4o-mini')
-    modelIn_data = DICT.get(request_in_model, RAI_MODs)
+    request_in_model: str = DICT.get('model', jbody, 'gpt-4o-mini')
+    modelIn_data: dict = DICT.get(request_in_model, RAI_MODs)
 
-    mod_title = DICT.get('title', modelIn_data)
-    mod_ai_name = DICT.get('ai_name', modelIn_data)
-    mod_org_rep_type = DICT.get('org_rep_type', modelIn_data)
-    mod_collection = DICT.get('collection', modelIn_data)
+    mod_title: str = DICT.get('title', modelIn_data)
+    mod_ai_name: str = DICT.get('ai_name', modelIn_data)
+    mod_org_rep_type: str = DICT.get('org_rep_type', modelIn_data)
+    mod_collection: str = DICT.get('collection', modelIn_data, 'none')
     # zip = DICT.get('zip', modelIn_data, '00000')
-    mod_specialty = DICT.get('org_specialty', modelIn_data)
+    mod_specialty: str = DICT.get('org_specialty', modelIn_data)
     mod_system_prompt_lambda = DICT.get('prompt', modelIn_data)(mod_ai_name, mod_title, mod_org_rep_type, mod_specialty)
     mod_context_prompt_lambda = DICT.get('context_prompt', modelIn_data)
-    mod_openai_model = DICT.get('openai', modelIn_data, 'gpt-4o-mini')
-    mod_ollama_model = DICT.get('ollama', modelIn_data, 'llama3:latest')
+    mod_openai_model: str = DICT.get('openai', modelIn_data, 'gpt-4o-mini')
+    mod_ollama_model: str = DICT.get('ollama', modelIn_data, 'llama3:latest')
 
     """ TODO     CACHE OUT    """
     # cache_queue = cache.get_queued_chat_data(modelIn)
 
-    """     USER PROMPT INTERCEPTOR    """
-    user_message = get_last_user_message(jbody)
-    pre_user_messages = get_previous_user_messages(jbody)
-    ollama_prompt = mod_context_prompt_lambda(pre_user_messages)
+    """     EXTRACT USER MESSAGES AND IMAGES    """
+    user_message: str = get_last_user_message(jbody)
+    pre_user_messages: list = get_previous_user_messages(jbody)
+    user_images: list = get_last_user_images(jbody)
 
-    ollama_request = await ollama_quick_generation(ollama_prompt, user_message, modelIn=mod_ollama_model)
-    print(ollama_request)
-    final_user_prompt = f"{user_message}\n{ollama_request}"
-    user_prompt = await interceptUserPrompt(collection=mod_collection, user_message=final_user_prompt, debug=True)
-    new_user_message = { 'role': 'user', 'content': user_prompt }
+    """     USER PROMPT INTERCEPTOR    """
+    if mod_collection is not "none":
+        ollama_prompt: str = mod_context_prompt_lambda(pre_user_messages)
+        ollama_request: str = await ollama_quick_generation(ollama_prompt, user_message, modelIn=mod_ollama_model, debug=True)
+        final_user_prompt: str = f"{user_message}\n{ollama_request}"
+        user_message: str = await interceptUserPrompt(collection=mod_collection, user_message=final_user_prompt, specialty=mod_specialty, debug=True)
+
+    new_user_message: dict = {
+        'role': 'user',
+        'content': f"{user_message}"
+    }
 
     """     SETUP MESSAGES FOR CHAT SEQUENCE   """
-    messages = setupMessagesForChatSequence(mod_system_prompt_lambda, messages, new_user_message)
+    messages: list = setupMessagesForChatSequence(mod_system_prompt_lambda, messages, new_user_message)
 
     """     GENERATE AI CHAT RESPONSE   """
-    ai_response = await openai_chat_generation(messages, modelIn=mod_openai_model, debug=True)
+    if isOpenAI(request_in_model):
+        ai_response: str = await openai_chat_generation(messages, modelIn=mod_openai_model, debug=True)
+    else:
+        ai_response: str = await ollama_chat_generation(messages, modelIn=mod_ollama_model, debug=True)
 
     """ TODO    CACHE IN    """
     # cache.queue_chat_data(modelIn, ai_response)
 
     """     FOOTER MESSAGE     """
-    appended_message = RAI_FOOTER_MESSAGE(mod_openai_model, "")
+    appended_message: str = RAI_FOOTER_MESSAGE(mod_openai_model, "")
 
     """     PREPARE AND SEND FINAL RESPONSE     """
-    appended_response = appender(response_message=ai_response, message_to_append=appended_message)
-    final_response = to_chat_response(appended_response, role="assistant")
+    appended_response: str = appender(response_message=ai_response, message_to_append=appended_message)
+    final_response: dict = to_chat_response(appended_response, role="assistant")
     return Response(f"\n{json.dumps(final_response)}\n", content_type='text/event-stream')
 
+def isOpenAI(model:str) -> bool:
+    if model.startswith("llama"):
+        return False
+    return True
 
 """ 
 CACHE WEATHER
@@ -129,14 +154,14 @@ async def openai_chat_generation(messages:[], modelIn:str="gpt-4o-mini", debug:b
                 print("--AI Response--")
                 print(assistant_message)
             return assistant_message
-async def ollama_chat_generation(messages:[], debug:bool=False):
+async def ollama_chat_generation(messages:[], modelIn:str="llama3:latest", debug:bool=False):
     """Asynchronously get chat completion from OpenAI API."""
     headers = {
         'Content-Type': 'application/json',
         'Authorization': f'Bearer {env("OPENAI_API_KEY")}',
     }
     data = {
-        'model': "llama3:latest",
+        'model': modelIn,
         'messages': messages,
         'temperature': 0,
         'stream': False
@@ -204,7 +229,7 @@ async def search(user_message:str, collection_name:str):
 """     
 USER PROMPT INTERCEPTOR   
 """
-async def interceptUserPrompt(collection, user_message:str, debug:bool=False):
+async def interceptUserPrompt(collection, user_message:str, specialty:str, debug:bool=False):
     if collection == 'search':
         collection_name = extract_args(user_message, 1)
         results = await search(user_message, collection_name)
@@ -212,11 +237,11 @@ async def interceptUserPrompt(collection, user_message:str, debug:bool=False):
         results = await search(user_message, collection)
     Log.i("Returning custom SYS Prompt.")
     if debug:
-        user_prompt = rag.inject_into_system_prompt(user_message, docs=results)
+        user_prompt = rag.inject_into_system_prompt(user_message, specialty=specialty, docs=results)
         print("--User Prompt--")
         print(user_prompt)
         return user_prompt
-    return rag.inject_into_system_prompt(user_message, docs=results)
+    return rag.inject_into_system_prompt(user_message, specialty=specialty, docs=results)
 """     
 RESPONSE MESSAGE APPENDER   
 """
@@ -236,6 +261,17 @@ def get_last_user_message(json_data):
     for message in reversed(messages):
         if message.get('role') == 'user':
             last_user_message = message.get('content')
+            break
+    return last_user_message
+
+def get_last_user_images(json_data):
+    # Get the list of messages
+    messages = json_data.get('messages', [])
+    # Filter to find the last message with role 'user'
+    last_user_message = None
+    for message in reversed(messages):
+        if message.get('role') == 'user':
+            last_user_message = message.get('images', [])
             break
     return last_user_message
 

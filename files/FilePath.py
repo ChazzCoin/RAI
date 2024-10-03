@@ -1,5 +1,5 @@
 from config import env
-from files.read import read_file
+# from files.read import read_file
 from F import OS
 import os
 
@@ -29,9 +29,9 @@ class FilePath:
         for file in os.listdir(self._path):
             yield os.path.join(self._path, file)
 
-    def loop_files_and_open(self):
-        for file in os.listdir(self._path):
-            yield read_file(FilePath(os.path.join(self._path, file)).path())
+    # def loop_files_and_open(self):
+    #     for file in os.listdir(self._path):
+    #         yield read_file(FilePath(os.path.join(self._path, file)).path())
 
     @staticmethod
     def loop_directory(directory: str):

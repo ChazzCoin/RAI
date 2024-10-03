@@ -14,7 +14,7 @@ def run():
     rag = RAGWithChroma(collection_name=collection)
 
     """ 1. Form Prompts """
-    results = rag.query(user_prompt)
+    results = rag.query(collection, user_prompt)
     system_prompt = rag.inject_into_system_prompt(results)
     print(system_prompt, "\n------------\n")
 

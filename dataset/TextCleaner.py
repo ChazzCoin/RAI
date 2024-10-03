@@ -3,9 +3,10 @@ import numpy as np
 import unicodedata
 from F import MATH, LIST, DICT
 from F.LOG import Log
-
+# import nltk
+# from nltk.tokenize import sent_tokenize
 from files.FilePath import FilePath
-
+# nltk.download('punkt')
 Log = Log("TextCleaner")
 
 
@@ -29,6 +30,110 @@ ALPHABET_ALL = ALPHABET_LOWER + ALPHABET_UPPER
 NUMBERS_SINGLE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
 
 SUMMARY = lambda first, middle, last: f"{first} {middle} {last}"
+
+
+
+
+# Ensure NLTK's Punkt tokenizer is downloaded
+# nltk.download('punkt')  # Uncomment this line if running for the first time
+
+def text_to_chroma(text):
+    # Prepare the text for chromadb
+    prepared_text_chunks = __prepare_text_for_chromadb(text)
+    documents = []
+    # Each element in prepared_text_chunks is a cleaned, appropriately sized text chunk
+    for idx, chunk in enumerate(prepared_text_chunks):
+        print(f"--- Chunk {idx + 1} ---")
+        print(chunk)
+        documents.append(chunk)
+    return documents
+
+def __prepare_text_for_chromadb(raw_text, max_chunk_size=512):
+    """
+    Cleans and splits raw text into smaller chunks suitable for chromadb.
+
+    Args:
+        raw_text (str): The raw input text string.
+        max_chunk_size (int): Maximum number of tokens (words) per chunk.
+
+    Returns:
+        list of str: A list of cleaned text chunks ready for chromadb.
+    """
+    # Step 1: Clean the text
+    cleaned_text = __clean_text(raw_text)
+
+    # Step 2: Split the text into chunks
+    text_chunks = __split_text_into_chunks(cleaned_text, max_chunk_size)
+
+    return text_chunks
+
+def __clean_text(text):
+    """
+    Cleans the text by removing unwanted characters and normalizing whitespace.
+
+    Args:
+        text (str): The text to clean.
+
+    Returns:
+        str: The cleaned text.
+    """
+    # Remove non-ASCII characters
+    text = text.encode('ascii', 'ignore').decode('ascii')
+
+    # Remove URLs and email addresses
+    text = re.sub(r'http\S+|www\S+|mailto:\S+', '', text)
+
+    # Remove special characters and digits
+    text = re.sub(r'[^a-zA-Z\s\.]', '', text)
+
+    # Replace multiple spaces and newlines with a single space
+    text = re.sub(r'\s+', ' ', text)
+
+    # Convert to lowercase
+    text = text.lower()
+
+    # Strip leading/trailing whitespace
+    text = text.strip()
+
+    return text
+
+def __split_text_into_chunks(text, max_chunk_size):
+    """
+    Splits the text into smaller chunks without exceeding the max_chunk_size.
+
+    Args:
+        text (str): The text to split.
+        max_chunk_size (int): Maximum number of tokens (words) per chunk.
+
+    Returns:
+        list of str: A list of text chunks.
+    """
+    # Tokenize text into sentences
+    sentences = to_sentences(text, combineQuotes=True)
+
+    chunks = []
+    current_chunk = ''
+    current_chunk_size = 0
+
+    for sentence in sentences:
+        sentence_words = sentence.split()
+        sentence_size = len(sentence_words)
+
+        if current_chunk_size + sentence_size <= max_chunk_size:
+            current_chunk += ' ' + sentence
+            current_chunk_size += sentence_size
+        else:
+            if current_chunk:
+                chunks.append(current_chunk.strip())
+            current_chunk = sentence
+            current_chunk_size = sentence_size
+
+    # Add the last chunk
+    if current_chunk:
+        chunks.append(current_chunk.strip())
+
+    return chunks
+
 
 class TextCleaner:
     def __init__(self):
