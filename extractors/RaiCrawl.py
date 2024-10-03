@@ -118,4 +118,4 @@ class RaiCrawler:
 
 
 if __name__ == '__main__':
-    RaiCrawler(base_url='https://www.parkcitysoccer.org/', output_dir='output').start()
+    RaiCrawler(base_url='https://academy.veo.co', output_dir='output').start()

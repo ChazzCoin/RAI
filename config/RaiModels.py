@@ -1,6 +1,6 @@
 from agents.prompts import context
 
-SOCCER_PROMPT = lambda ai_name, org_name, org_rep_type, specialty: f"""
+GENERAL_PROMPT_TEMPLATE = lambda ai_name, org_name, org_rep_type, specialty: f"""
 Your name is {ai_name}, {org_name}'s {org_rep_type}.
 You are here to serve at the pleasure of the members of {org_name}.
 
@@ -31,6 +31,10 @@ RAI_MODELS = {'models': [
          'size': 177669289, 'digest': 'c4ff0145029bussf26b5cdd6743434343sdfsfefb9d145527581',
          'details': {'parent_model': '', 'format': 'gguf', 'family': 'gpt2', 'families': ['gpt2'],
                      'parameter_size': '163.04M', 'quantization_level': 'Q8_0'}},
+        {'name': 'medical-neuro:latest', 'model': 'medical-neuro:latest', 'modified_at': '2024-07-02T06:32:47.913084094Z',
+         'size': 177669289, 'digest': 'c4ff0145029bneuro434343sdfsfefb9d145527581',
+         'details': {'parent_model': '', 'format': 'gguf', 'family': 'gpt2', 'families': ['gpt2'],
+                     'parameter_size': '163.04M', 'quantization_level': 'Q8_0'}},
         {'name': 'park-city:assistant', 'model': 'park-city:assistant', 'modified_at': '2024-07-02T06:32:47.913084094Z', 'size': 177669289, 'digest': 'c4ff0145029b23c94b81626b5cdd6743434343sdfsfefb9d145527581', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'gpt2', 'families': ['gpt2'], 'parameter_size': '163.04M', 'quantization_level': 'Q8_0'}},
         {'name': 'llama3:latest', 'model': 'llama3:latest', 'modified_at': '2024-06-29T06:01:38.340493962Z', 'size': 4661224676, 'digest': '365c0bd3c000a25d28ddbf732fe1c6add414de7275464c4e4d1c3b5fcb5d8ad1', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'llama', 'families': ['llama'], 'parameter_size': '8.0B', 'quantization_level': 'Q4_0'}},
         {'name': 'ChromaDB:search', 'model': 'ChromaDB:search', 'modified_at': '2024-06-29T06:01:38.340493962Z', 'size': 4661224676, 'digest': '365c0bd3c000a25d28dsearch1c6add414de7275464c4e4d1c3b5fcb5d8ad1', 'details': {'parent_model': '', 'format': 'gguf', 'family': 'llama', 'families': ['llama'], 'parameter_size': '8.0B', 'quantization_level': 'Q4_0'}},
@@ -55,13 +59,45 @@ RAI_MODs = {
             'ai_name': 'Bruno',
             'org_rep_type': 'Personal Customer Representative',
             'collection': 'parkcitysc-new',
-            'prompt': SOCCER_PROMPT,
-            'context_prompt': context.SOCCER_CLUB_CONTEXT_EXPANDER,
+            'prompt': GENERAL_PROMPT_TEMPLATE,
+            'context_prompt': context.MEDICAL_CONTEXT_EXPANDER,
             'openai': 'gpt-4o-mini',
             'ollama': 'llama3:latest',
             'org_type': 'Soccer Club',
             'org_specialty': f"""
                 You specialize in understanding youth soccer clubs, organizational structure, youth soccer parents, youth soccer coaches, youth soccer players.
+            """,
+            'modified_at': '2024-07-02T06:32:47.913084094Z',
+            'size': 177669289,
+            'digest': 'c4ff0145029b23c94b81626b5cdd671a5c48140a3f8d972575efb9d145527581',
+            'details': {
+                'parent_model': '',
+                'format': 'gguf',
+                'family': 'gpt2',
+                'families': ['gpt2'],
+                'parameter_size': '163.04M',
+                'quantization_level': 'Q8_0'
+            }
+         },
+    'medical-neuro:latest': {
+            'name': 'medical-neuro:latest',
+            'model': 'medical-neuro:latest',
+            'zip':'',
+            'address': '',
+            'title': 'Medical Neurological Assistant',
+            'initials': 'PCSC',
+            'ai_name': 'Bruno',
+            'org_rep_type': 'Knowledge Base',
+            'collection': 'medical-neuro',
+            'prompt': GENERAL_PROMPT_TEMPLATE,
+            'context_prompt': context.MEDICAL_CONTEXT_EXPANDER,
+            'openai': 'gpt-4o-mini',
+            'ollama': 'llama3:latest',
+            'org_type': 'Medical',
+            'org_specialty': f"""
+                You specialize in understanding medicine, hospitals, doctors, medical, neuro, neurology, neurosurgery.
+                SPECIAL RULE 1: When creating a response, remove any doctors names. I do not want to know about any doctors. Only the information. 
+                SPECIAL RULE 2: Stick to copying the knowledge base directly instead of summarizing. 
             """,
             'modified_at': '2024-07-02T06:32:47.913084094Z',
             'size': 177669289,
@@ -85,7 +121,7 @@ RAI_MODs = {
         'ai_name': 'Bruno',
         'org_rep_type': 'Personal Customer Representative',
         'collection': 'parkcitysc-new',
-        'prompt': SOCCER_PROMPT,
+        'prompt': GENERAL_PROMPT_TEMPLATE,
         'context_prompt': context.SOCCER_CLUB_CONTEXT_EXPANDER,
         'openai': 'gpt-4o-mini',
         'ollama': 'llama3:latest',
@@ -107,7 +143,7 @@ RAI_MODs = {
         'ai_name': 'Kevin',
         'org_rep_type': 'Personal Knowledge Base Master',
         'collection': 'ussf-main',
-        'prompt': SOCCER_PROMPT,
+        'prompt': GENERAL_PROMPT_TEMPLATE,
         'context_prompt': context.SOCCER_CLUB_CONTEXT_EXPANDER,
         'openai': 'gpt-4o-mini',
         'ollama': 'llama3:latest',
@@ -133,7 +169,7 @@ RAI_MODs = {
         'ai_name': '',
         'org_rep_type': '',
         'collection': 'none',
-        'prompt': SOCCER_PROMPT,
+        'prompt': GENERAL_PROMPT_TEMPLATE,
         'context_prompt': context.SOCCER_CLUB_CONTEXT_EXPANDER,
         'openai': 'gpt-4o-mini',
         'ollama': 'llama3:latest',
@@ -152,7 +188,7 @@ RAI_MODs = {
         'ai_name': 'Bruno',
         'org_rep_type': 'Personal Customer Representative',
         'collection': 'parkcitysc-new',
-        'prompt': SOCCER_PROMPT,
+        'prompt': GENERAL_PROMPT_TEMPLATE,
         'context_prompt': context.SOCCER_CLUB_CONTEXT_EXPANDER,
         'openai': 'gpt-4o-mini',
         'ollama': 'llama3:latest',
@@ -171,7 +207,7 @@ RAI_MODs = {
         'ai_name': 'Bruno',
         'org_rep_type': 'Personal Customer Representative',
         'collection': 'parkcitysc-new',
-        'prompt': SOCCER_PROMPT,
+        'prompt': GENERAL_PROMPT_TEMPLATE,
         'context_prompt': context.SOCCER_CLUB_CONTEXT_EXPANDER,
         'openai': 'gpt-4o-mini',
         'ollama': 'llama3:latest',

@@ -114,10 +114,11 @@ class FileToChromaConverter(RAGWithChroma):
 
 if __name__ == '__main__':
     from config.RaiModels import RAI_MODs
-    collection = RAI_MODs['park-city:latest']['collection']
+    collection = RAI_MODs['medical-neuro:latest']['collection']
     ftoc = FileToChromaConverter(collection_name=collection)
     # ftoc.delete_collection(collection)
     time.sleep(1)
 
-    ftoc.import_directory("/Users/chazzromeo/Desktop/ParkCityTrainingData", collection, 'soccer club general info')
+    # ftoc.import_directory("/Users/chazzromeo/Desktop/ParkCityTrainingData", collection, 'soccer club general info')
+    ftoc.import_directory("/Users/chazzromeo/ChazzCoin/MedRefs/files/pending/mian-neurosurgery", collection, 'neurosurgery')
     # ftoc.import_file("/Users/chazzromeo/Desktop/ParkCityTrainingData", collection, 'soccer club general info')
