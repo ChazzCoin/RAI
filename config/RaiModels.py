@@ -60,8 +60,8 @@ RAI_MODs = {
             'org_rep_type': 'Personal Customer Representative',
             'collection': 'parkcitysc-new',
             'prompt': GENERAL_PROMPT_TEMPLATE,
-            'context_prompt': context.MEDICAL_CONTEXT_EXPANDER,
-            'openai': 'gpt-4o-mini',
+            'context_prompt': context.SOCCER_CLUB_CONTEXT_EXPANDER,
+            'openai': 'gpt-4o',
             'ollama': 'llama3:latest',
             'org_type': 'Soccer Club',
             'org_specialty': f"""
@@ -91,7 +91,7 @@ RAI_MODs = {
             'collection': 'medical-neuro',
             'prompt': GENERAL_PROMPT_TEMPLATE,
             'context_prompt': context.MEDICAL_CONTEXT_EXPANDER,
-            'openai': 'gpt-4o-mini',
+            'openai': 'gpt-4o',
             'ollama': 'llama3:latest',
             'org_type': 'Medical',
             'org_specialty': f"""
@@ -145,7 +145,7 @@ RAI_MODs = {
         'collection': 'ussf-main',
         'prompt': GENERAL_PROMPT_TEMPLATE,
         'context_prompt': context.SOCCER_CLUB_CONTEXT_EXPANDER,
-        'openai': 'gpt-4o-mini',
+        'openai': 'gpt-4o',
         'ollama': 'llama3:latest',
         'org_type': 'Governing Body of Soccer',
         'org_specialty': f"""

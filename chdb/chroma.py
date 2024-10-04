@@ -111,7 +111,7 @@ class ChromaInstance:
         collect = self.chroma_client.get_or_create_collection(collection)
         return collect.query(
             query_embeddings=[embedding],
-            n_results=25
+            n_results=50
         )
 
     async def query_chromadb(self, embedding, collection_name:str=None):

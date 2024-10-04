@@ -57,13 +57,16 @@ class FileToChromaConverter(RAGWithChroma):
         """Imports a .txt file and adds its contents to ChromaDB."""
         self.set_collection(collection_name)
         # Step 6: Call each inner function step by step.
-        text_content = read_file(file_path)
-        if not text_content:
-            print("No content to process.")
-            return
-        self.__create_documents(collection_name, text_content, file_path, topic)
+        if file_path.endswith(".jsonl"):
+            return self.__import_jsonl_file('website', file_path, collection_name, topic)
+        else:
+            text_content = read_file(file_path)
+            if not text_content:
+                print("No content to process.")
+                return
+            self.__create_documents(collection_name, text_content, file_path, topic)
 
-    def import_jsonl_file(self, id, file_path, collection_name, topic=""):
+    def __import_jsonl_file(self, id, file_path, collection_name, topic=""):
         """Imports a .jsonl file and adds its contents to ChromaDB."""
         self.set_collection(collection_name)
         # Step 6: Call each inner function step by step.
@@ -77,27 +80,13 @@ class FileToChromaConverter(RAGWithChroma):
                 return
             self.__create_jsonl_documents(collection_name, id=id, text=text_content, url=url, title=title, topic=topic)
 
-    # def import_json_file(self, id, file_path, collection_name, topic=""):
-    #     """Imports a .jsonl file and adds its contents to ChromaDB."""
-    #     self.set_collection(collection_name)
-    #     # Step 6: Call each inner function step by step.
-    #     from files.open import DataLoader
-    #     objs = DataLoader(data_directory="/Users/chazzromeo/ChazzCoin/MedRefs/files/pending").load_json("park_city_webpages")
-    #     for obj in objs.keys():
-    #         url = obj
-    #         text_content = objs[obj]
-    #         if not text_content:
-    #             print("No content to process.")
-    #             return
-    #         self.__create_jsonl_documents(id=id, text=text_content, url=url, title=url, topic=topic)
-
     def import_directory(self, directory, collection_name, topic=""):
         files = []
         for file_path in self.__yield_file_paths(directory):
             if file_path.endswith(".DS_Store"):
                 continue
             elif file_path.endswith(".jsonl"):
-                self.import_jsonl_file('website', file_path, collection_name, topic)
+                self.__import_jsonl_file('website', file_path, collection_name, topic)
                 files.append(file_path)
             else:
                 self.import_file(file_path, collection_name, topic)
@@ -114,11 +103,9 @@ class FileToChromaConverter(RAGWithChroma):
 
 if __name__ == '__main__':
     from config.RaiModels import RAI_MODs
-    collection = RAI_MODs['medical-neuro:latest']['collection']
+    # collection = RAI_MODs['medical-neuro:latest']['collection']
+    collection = RAI_MODs['ussf:latest']['collection']
     ftoc = FileToChromaConverter(collection_name=collection)
-    # ftoc.delete_collection(collection)
-    time.sleep(1)
-
-    # ftoc.import_directory("/Users/chazzromeo/Desktop/ParkCityTrainingData", collection, 'soccer club general info')
-    ftoc.import_directory("/Users/chazzromeo/ChazzCoin/MedRefs/files/pending/mian-neurosurgery", collection, 'neurosurgery')
-    # ftoc.import_file("/Users/chazzromeo/Desktop/ParkCityTrainingData", collection, 'soccer club general info')
+    ftoc.import_directory("/Users/chazzromeo/Desktop/ussfTrainingData", collection, 'national development model')
+    # ftoc.import_directory("/Users/chazzromeo/ChazzCoin/MedRefs/files/pending/mian-neurosurgery", collection, 'neurosurgery')
+    # ftoc.import_file("/Users/chazzromeo/Desktop/ParkCityTrainingData/Veo Camera System Instructions.pdf", collection, 'veo help support')
