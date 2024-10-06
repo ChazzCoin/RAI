@@ -77,15 +77,18 @@ class RAGWithChroma(ChromaInstance):
     @staticmethod
     def inject_into_system_prompt(user_message:str, specialty:str, docs, text:str=None) -> str:
         context = "" if text is None else text
-        # Create a context from the retrieved documents
-        # meta = DICT.get('metadatas', metadata, None)
-        # if meta:
-        # print("Adding Metadata")
+        previous_title = ""
+        previous_source = ""
         for doc in RAGWithChroma.parse_chromadb_results(docs):
-            contents = DICT.get('document', doc, '')
-            context += contents
+            context += DICT.get('document', doc, '')
             metadata = DICT.get('metadata', doc, {})
-            context += f"\nTitle: {DICT.get('title', metadata, '')}\nSource: {DICT.get('url', metadata, '')}\n"
+            current_title = DICT.get('title', metadata, '')
+            current_source = DICT.get('url', metadata, '')
+            if current_title != previous_title:
+                context += f"\nTitle: {previous_title}\nSource: {previous_source}\n"
+            previous_title = current_title
+            previous_source = current_source
+
         # Format the final prompt for OpenAI
         system_prompt = f"""
         Knowledge Base:
@@ -96,6 +99,7 @@ class RAGWithChroma(ChromaInstance):
         2. If you do not know the answer, do not try to make something up, simply say you do not know.
         3. You will cite any sources you used at the bottom of the message for reference.
         4. Format the response in a human-friendly way to read and understand.
+        5. If I provide the data, ignore checking other sources warnings. I only care about the knowledge base.
         
         User Rules:
         {specialty}

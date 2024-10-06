@@ -15,7 +15,7 @@ import requests
 from F import DICT, LIST
 from F.LOG import Log
 from assistant.openai_client import get_current_timestamp, get_embeddings
-from config.RaiModels import RAI_MODELS, RAI_MODs
+from config.RaiModels import RAI_MODs, getRaiModels
 from chdb.rag import RAGWithChroma
 from config.redisdb import RaiCache
 from assistant.context import ContextHelper
@@ -47,6 +47,15 @@ def decode_and_save_image(encoded_image):
         f.write(image_data)
     print('Image successfully saved as output_image.png')
 
+CACHE_KEY_TWO = lambda one, two: f"{one}:{two}"
+CACHE_KEY_THREE = lambda one, two, three: f"{one}:{two}:{three}"
+
+def combine(*obj:str):
+    result = ""
+    for o in obj:
+        result = f"{result}\n{o}"
+    return result
+
 @app.route('/api/chat/{idx}', methods=['POST', 'OPTIONS'])
 @app.route('/api/chat', methods=['POST', 'OPTIONS'])
 async def chat_completion(idx:Optional[int]=None):
@@ -75,7 +84,7 @@ async def chat_completion(idx:Optional[int]=None):
     mod_ai_name: str = DICT.get('ai_name', modelIn_data)
     mod_org_rep_type: str = DICT.get('org_rep_type', modelIn_data)
     mod_collection: str = DICT.get('collection', modelIn_data, 'none')
-    # zip = DICT.get('zip', modelIn_data, '00000')
+    mod_zip_code = DICT.get('zip', modelIn_data, '00000')
     mod_specialty: str = DICT.get('org_specialty', modelIn_data)
     mod_system_prompt_lambda = DICT.get('prompt', modelIn_data)(mod_ai_name, mod_title, mod_org_rep_type, mod_specialty)
     mod_context_prompt_lambda = DICT.get('context_prompt', modelIn_data)
@@ -84,17 +93,30 @@ async def chat_completion(idx:Optional[int]=None):
 
     """ TODO     CACHE OUT    """
     # cache_queue = cache.get_queued_chat_data(modelIn)
+    weather_cache = await get_refresh_cached_weather(request_in_model, mod_zip_code)
 
     """     EXTRACT USER MESSAGES AND IMAGES    """
     user_message: str = get_last_user_message(jbody)
     pre_user_messages: list = get_previous_user_messages(jbody)
     user_images: list = get_last_user_images(jbody)
 
+    """     REAL-TIME DATA INTERCEPTOR    """
+    real_time_data = None
+    if weather_cache: # TODO: dynamic....
+        real_time_data = combine(weather_cache)
+
     """     USER PROMPT INTERCEPTOR    """
     if mod_collection != "none":
         ollama_prompt: str = mod_context_prompt_lambda(pre_user_messages)
         ollama_request: str = await ollama_quick_generation(ollama_prompt, user_message, modelIn=mod_ollama_model, debug=True)
-        user_message: str = await interceptUserPrompt(collection=mod_collection, user_message=user_message, context_message=ollama_request, specialty=mod_specialty, debug=True)
+        user_message: str = await interceptUserPrompt(
+            collection=mod_collection,
+            user_message=user_message,
+            context_message=ollama_request,
+            specialty=mod_specialty,
+            pre_text=real_time_data,
+            debug=True
+        )
 
     new_user_message: dict = {
         'role': 'user',
@@ -129,14 +151,16 @@ def isOpenAI(model:str) -> bool:
 """ 
 CACHE WEATHER
 """
-def cache_weather(zip):
-    from agents.weather import get_weather_by_zip
-    weather_cache = cache.get_data(f"weather:{zip}")
+async def get_refresh_cached_weather(model, zip):
+    from agents.weather import get_weather_by_zip, get_air_quality
+    weather_cache = cache.get_weather_data(model)
     if weather_cache:
         return weather_cache
     weather_result = get_weather_by_zip(zip)
-    cache.add_data(f"weather:{zip}", data=weather_result, ttl=50000)
-    return weather_result
+    air_quality = await get_air_quality(zip)
+    weather_report = f"{weather_result}\n{air_quality}"
+    cache.cache_weather_data(model, f"Current Weather and Air Quality Data for {zip}\n{weather_report}\n")
+    return weather_report
 
 """ 
 GENERATE AI CHAT RESPONSE 
@@ -246,7 +270,7 @@ async def search(user_message:str, collection_name:str):
 """     
 USER PROMPT INTERCEPTOR   
 """
-async def interceptUserPrompt(collection, user_message:str, context_message:str, specialty:str, debug:bool=False):
+async def interceptUserPrompt(collection, user_message:str, context_message:str, specialty:str, pre_text:str=None, debug:bool=False):
     if collection == 'search':
         collection_name = extract_args(user_message, 1)
         results = await search(f"{user_message} {context_message}", collection_name)
@@ -254,11 +278,11 @@ async def interceptUserPrompt(collection, user_message:str, context_message:str,
         results = await search(f"{user_message} {context_message}", collection)
     Log.i("Returning custom SYS Prompt.")
     if debug:
-        user_prompt = rag.inject_into_system_prompt(user_message, specialty=specialty, docs=results)
+        user_prompt = rag.inject_into_system_prompt(user_message, specialty=specialty, docs=results, text=pre_text)
         print("--User Prompt--")
         print(user_prompt)
         return user_prompt
-    return rag.inject_into_system_prompt(user_message, specialty=specialty, docs=results)
+    return rag.inject_into_system_prompt(user_message, specialty=specialty, docs=results, text=pre_text)
 """     
 RESPONSE MESSAGE APPENDER   
 """
@@ -367,7 +391,7 @@ def version():
 @app.route('/api/tags', methods=['GET'])
 def models_api():
     print("Calling Models", request.headers)
-    return RAI_MODELS
+    return getRaiModels()
 @app.route('/api/tags2', methods=['GET'])
 def forward_models_call_to_ollama():
     print("Calling Models")
