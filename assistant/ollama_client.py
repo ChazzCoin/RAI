@@ -1,3 +1,4 @@
+import numpy as np
 import requests, json, logging
 from requests.exceptions import HTTPError, RequestException
 from assistant.models import ApiEngines as engines
@@ -136,7 +137,11 @@ def generate_ollama_embedding(text, timeout=60):
     }
 
     try:
-        response = requests.post(engines.OLLAMA.route("/api/embed"), headers=headers, data=json.dumps(payload), timeout=timeout)
+        response = requests.post(
+            engines.OLLAMA.route("/api/embed"),
+            headers=headers,
+            data=json.dumps(payload),
+            timeout=timeout)
         response.raise_for_status()  # Raise HTTPError for bad responses
 
         data = response.json()
@@ -161,15 +166,63 @@ def generate_ollama_embedding(text, timeout=60):
         logger.error(f"An unexpected error occurred: {err}")
         raise
 
+def __validate_and_fix_embeddings(embeds):
+    def flatten_embedding(embedding):
+        """Recursively flattens any nested lists or arrays into a single list of floats."""
+        if isinstance(embedding, (list, np.ndarray)):
+            return [item for sublist in embedding for item in flatten_embedding(sublist)]
+        else:
+            return [embedding]
+    # Ensure the embedding is a NumPy ndarray or list
+    if isinstance(embeds, np.ndarray):
+        # Check if the embedding is 1-dimensional or needs flattening
+        if embeds.ndim > 1:
+            embeds = flatten_embedding(embeds)
+        else:
+            embeds = embeds.tolist()
+    # If the embedding is a list, flatten it if necessary
+    elif isinstance(embeds, list):
+        embeds = flatten_embedding(embeds)
+    # Ensure all values are of type float32
+    return [np.float32(val) for val in embeds]
+
+def generate_chroma_embeddings(text, timeout=60):
+    payload = {
+        'model': engines.OLLAMA.embeddings_model(),
+        'input': text
+    }
+    headers = {'Content-Type': 'application/json'}
+
+    try:
+        response = requests.post(
+            engines.OLLAMA.route("/api/embed"),
+            headers=headers,
+            data=json.dumps(payload),
+            timeout=timeout
+        )
+        response.raise_for_status()  # Raise HTTPError for bad responses
+
+        data = response.json()
+        print(f"Received data: {response.status_code}")
+
+        if 'embeddings' in data:
+            embeds = data.get('embeddings', [[]])
+            return __validate_and_fix_embeddings(embeds)
+        else:
+            print("Embedding not found in the response.")
+            return [[]]
+    except Exception as e:
+        print(e)
+        return [[]]
 
 if __name__ == "__main__":
-    # download_ollama_model('mxbai-embed-large')
+    download_ollama_model("sentence-transformer-rf")
     # list_ollama_running_models()
-    input_text = ["Why is the sky blue?", "Why is the grass green?"]
-    try:
-        embeddings = generate_ollama_embedding(
-            input_text=input_text
-        )
-        print(f"Embeddings: {embeddings}")
-    except Exception as e:
-        print(f"An error occurred: {e}")
+    # input_text = ["Why is the sky blue?", "Why is the grass green?"]
+    # try:
+    #     embeddings = generate_ollama_embedding(
+    #         input_text=input_text
+    #     )
+    #     print(f"Embeddings: {embeddings}")
+    # except Exception as e:
+    #     print(f"An error occurred: {e}")

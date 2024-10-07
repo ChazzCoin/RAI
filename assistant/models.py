@@ -2,7 +2,7 @@ from config import env
 
 class EmbeddingsModels:
     OpenAI = "text-embedding-ada-002"
-    Ollama = "mxbai-embed-large:latest"
+    Ollama = "nomic-embed-text"
 
 class OpenAI:
     GPT_3_5_TURBO_0125 = "gpt-3.5-turbo-0125"
@@ -24,7 +24,7 @@ class OpenAI:
 class Ollama:
     LLAMA3_8B_latest = "llama3:latest"
     LLAMA_CODER_34B = "codellama:34b"
-    IP = env("OLLAMA_IP", 'localhost')
+    IP = env("OLLAMA_HOST", 'localhost')
     PORT = env("OLLAMA_PORT", 11434)
 
     def route(self, route=""):

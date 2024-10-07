@@ -99,7 +99,6 @@ class RAGWithChroma(ChromaInstance):
         2. If you do not know the answer, do not try to make something up, simply say you do not know.
         3. You will cite any sources you used at the bottom of the message for reference.
         4. Format the response in a human-friendly way to read and understand.
-        5. If I provide the data, ignore checking other sources warnings. I only care about the knowledge base.
         
         User Rules:
         {specialty}
