@@ -1,0 +1,11 @@
+from rai.files.RaiFileLoader import RaiFileLoader
+
+
+def import_directory(directory, prefix):
+    return RaiFileLoader(directory, prefix).import_directory_into_chroma()
+
+
+if __name__ == '__main__':
+    db = "test"
+    RaiFileLoader.delete_collections(f"{db}-main", f"{db}-internal", f"{db}-development")
+    import_directory("/Users/chazzromeo/Desktop/data", db)

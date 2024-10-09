@@ -5,7 +5,8 @@ from chromadb import Settings
 from chromadb.utils.batch_utils import create_batches
 from typing import Optional
 from rai.RAG.models import VectorItem, SearchResult, GetResult
-
+from F.LOG import Log
+Log = Log("ChromaClient")
 # Chroma
 CHROMA_DATA_PATH = f"/chroma"
 CHROMA_TENANT = os.environ.get("CHROMA_TENANT", chromadb.DEFAULT_TENANT)
@@ -33,18 +34,10 @@ class ChromaClient:
             database=chromadb.DEFAULT_DATABASE,
             settings=Settings(allow_reset=True, anonymized_telemetry=False),
         )
-        print("Chroma Host:", CHROMA_HTTP_HOST)
-        print("Chroma Port:", CHROMA_HTTP_PORT)
-        print("Chroma Database:", CHROMA_DATABASE)
-        print("Chroma Tenant:", CHROMA_TENANT)
-
-        # else:
-            # self.client = chromadb.PersistentClient(
-            #     path=CHROMA_DATA_PATH,
-            #     settings=Settings(allow_reset=True, anonymized_telemetry=False),
-            #     tenant=CHROMA_TENANT,
-            #     database=CHROMA_DATABASE,
-            # )
+        Log.t("Chroma Host:", CHROMA_HTTP_HOST)
+        Log.t("Chroma Port:", CHROMA_HTTP_PORT)
+        Log.t("Chroma Database:", CHROMA_DATABASE)
+        Log.t("Chroma Tenant:", CHROMA_TENANT)
 
     def has_collection(self, collection_name: str) -> bool:
         # Check if the collection exists based on the collection name.
@@ -103,15 +96,16 @@ class ChromaClient:
         #     item["vector"].astype(np.int32).tolist() if isinstance(item["vector"], np.ndarray) else item["vector"]
         #     for item in items
         # ]
-
-        for batch in create_batches(
+        batches = create_batches(
             api=self.client,
             documents=documents,
             embeddings=embeddings,
             ids=ids,
             metadatas=metadatas,
-        ):
+        )
+        for batch in batches:
             collection.add(*batch)
+            Log.s(f"Added {len(batch)} batched documents into Chroma Collection:", collection_name)
 
     def upsert(self, collection_name: str, items: list[VectorItem]):
         # Update the items in the collection, if the items are not present, insert them. If the collection does not exist, it will be created.

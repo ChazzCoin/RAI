@@ -16,7 +16,8 @@ from rai.ollama.main import (
 )
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["RAG"])
-
+from F.LOG import Log
+Log = Log("Rai.utils")
 
 class VectorSearchRetriever(BaseRetriever):
     collection_name: Any
@@ -116,15 +117,14 @@ def query_doc_with_hybrid_search(
             "metadatas": [[d.metadata for d in result]],
         }
 
-        log.info(f"query_doc_with_hybrid_search:result {result}")
+        Log.i(f"query_doc_with_hybrid_search:result {result}")
         return result
     except Exception as e:
+        Log.e(e)
         raise e
 
 
-def merge_and_sort_query_results(
-    query_results: list[dict], k: int, reverse: bool = False
-) -> dict[str, list[list[Any]]]:
+def merge_and_sort_query_results(query_results: list[dict], k: int, reverse: bool = False) -> dict[str, list[list[Any]]]:
     # Initialize lists to store combined data
     combined_distances = []
     combined_documents = []
@@ -165,15 +165,11 @@ def merge_and_sort_query_results(
     return result
 
 
-def query_collection(
-    collection_names: list[str],
-    query: str,
-    embedding_function,
-    k: int,
-) -> dict[str, list[list[Any]]]:
+def query_collection(collection_names: list[str], query: str, embedding_function, k: int) -> dict[str, list[list[Any]]]:
     results = []
     for collection_name in collection_names:
         if collection_name:
+            Log.i(f"Querying [ {collection_name} ]")
             try:
                 result = query_doc(
                     collection_name=collection_name,
@@ -183,10 +179,9 @@ def query_collection(
                 )
                 results.append(result.model_dump())
             except Exception as e:
-                log.exception(f"Error when querying the collection: {e}")
+                Log.e(f"Error when querying the collection: {e}")
         else:
             pass
-
     return merge_and_sort_query_results(results, k=k)
 
 

@@ -20,6 +20,8 @@ from chdb.rag import RAGWithChroma
 from config.redisdb import RaiCache
 from assistant.context import ContextHelper
 
+from rai.RAG.newmain import query_chroma, query_chroma_by_user_auth
+
 Log = Log("RAI API Bruno Canary")
 app = Quart(__name__)
 app = cors(app, allow_origin="*")
@@ -93,7 +95,7 @@ async def chat_completion(idx:Optional[int]=None):
 
     """ TODO     CACHE OUT    """
     # cache_queue = cache.get_queued_chat_data(modelIn)
-    weather_cache = await get_refresh_cached_weather(request_in_model, mod_zip_code)
+    weather_cache = None # await get_refresh_cached_weather(request_in_model, mod_zip_code)
 
     """     EXTRACT USER MESSAGES AND IMAGES    """
     user_message: str = get_last_user_message(jbody)
@@ -109,7 +111,7 @@ async def chat_completion(idx:Optional[int]=None):
     if mod_collection != "none":
         ollama_prompt: str = mod_context_prompt_lambda(pre_user_messages)
         ollama_request: str = await ollama_quick_generation(ollama_prompt, user_message, modelIn=mod_ollama_model, debug=True)
-        user_message: str = await interceptUserPrompt(
+        user_message: str = interceptUserPrompt(
             collection=mod_collection,
             user_message=user_message,
             context_message=ollama_request,
@@ -262,20 +264,20 @@ def setupMessagesForChatSequence(system_prompt, messages, new_user_message):
 """     
 CHROMADB SEARCH     
 """
-async def search(user_message:str, collection_name:str):
-    embeds = await get_embeddings(user_message)
-    results = await rag.query_chromadb(embeds, collection_name)
+def search(user_message:str, collection_name:str):
+    # embeds = await get_embeddings(user_message)
+    results = query_chroma_by_user_auth(user_auth="ADMIN", collection_prefix=collection_name, query=user_message)
     Log.i("Search Result Count:", results)
     return results
 """     
 USER PROMPT INTERCEPTOR   
 """
-async def interceptUserPrompt(collection, user_message:str, context_message:str, specialty:str, pre_text:str=None, debug:bool=False):
+def interceptUserPrompt(collection, user_message:str, context_message:str, specialty:str, pre_text:str=None, debug:bool=False):
     if collection == 'search':
         collection_name = extract_args(user_message, 1)
-        results = await search(f"{user_message} {context_message}", collection_name)
+        results = search(f"{user_message} {context_message}", collection_name)
     else:
-        results = await search(f"{user_message} {context_message}", collection)
+        results = search(f"{user_message} {context_message}", collection)
     Log.i("Returning custom SYS Prompt.")
     if debug:
         user_prompt = rag.inject_into_system_prompt(user_message, specialty=specialty, docs=results, text=pre_text)

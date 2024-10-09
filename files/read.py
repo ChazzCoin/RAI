@@ -1,10 +1,13 @@
 import os
 import csv
-from dataset.intake.Pdf import pdf_to_txt, vision_extract_text
+from dataset.intake.Pdf import pdf_to_txt
 from docx import Document as DocxDocument
 from openpyxl import load_workbook
 from pptx import Presentation
 from F.LOG import Log
+
+from dataset.intake.vision import VisionExtractor
+
 # Configure logging
 Log = Log("Files.Read")
 
@@ -59,7 +62,7 @@ def __vision_text_extractor(file_path):
     Log.i(f"Attempting Vision OCR Text Extraction on: {file_path}")
     text = []
     try:
-        temp = vision_extract_text(file_path)
+        temp = VisionExtractor._vision_extract_text(file_path, save_images=False)
         for item in temp:
             tempText = item["text"]
             text.append(tempText)

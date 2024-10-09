@@ -203,7 +203,6 @@ def generate_chroma_embeddings(text, timeout=60):
         response.raise_for_status()  # Raise HTTPError for bad responses
 
         data = response.json()
-        print(f"Received data: {response.status_code}")
 
         if 'embeddings' in data:
             embeds = data.get('embeddings', [[]])

@@ -63,12 +63,21 @@ class RaiPath:
         else:
             raise FileNotFoundError(f"'{self.path}' does not exist.")
 
-    def list_directory(self):
+    def list_directory(self, files_only: bool = False):
         """List contents of the directory."""
         if not self.is_directory:
             raise TypeError(f"'{self.path}' is not a directory.")
-
-        return list(self.path.iterdir())
+        filtered = []
+        for item in list(self.path.iterdir()):
+            if item.is_file() and files_only:
+                filtered.append(item)
+                continue
+            if str(item.name).startswith('.'):
+                continue
+            if item.is_dir() and files_only:
+                continue
+            filtered.append(item)
+        return filtered
 
     def copy(self, destination: Union[str, Path]):
         """Copy the file or directory to the destination."""
@@ -119,6 +128,11 @@ class RaiPath:
     def file_name(self) -> str:
         """Get the name of the file."""
         return self.path.name
+
+    @property
+    def ext_type(self):
+        return self.path.name.split(".")[-1].lower()
+
     @property
     def directory_name(self) -> str:
         """Get the name of the directory."""
@@ -126,6 +140,15 @@ class RaiPath:
             return self.path.name
         else:
             return self.path.parent.name
+
+    def yield_files(self):
+        """Yield every file in the directory."""
+        if self.is_directory:
+            for file in self.path.rglob('*'):
+                if file.is_file():
+                    yield file
+        else:
+            print("No files found.")
 
     def __str__(self) -> str:
         return f"FileSystemEntity(path='{self.path}')"
