@@ -4,6 +4,9 @@ import chromadb
 from chromadb import Settings
 from chromadb.utils.batch_utils import create_batches
 from typing import Optional
+
+from tqdm import tqdm
+
 from rai.RAG.models import VectorItem, SearchResult, GetResult
 from F.LOG import Log
 Log = Log("ChromaClient")
@@ -92,10 +95,6 @@ class ChromaClient:
         embeddings = [item["vector"] for item in items]
         metadatas = [item["metadata"] for item in items]
 
-        # embeddings = [
-        #     item["vector"].astype(np.int32).tolist() if isinstance(item["vector"], np.ndarray) else item["vector"]
-        #     for item in items
-        # ]
         batches = create_batches(
             api=self.client,
             documents=documents,
@@ -103,9 +102,9 @@ class ChromaClient:
             ids=ids,
             metadatas=metadatas,
         )
-        for batch in batches:
+        for batch in tqdm(batches, f"Inserting into [ {collection_name} ]", colour="green"):
             collection.add(*batch)
-            Log.s(f"Added {len(batch)} batched documents into Chroma Collection:", collection_name)
+        Log.s(f"Added {len(batches)} batched documents into Chroma Collection:", collection_name)
 
     def upsert(self, collection_name: str, items: list[VectorItem]):
         # Update the items in the collection, if the items are not present, insert them. If the collection does not exist, it will be created.

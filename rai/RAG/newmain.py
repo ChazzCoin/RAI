@@ -45,18 +45,7 @@ RaiUserType = {
 # Example usage
 # Assume you have a function to determine the user's auth type
 def get_user_auth_collections(auth_type:str):
-   auth = 'GUEST'
-   if auth_type == 'GUEST':
-       auth = 'GUEST'
-   elif auth_type == 'COACH':
-        auth = 'COACH'
-   elif auth_type == 'ADMIN':
-        auth = 'ADMIN'
-   elif auth_type == 'PLAYER':
-        auth = 'PLAYER'
-   elif auth_type == 'PARENT':
-        auth = 'PARENT'
-   return RaiUserType.get(auth, [])
+   return RaiUserType.get(auth_type, [])
 
 def query_chroma_by_user_auth(user_auth:str, collection_prefix:str, query:str, k:int=50, hybrid=False):
 

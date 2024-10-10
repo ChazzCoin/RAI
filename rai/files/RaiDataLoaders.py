@@ -67,7 +67,11 @@ class RaiDataLoader:
                 if loader.is_empty():
                     loader = Docx2txtLoader(file_path)
             elif file_ext in ["xls", "xlsx"]:
-                loader = UnstructuredExcelLoader(file_path)
+                raw_text = read_file(file_path)
+                if raw_text:
+                    loader = RawTextLoader(raw_text)
+                else:
+                    loader = UnstructuredExcelLoader(file_path)
             elif file_ext in ["ppt", "pptx"]:
                 loader = VisionDataLoader(file_path)
                 if loader.is_empty():
@@ -82,7 +86,17 @@ class RaiDataLoader:
             Log.w("Failed, falling back to original read file.", e)
             raw_text = read_file(file_path)
             loader = RawTextLoader(raw_text)
+        if not loader:
+            Log.w("Failed, falling back to original read file.")
+            raw_text = read_file(file_path)
+            loader = RawTextLoader(raw_text)
         return loader
+
+    """ TODO: A METADATA LOADER 
+        -> A METADATA FILE IN EACH FOLDER
+        OR A DEFAULT METADATA OBJECT...
+        EXTRACT METADATA FROM FILES
+    """
 
 """
     CUSTOM LOADERS
@@ -91,17 +105,17 @@ class RaiLoaderDocument:
     page_content:str
     metadata:dict
 
-    def __init__(self, page_content: str, metadata:dict=None) -> None:
+    def __init__(self, page_content: str, metadata:dict={ 'image':'' }) -> None:
         self.page_content = page_content
         self.metadata = metadata if not None else { 'image': '' }
 
 
 class RawTextLoader:
     def __init__(self, raw_text: str):
-        self.raw_text = raw_text
+        self.data = raw_text
 
     def load(self):
-        return [RaiLoaderDocument(page_content=self.raw_text)]
+        return [RaiLoaderDocument(page_content=self.data, metadata={ 'image':'' })]
 
 class JSONLLoader:
     def __init__(self, file_path: str):
@@ -185,6 +199,8 @@ class VisionDataLoader:
     def is_empty(self):
         if self.data is None:
             self.load()
+        if not self.data:
+            return True
         return not bool(self.data)
 
     def load_d(self):

@@ -1,17 +1,11 @@
-import json
-import mimetypes
 import uuid
 from rai import app
 from F.LOG import Log
+from tqdm import tqdm
+from rai.utils.utils import progress_bar
 from pathlib import Path
-from typing import Optional
-
 from rai.files import RaiPath
-from chromadb import Documents
-from rai.models.documents import DocumentForm
 from rai.files.RaiDataLoaders import RaiDataLoader
-from rai.utils.misc import extract_folders_after_data_docs, calculate_sha256, sanitize_filename
-
 from datetime import datetime
 from rai.constants import ERROR_MESSAGES
 from rai.RAG.connector import VECTOR_DB_CLIENT
@@ -103,7 +97,7 @@ class RaiFileLoader:
         # ChromaDB does not like datetime formats
         # for meta-data so convert them to string.
         Log.i("Preparing metadata for chromadb...")
-        for metadata in metadatas:
+        for metadata in tqdm(metadatas, "Preparing metadata for chromadb...", colour="yellow"):
             for key, value in metadata.items():
                 if isinstance(value, datetime):
                     metadata[key] = str(value)
@@ -113,16 +107,17 @@ class RaiFileLoader:
                     Log.w(f"deleting existing collection {collection_name}")
                     VECTOR_DB_CLIENT.delete_collection(collection_name=collection_name)
             else:
-                Log.i("Preparing documents for chromadb...")
-                items = [
-                    {
+
+                items = []
+                for idx, txt in enumerate(tqdm(texts, desc="Preparing Documents for chromadb...", colour="yellow")):
+                    temp = {
                         "id": str(uuid.uuid4()),
-                        "text": text,
-                        "vector": generate_chroma_embeddings(text=text),
+                        "text": txt,
+                        "vector": generate_chroma_embeddings(text=txt),
                         "metadata": metadatas[idx],
                     }
-                    for idx, text in enumerate(texts)
-                ]
+                    items.append(temp)
+
                 VECTOR_DB_CLIENT.insert(
                     collection_name=collection_name,
                     items=items,

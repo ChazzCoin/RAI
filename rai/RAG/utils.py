@@ -1,5 +1,7 @@
 import logging, uuid, os, requests
 from typing import Optional, Union, List, Dict, Any
+
+from F import LIST
 from huggingface_hub import snapshot_download
 from langchain.retrievers import ContextualCompressionRetriever, EnsembleRetriever
 from langchain_community.retrievers import BM25Retriever
@@ -165,6 +167,42 @@ def merge_and_sort_query_results(query_results: list[dict], k: int, reverse: boo
     return result
 
 
+def query_collection_by_auth_rank(collection_names: list[str], query: str, embedding_function, k: int) -> dict[str, list[list[Any]]]:
+
+    # -> Ranking Config
+    top_limit = 25
+    bottom_limit = 10
+
+    rank_count = 1
+    results_by_rank = {}
+    final_results = []
+    for collection_name in collection_names:
+
+        if collection_name:
+            Log.i(f"Querying [ {collection_name} ]")
+            try:
+                result = query_doc(
+                    collection_name=collection_name,
+                    query=query,
+                    k=k,
+                    embedding_function=embedding_function,
+                )
+                final_results.append(result)
+                results_by_rank[rank_count] = result.model_dump()
+
+                ids = LIST.get(0, result.ids, [])
+                if rank_count == 1 and len(ids) >= top_limit:
+                    break
+
+            except Exception as e:
+                Log.e(f"Error when querying the collection: {e}")
+        else:
+            pass
+        rank_count += 1
+
+
+    return merge_and_sort_query_results(final_results, k=k)
+
 def query_collection(collection_names: list[str], query: str, embedding_function, k: int) -> dict[str, list[list[Any]]]:
     results = []
     for collection_name in collection_names:
@@ -183,7 +221,6 @@ def query_collection(collection_names: list[str], query: str, embedding_function
         else:
             pass
     return merge_and_sort_query_results(results, k=k)
-
 
 def query_collection_with_hybrid_search(
     collection_names: list[str],

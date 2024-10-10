@@ -4,6 +4,8 @@ from datetime import datetime, timedelta
 from typing import Optional, Union
 
 import jwt
+from tqdm import tqdm
+
 from rai.models.users import Users
 from rai.constants import ERROR_MESSAGES
 from rai.env import WEBUI_SECRET_KEY
@@ -139,3 +141,22 @@ def get_admin_user(user=Depends(get_current_user)):
             detail=ERROR_MESSAGES.ACCESS_PROHIBITED,
         )
     return user
+
+def progress_bar(iterable, desc="Processing", color="green", **kwargs):
+    """
+    A utility function to process an iterable with a progress bar.
+
+    Parameters:
+    iterable (iterable): The iterable to process.
+    desc (str): Description for the progress bar.
+    color (str): Color of the progress bar.
+    **kwargs: Additional keyword arguments for tqdm.
+
+    Returns:
+    list: A list containing the items from the iterable.
+    """
+    bar_format = "{l_bar}%s{bar}%s{r_bar}" % (color, color)
+    results = []
+    for item in tqdm(iterable, desc=desc, bar_format=bar_format, **kwargs):
+        results.append(item)
+    return results

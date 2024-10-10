@@ -6,6 +6,6 @@ def import_directory(directory, prefix):
 
 
 if __name__ == '__main__':
-    db = "test"
+    db = "parkcitysc"
     RaiFileLoader.delete_collections(f"{db}-main", f"{db}-internal", f"{db}-development")
-    import_directory("/Users/chazzromeo/Desktop/data", db)
+    import_directory("/Users/chazzromeo/Desktop/ParkCityTrainingData", db)

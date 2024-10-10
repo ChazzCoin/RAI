@@ -133,6 +133,12 @@ class RaiPath:
     def ext_type(self):
         return self.path.name.split(".")[-1].lower()
 
+    def change_ext_type(self, ext_type:str):
+        temp = self.path.name.split(".")[-1].lower()
+        new_name = self.path.name.replace(temp, ext_type)
+        self.path = self.path.rename(new_name).absolute()
+        return self.path
+
     @property
     def directory_name(self) -> str:
         """Get the name of the directory."""
