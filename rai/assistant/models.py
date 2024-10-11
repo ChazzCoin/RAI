@@ -1,4 +1,4 @@
-from rai.app import state
+from rai import app
 
 class EmbeddingsModels:
     OpenAI = "text-embedding-ada-002"
@@ -13,16 +13,16 @@ class OpenAI:
     KEY = ""
 
     def __init__(self):
-        self.KEY = state.config.OPENAI_API_KEY
+        self.KEY = app.state.config.OPENAI_API_KEY
 
     def route(self, route=""):
         return f"http://{self.URL}{route}"
 
     def default_model(self, override:str=None):
-        return state.config.DEFAULT_OPENAI_MODEL if not override else override
+        return app.state.config.DEFAULT_OPENAI_MODEL if not override else override
 
     def embeddings_model(self):
-        return state.config.DEFAULT_OPENAI_EMBEDDING_MODEL
+        return app.state.config.DEFAULT_OPENAI_EMBEDDING_MODEL
 
 class Ollama:
     LLAMA3_8B_latest = "llama3:latest"
@@ -31,17 +31,17 @@ class Ollama:
     PORT = "11434"
 
     def __init__(self):
-        self.PORT = state.config.OLLAMA_PORT
-        self.IP = state.config.OLLAMA_HOST
+        self.PORT = app.state.config.OLLAMA_PORT
+        self.IP = app.state.config.OLLAMA_HOST
 
     def route(self, route=""):
         return f"http://{self.IP}:{self.PORT}{route}"
 
     def default_model(self, override:str=None):
-        return state.config.DEFAULT_OLLAMA_MODEL if not override else override
+        return app.state.config.DEFAULT_OLLAMA_MODEL if not override else override
 
     def embeddings_model(self):
-        return state.config.DEFAULT_OLLAMA_EMBEDDING_MODEL
+        return app.state.config.DEFAULT_OLLAMA_EMBEDDING_MODEL
 
 class ApiEngines:
     Embedding_MODELS = EmbeddingsModels()

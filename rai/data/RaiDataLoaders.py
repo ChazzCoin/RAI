@@ -423,6 +423,25 @@ class JSONLLoader:
             docs = []
         return docs
 
+    @staticmethod
+    def load_file(file:str):
+        objs = []
+        if os.path.exists(file):
+            with open(file, 'r', encoding='utf-8') as f:
+                for line in f:
+                    try:
+                        item = json.loads(line)
+                        objs.append(item)
+                    except json.JSONDecodeError:
+                        continue
+            return objs
+        else: return objs
+    @staticmethod
+    def save_file(data: dict, output_file:str):
+        with open(output_file, 'a', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False)
+            f.write('\n')
+
 class JSONLoader:
     def __init__(self, file_path: str, metadata={ 'image':'' }):
         self.file_path = file_path

@@ -1,18 +1,53 @@
-from selenium.webdriver.remote.webelement import WebElement
-
-from rai.assistant import openai_client
+import os
+import json
+import threading
+from typing import Set
+from urllib.parse import urlparse
+from F import DICT
 from bs4 import BeautifulSoup
-import requests, re
+import re
 from F.LOG import Log
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException
 from selenium.webdriver.chrome.service import Service as ChromeService
 from webdriver_manager.chrome import ChromeDriverManager
-import time
 
+from rai.data import RaiPath, RaiDirectories
+from rai.data.RaiDataLoaders import JSONLLoader
+import time
+from selenium.common.exceptions import (
+    WebDriverException,
+    TimeoutException,
+    NoSuchElementException,
+)
+
+class RaiUrl(str):
+    url: str = ""
+    url_obj = None
+
+    def __init__(self, url:str):
+        self.url = url
+        self.url_obj = urlparse(url)
+
+    def __new__(cls, url):
+        # `__new__` is used to create the actual instance since str is immutable
+        return super(RaiUrl, cls).__new__(cls, url)
+    @property
+    def site_name(self):
+        return self.url_obj.netloc
+    @property
+    def savable_name(self, replace_with:str='_'):
+        return self.url_obj.netloc.replace('.', replace_with)
+    @property
+    def path(self):
+        return self.url_obj.path  # /some/path
+    @property
+    def scheme(self):
+        return self.url_obj.scheme  # https
+
+""" Master Web Driver """
 class RaiWebDriver:
     driver: webdriver.Chrome
     options: webdriver.ChromeOptions = webdriver.ChromeOptions()
@@ -32,7 +67,7 @@ class RaiWebDriver:
         'ads', 'adservice', 'doubleclick.net', 'tracking', 'google-analytics'
     ]
 
-    def __init__(self, open_url:str=None):
+    def __init__(self, open_url: str = None):
         self.options = webdriver.ChromeOptions()
         self.options.add_argument("--headless")  # Run in headless mode
         self.options.add_argument("--disable-gpu")
@@ -166,6 +201,11 @@ class RaiWebDriver:
             "urls": self.page_urls,
             "tags": self.page_metadata
         }
+    def add_irrelevant_domains(self, *domains:str):
+        for domain in domains:
+            self.irrelevant_domains.extend(domain)
+    def is_irrelevant_link(self, url):
+        return any(domain in url for domain in self.irrelevant_domains)
     @staticmethod
     def refine_text_content(content):
         """
@@ -190,15 +230,122 @@ class RaiWebDriver:
         content = re.sub(r'\s+', ' ', content).strip()  # Normalize white space
 
         return content
-    def add_irrelevant_domains(self, *domains:str):
-        for domain in domains:
-            self.irrelevant_domains.extend(domain)
-    def is_irrelevant_link(self, url):
-        return any(domain in url for domain in self.irrelevant_domains)
 
+""" Master Web Crawler """
+class RaiWebCrawler(RaiWebDriver):
+    scrape_limit = 0
+    scrape_count = 0
+    current_site_name = ""
+    to_visit_urls: Set[str] = set()
+    output_dir:RaiPath
+    output_file:RaiPath
+
+    def __init__(self, base_url: str, output_dir:str=None):
+        super(RaiWebCrawler, self).__init__()
+        if output_dir is None:
+            output_dir = RaiDirectories.output()
+        self.url = RaiUrl(base_url)
+        self.output_dir = RaiPath(output_dir)
+        self.current_site_name = self.url.site_name
+        self.domain_name = self.url.savable_name
+        self.output_file = RaiPath(RaiPath.join_path(self.output_dir, RaiPath.ADD_JSONL_EXT(self.domain_name)))
+        self.to_visit_urls = {self.url}
+        self.data_lock = threading.Lock()
+        self._prepare_output_directory()
+        self._load_existing_data()
+
+    @classmethod
+    def save(cls, url, page_limit:int=1):
+        newcls = cls(url)
+        newcls.scrape_limit = page_limit
+        newcls.crawl()
+        return newcls
+
+    def _prepare_output_directory(self):
+        os.makedirs(self.output_dir, exist_ok=True)
+
+    def _load_existing_data(self):
+        if os.path.exists(self.output_file):
+            with open(self.output_file, 'r', encoding='utf-8') as f:
+                for line in f:
+                    try:
+                        item = json.loads(line)
+                        self.visited_urls.add(item['url'])
+                    except json.JSONDecodeError:
+                        continue
+
+    def _save_data(self, data: dict):
+        with self.data_lock:
+            JSONLLoader.save_file(data, self.output_file)
+
+    def is_within_base_url(self, url: str) -> bool:
+        parsed_base = urlparse(self.url)
+        parsed_url = urlparse(url)
+        return parsed_url.netloc == parsed_base.netloc
+
+    def filter_add_urls(self, new_links):
+        filtered_links = []
+        for link in new_links:
+            if self.is_within_base_url(link):
+                filtered_links.append(link)
+        with self.data_lock:
+            for link in filtered_links:
+                if link not in self.visited_urls:
+                    self.to_visit_urls.add(link)
+
+    @staticmethod
+    def clean_text(text: str) -> str:
+        # Implement your text cleaning logic here
+        text = ' '.join(text.split())
+        return text
+
+    @staticmethod
+    def form_data(url:str, details:dict, text:str):
+        return {
+            'url': url,
+            'title': DICT.get('title', details, url),
+            'content': text
+        }
+
+    def _scrape_page(self, url: str):
+        try:
+            results = self.open(url)
+            text = self.clean_text(results['content'])
+            details = results['details']
+            self.filter_add_urls(results['urls'])
+            if not text: return
+            data = self.form_data(url, details, text)
+            self._save_data(data)
+        except (WebDriverException, TimeoutException, NoSuchElementException) as e:
+            print(f"Error scraping {url}: {e}")
+
+    def crawl(self):
+        while self.to_visit_urls:
+            if self.scrape_limit > 0:
+                if self.scrape_count >= self.scrape_limit:
+                    break
+            current_url = self.to_visit_urls.pop()
+            if current_url in self.visited_urls:
+                continue
+            print(f"Scraping: {current_url}")
+            self.visited_urls.add(current_url)
+            self._scrape_page(current_url)
+            self.scrape_count += 1
+
+        # self.driver.quit()
+        print("Crawling completed.")
+
+    def start(self):
+        crawl_thread = threading.Thread(target=self.crawl)
+        crawl_thread.start()
+        crawl_thread.join()
 
 def remove_non_printable_ascii(text):
     """
     Remove non-printable characters from text.
     """
     return ''.join([c for c in text if ord(c) < 128])
+
+if __name__ == '__main__':
+    RaiWebCrawler.save('https://textract.readthedocs.io/en/stable/', page_limit=2)
+    # RaiWebCrawler(base_url='https://academy.veo.co', output_dir='output').start()

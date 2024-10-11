@@ -1,20 +1,47 @@
-
+import os
 import shutil
 from pathlib import Path
 from typing import Union
 
-class RaiPath:
+# TXT_FILE = lambda name: f"{name}.txt"
+# JSONL_FILE = lambda name: f"{name}.jsonl"
+# JSON_FILE = lambda name: f"{name}.json"
 
-    RAW = "DATA_FILE_PATH_RAW"
-    PENDING = "DATA_FILE_PATH_PENDING"
-    PROCESSED = "DATA_FILE_PATH_PROCESSED"
-    IMPORTED = "DATA_FILE_PATH_IMPORTED"
-    OUTPUT = "DATA_FILE_PATH_OUTPUT"
+class RaiDirectories:
+    @staticmethod
+    def output() -> str: return f"{RaiPath.get_directory_path(__file__)}/files/output"
+    @staticmethod
+    def images() -> str: return f"{RaiPath.get_directory_path(__file__)}/files/images"
+    @staticmethod
+    def imported() -> str: return f"{RaiPath.get_directory_path(__file__)}/files/imported"
+    @staticmethod
+    def pending() -> str: return f"{RaiPath.get_directory_path(__file__)}/files/pending"
+    @staticmethod
+    def processed() -> str: return f"{RaiPath.get_directory_path(__file__)}/files/processed"
 
-    def __init__(self, path: Union[str, Path] = None):
-        self.path = Path(path or self.RAW)
-        if not self.path.exists():
+class RaiPath(str):
+
+    PENDING = "RaiDirectories.pending()"
+    PROCESSED = "RaiDirectories.processed()"
+    IMPORTED = "RaiDirectories.imported()"
+    OUTPUT = "RaiDirectories.output()"
+
+    ADD_EXT = lambda name, ext: f"{name}.{ext}"
+    ADD_TXT_EXT = lambda name: f"{name}.txt"
+    ADD_JSONL_EXT = lambda name: f"{name}.jsonl"
+    ADD_JSON_EXT = lambda name: f"{name}.json"
+
+    def __init__(self, path: Union[str, Path] ="", ignore_exists:bool = True):
+        self.PENDING = RaiDirectories.pending()
+        self.PROCESSED = RaiDirectories.processed()
+        self.IMPORTED = RaiDirectories.imported()
+        self.OUTPUT = RaiDirectories.output()
+        self.path = Path(path if path != "" else self.PENDING)
+        if not self.path.exists() and not ignore_exists:
             raise FileNotFoundError(f"The path '{self.path}' does not exist.")
+
+    def __new__(cls, path: Union[str, Path]=""):
+        return super(RaiPath, cls).__new__(cls, path)
 
     @property
     def is_file(self) -> bool:
@@ -144,6 +171,18 @@ class RaiPath:
         else:
             return self.path.parent.name
 
+    @property
+    def directory_path(self) -> str:
+        return os.path.dirname(self)
+
+    @staticmethod
+    def get_directory_path(file_path: str) -> str:
+        return os.path.dirname(file_path)
+
+    @staticmethod
+    def join_path(path:str, file:str) -> str:
+        return str(os.path.join(path, file))
+
     def yield_files(self):
         """Yield every file in the directory."""
         if self.is_directory:
@@ -154,7 +193,7 @@ class RaiPath:
             print("No files found.")
 
     def __str__(self) -> str:
-        return f"FileSystemEntity(path='{self.path}')"
+        return self.path.absolute().__str__()
 
     def __repr__(self) -> str:
         return self.__str__()
@@ -162,10 +201,10 @@ class RaiPath:
 # Example Usage
 if __name__ == "__main__":
     # Initialize a file or directory
-    entity = RaiPath("/Users/chazzromeo/Desktop/data/PCSC Player Handbook.pdf")
-
+    entity = RaiPath(__file__)
+    print(entity.directory_path)
     # Example operations
-    if entity.is_file:
-        print("File Size:", entity.size, "bytes")
-    elif entity.is_directory:
-        print("Directory Contents:", entity.list_directory())
+    # if entity.is_file:
+    #     print("File Size:", entity.size, "bytes")
+    # elif entity.is_directory:
+    #     print("Directory Contents:", entity.list_directory())
