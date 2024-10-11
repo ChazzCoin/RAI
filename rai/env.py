@@ -26,13 +26,12 @@ print(BASE_DIR)
 
 try:
     from dotenv import find_dotenv, load_dotenv
-
-    load_dotenv(find_dotenv(str(BASE_DIR / ".env")))
+    load_dotenv()
 except ImportError:
     print("dotenv not installed, skipping...")
 
 DOCKER = os.environ.get("DOCKER", "False").lower() == "true"
-
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "OPENAI_API_KEY")
 # device type embedding models - "cpu" (default), "cuda" (nvidia gpu required) or "mps" (apple silicon) - choosing this right can lead to better performance
 USE_CUDA = os.environ.get("USE_CUDA_DOCKER", "false")
 

@@ -43,12 +43,18 @@ from rai.config import (
     PDF_EXTRACT_IMAGES,
     RAG_EMBEDDING_ENGINE,
     RAG_EMBEDDING_MODEL,
+    OPENAI_API_KEY,
+    OLLAMA_HOST,
+    OLLAMA_PORT,
+    DEFAULT_OPENAI_EMBEDDING_MODEL,
+    DEFAULT_OPENAI_MODEL,
     RAG_EMBEDDING_MODEL_AUTO_UPDATE,
     RAG_EMBEDDING_MODEL_TRUST_REMOTE_CODE,
     RAG_EMBEDDING_OPENAI_BATCH_SIZE,
     RAG_FILE_MAX_COUNT,
     RAG_FILE_MAX_SIZE,
     RAG_OPENAI_API_BASE_URL,
+    OPENAI_API_KEY,
     RAG_OPENAI_API_KEY,
     RAG_RELEVANCE_THRESHOLD,
     RAG_RERANKING_MODEL,
@@ -103,8 +109,6 @@ from langchain_community.document_loaders import (
     YoutubeLoader,
 )
 from langchain_core.documents import Document
-# from colbert.infra import ColBERTConfig
-# from colbert.modeling.checkpoint import Checkpoint
 
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["RAG"])
@@ -128,8 +132,15 @@ app.state.config.RAG_EMBEDDING_OPENAI_BATCH_SIZE = RAG_EMBEDDING_OPENAI_BATCH_SI
 app.state.config.RAG_RERANKING_MODEL = RAG_RERANKING_MODEL
 app.state.config.RAG_TEMPLATE = RAG_TEMPLATE
 app.state.config.OPENAI_API_BASE_URL = RAG_OPENAI_API_BASE_URL
-app.state.config.OPENAI_API_KEY = RAG_OPENAI_API_KEY
+app.state.config.OPENAI_API_KEY = OPENAI_API_KEY
 app.state.config.PDF_EXTRACT_IMAGES = PDF_EXTRACT_IMAGES
+
+app.state.config.OLLAMA_HOST = OLLAMA_HOST
+app.state.config.OLLAMA_PORT = OLLAMA_PORT
+
+app.state.config.DEFAULT_OPENAI_MODEL = DEFAULT_OPENAI_MODEL
+app.state.config.DEFAULT_OPENAI_EMBEDDING_MODEL = DEFAULT_OPENAI_EMBEDDING_MODEL
+
 app.state.config.YOUTUBE_LOADER_LANGUAGE = YOUTUBE_LOADER_LANGUAGE
 app.state.YOUTUBE_LOADER_TRANSLATION = None
 app.state.config.ENABLE_RAG_WEB_SEARCH = ENABLE_RAG_WEB_SEARCH

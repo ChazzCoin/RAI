@@ -1,14 +1,14 @@
-from asyncio import to_thread
 import chromadb
-from F import DICT, DATE, OS
-from chromadb.config import Settings
+from F import DICT, DATE
 from dotenv import load_dotenv
 import os
 import logging
-from assistant import openai_client as openai
-from dataset.TextCleaner import TextCleaner
+from rai.data.TextCleaner import TextCleaner
+from rai.assistant import openai_client as openai
 from typing import List, Dict
 import asyncio
+
+
 # Load environment variables from a .env file
 load_dotenv()
 from F.LOG import Log
@@ -73,19 +73,10 @@ class ChromaInstance:
 
     def __init__(self, collection_name:str=None, persistent:bool=True):
         try:
-            print("Chroma Host:", os.getenv("DEFAULT_CHROMA_SERVER_HOST"))
-            print("Chroma Port:", os.getenv("DEFAULT_CHROMA_SERVER_PORT"))
-            for item in os.listdir("/"):
-                item_path = os.path.join("/", item)
-                if os.path.isfile(item_path):
-                    print(f"File: {item}")
-                elif os.path.isdir(item_path):
-                    print(f"Directory: {item}")
             self.chroma_client = chromadb.HttpClient(
                 host=os.getenv("DEFAULT_CHROMA_SERVER_HOST"),
                 port=int(os.getenv("DEFAULT_CHROMA_SERVER_PORT"))
             )
-            print(self.chroma_client)
         except Exception as e:
             print(f"Failed to initialize ChromaInstance: {e}")
             raise e

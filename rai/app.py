@@ -12,6 +12,9 @@ from rai.config import (
     PDF_EXTRACT_IMAGES,
     RAG_EMBEDDING_ENGINE,
     RAG_EMBEDDING_MODEL,
+    OLLAMA_PORT,
+    OLLAMA_HOST,
+    OPENAI_API_KEY,
     RAG_EMBEDDING_MODEL_AUTO_UPDATE,
     RAG_EMBEDDING_MODEL_TRUST_REMOTE_CODE,
     RAG_EMBEDDING_OPENAI_BATCH_SIZE,
@@ -45,7 +48,6 @@ from rai.config import (
     DEFAULT_CHROMA_SERVER_PORT,
     AppConfig,
 )
-from rai.env import SRC_LOG_LEVELS
 
 
 class AppStateConfig:
@@ -75,7 +77,9 @@ class AppStateConfig:
         self.config.RAG_TEMPLATE = RAG_TEMPLATE
 
         self.config.OPENAI_API_BASE_URL = RAG_OPENAI_API_BASE_URL
-        self.config.OPENAI_API_KEY = RAG_OPENAI_API_KEY
+        self.config.OPENAI_API_KEY = OPENAI_API_KEY
+        self.config.OLLAMA_HOST = OLLAMA_HOST
+        self.config.OLLAMA_PORT = OLLAMA_PORT
 
         self.config.PDF_EXTRACT_IMAGES = PDF_EXTRACT_IMAGES
 

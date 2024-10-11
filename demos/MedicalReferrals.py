@@ -1,5 +1,5 @@
-from assistant.openai_client import chat_request
-from dataset.intake.PDF_v1 import FPDF
+from rai.assistant import chat_request
+from rai.files.intake import FPDF
 # Folders to Modify/Migrate
 """
 Repository: relayhealthcare-webapp-newest

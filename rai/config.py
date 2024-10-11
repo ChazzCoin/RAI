@@ -9,7 +9,6 @@ from urllib.parse import urlparse
 
 import chromadb
 import requests
-import yaml
 from rai.internal.db import Base, get_db
 from rai.env import (
     OPEN_WEBUI_DIR,
@@ -406,6 +405,18 @@ DEFAULT_CHROMA_SERVER_PORT = PersistentConfig(
     os.environ.get("DEFAULT_CHROMA_SERVER_PORT", "8000"),
 )
 
+OLLAMA_HOST = PersistentConfig(
+    "OLLAMA_HOST",
+    "ollama.host",
+    os.environ.get("OLLAMA_HOST", "localhost"),
+)
+
+OLLAMA_PORT = PersistentConfig(
+    "OLLAMA_PORT",
+    "ollama.port",
+    os.environ.get("OLLAMA_PORT", 11434),
+)
+
 def load_oauth_providers():
     OAUTH_PROVIDERS.clear()
     if GOOGLE_CLIENT_ID.value and GOOGLE_CLIENT_SECRET.value:
@@ -625,7 +636,7 @@ ENABLE_OPENAI_API = PersistentConfig(
 )
 
 
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+# OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 OPENAI_API_BASE_URL = os.environ.get("OPENAI_API_BASE_URL", "")
 
 
@@ -633,7 +644,7 @@ if OPENAI_API_BASE_URL == "":
     OPENAI_API_BASE_URL = "https://api.openai.com/v1"
 
 OPENAI_API_KEYS = os.environ.get("OPENAI_API_KEYS", "")
-OPENAI_API_KEYS = OPENAI_API_KEYS if OPENAI_API_KEYS != "" else OPENAI_API_KEY
+OPENAI_API_KEYS = OPENAI_API_KEYS if OPENAI_API_KEYS != "" else "OPENAI_API_KEY"
 
 OPENAI_API_KEYS = [url.strip() for url in OPENAI_API_KEYS.split(";")]
 OPENAI_API_KEYS = PersistentConfig(
@@ -989,6 +1000,18 @@ ENABLE_RAG_WEB_LOADER_SSL_VERIFICATION = PersistentConfig(
     os.environ.get("ENABLE_RAG_WEB_LOADER_SSL_VERIFICATION", "True").lower() == "true",
 )
 
+DEFAULT_OPENAI_MODEL = PersistentConfig(
+    "DEFAULT_OPENAI_MODEL",
+    "rag.embedding_function",
+    os.environ.get("DEFAULT_OPENAI_MODEL", ""),
+)
+
+DEFAULT_OPENAI_EMBEDDING_MODEL = PersistentConfig(
+    "DEFAULT_OPENAI_EMBEDDING_MODEL",
+    "rag.embedding_engine",
+    os.environ.get("DEFAULT_OPENAI_EMBEDDING_MODEL", ""),
+)
+
 RAG_EMBEDDING_FUNCTION = PersistentConfig(
     "RAG_EMBEDDING_FUNCTION",
     "rag.embedding_function",
@@ -1088,6 +1111,12 @@ RAG_OPENAI_API_KEY = PersistentConfig(
     "RAG_OPENAI_API_KEY",
     "rag.openai_api_key",
     os.getenv("RAG_OPENAI_API_KEY", "OPENAI_API_KEY"),
+)
+
+OPENAI_API_KEY = PersistentConfig(
+    "OPENAI_API_KEY",
+    "rag.openai_api_key",
+    os.getenv("OPENAI_API_KEY", "OPENAI_API_KEY"),
 )
 
 ENABLE_RAG_LOCAL_WEB_FETCH = (

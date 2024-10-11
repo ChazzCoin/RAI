@@ -1,4 +1,4 @@
-from assistant import openai_client as api
+from rai.assistant import openai_client as api
 from chdb.rag import RAGWithChroma
 
 # model = os.getenv("DEFAULT_OPENAI_MODEL")

@@ -3,24 +3,23 @@ import asyncio
 import base64
 import json
 import os.path
-import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
-
-from config import env
 import aiohttp
 from quart import Quart, request, jsonify, Response, send_file
 from quart_cors import cors
 import requests
 from F import DICT, LIST
 from F.LOG import Log
-from assistant.openai_client import get_current_timestamp, get_embeddings
-from config.RaiModels import RAI_MODs, getRaiModels
+from F.DATE import get_timestamp_str as get_current_timestamp
+from rai.RaiModels import RAI_MODs, getRaiModels
 from chdb.rag import RAGWithChroma
-from config.redisdb import RaiCache
-from assistant.context import ContextHelper
+from rai.agents.weather import get_weather_by_zip, get_air_quality
+from rai.assistant.context import ContextHelper
+from rai.internal.redisdb import RaiCache
+from rai.RAG.newmain import query_chroma_by_user_auth
+from rai import env
 
-from rai.RAG.newmain import query_chroma, query_chroma_by_user_auth
 
 Log = Log("RAI API Bruno Canary")
 app = Quart(__name__)
@@ -154,7 +153,6 @@ def isOpenAI(model:str) -> bool:
 CACHE WEATHER
 """
 async def get_refresh_cached_weather(model, zip):
-    from agents.weather import get_weather_by_zip, get_air_quality
     weather_cache = cache.get_weather_data(model)
     if weather_cache:
         return weather_cache
@@ -171,7 +169,7 @@ async def openai_chat_generation(messages:[], modelIn:str="gpt-4o-mini", debug:b
     """Asynchronously get chat completion from OpenAI API."""
     headers = {
         'Content-Type': 'application/json',
-        'Authorization': f'Bearer {env("OPENAI_API_KEY")}',
+        'Authorization': f'Bearer {env.OPENAI_API_KEY}',
     }
     data = {
         'model': modelIn,
@@ -201,7 +199,7 @@ async def ollama_chat_generation(messages:[], modelIn:str="llama3:latest", debug
     """Asynchronously get chat completion from OpenAI API."""
     headers = {
         'Content-Type': 'application/json',
-        'Authorization': f'Bearer {env("OPENAI_API_KEY")}',
+        'Authorization': f'Bearer {env.OPENAI_API_KEY}',
     }
     data = {
         'model': modelIn,
@@ -224,7 +222,7 @@ async def ollama_quick_generation(system_prompt, user_prompt, modelIn:str="llama
     """Asynchronously get chat completion from OpenAI API."""
     headers = {
         'Content-Type': 'application/json',
-        'Authorization': f'Bearer {env("OPENAI_API_KEY")}',
+        'Authorization': f'Bearer {env.OPENAI_API_KEY}',
     }
     data = {
         'model': modelIn,

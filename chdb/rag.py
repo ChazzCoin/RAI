@@ -1,10 +1,10 @@
 import os
 import uuid
 from F import DATE, DICT
-from assistant import openai_client as openai
+from rai.assistant import openai_client as openai
 from chdb.chroma import ChromaInstance
-from dataset.TextCleaner import TextCleaner
-from dataset import load_txt_file, load_json_file
+from rai.data.TextCleaner import TextCleaner
+
 
 class RAGWithChroma(ChromaInstance):
 
@@ -126,7 +126,8 @@ class RAGWithChroma(ChromaInstance):
         return final_response
 
     def import_json(self, file_name, topic):
-        js = load_json_file(file_name)
+        pass
+        # js = load_json_file(file_name)
         # for url in js:
         #     page_contents = js[url]
         #     page_paras = to_paragraphs_with_min_max(page_contents)
@@ -135,8 +136,9 @@ class RAGWithChroma(ChromaInstance):
         #         self.add_web_page(page_text=para, page_name=extract_page_extension(url), topic=topic, url=url)
 
     def import_txt(self, file_name):
-        text = load_txt_file(file_name)
-        self.add_raw_text(text, doc_name=file_name)
+        pass
+        # text = load_txt_file(file_name)
+        # self.add_raw_text(text, doc_name=file_name)
 
 def extract_page_extension(url: str) -> str:
     from urllib.parse import urlparse

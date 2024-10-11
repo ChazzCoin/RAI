@@ -1,9 +1,8 @@
-import enum
 import logging
 from typing import Optional
 from pydantic import BaseModel
-from assistant.ollama_client import generate_chroma_embeddings
 from rai.RAG.utils import query_collection_with_hybrid_search, query_collection
+from rai.assistant.ollama_client import generate_chroma_embeddings
 from rai.env import SRC_LOG_LEVELS
 from rai import app
 

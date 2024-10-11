@@ -82,12 +82,12 @@ class DynamicRAGTest(unittest.TestCase):
 
 
 
-if __name__ == '__main__':
-    # Configure the model and tests dynamically
-    DynamicRAGTest.setUpTestConfig(
-        model_class=RAGWithChroma,  # Dynamically specify the model class
-        collection_name="web_pages_2",  # Specify the collection name
-        test_cases=test_cases  # Provide the test cases
-    )
-    # Run the test suite
-    unittest.main()
+# if __name__ == '__main__':
+#     # Configure the model and tests dynamically
+#     DynamicRAGTest.setUpTestConfig(
+#         model_class=RAGWithChroma,  # Dynamically specify the model class
+#         collection_name="web_pages_2",  # Specify the collection name
+#         test_cases=test_cases  # Provide the test cases
+#     )
+#     # Run the test suite
+#     unittest.main()
