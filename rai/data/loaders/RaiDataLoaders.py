@@ -81,6 +81,9 @@ class RaiDataLoader:
         verification = RaiDataLoader.verify_loader_data(loader)
         if not verification:
             loader = LastResortDataLoader(self.file, metadata=self.metadata)
+
+        # for d in loader.load():
+        #     print(d.page_content)
         return loader
 
     @staticmethod

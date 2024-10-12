@@ -20,4 +20,4 @@ if __name__ == '__main__':
     # training_path = RaiPath.find_directory_path("ParkCityTrainingData")
     # print(training_path)
     # delete_collects(*RAI_DBs(db))
-    import_directory("chroma", directory, db)
+    import_directory("print", directory, db)

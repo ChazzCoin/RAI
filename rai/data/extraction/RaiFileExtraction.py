@@ -100,7 +100,12 @@ class RaiFileExtractor:
 
     def run_pipeline(self, docs, collection_name):
         if self.pipeline.lower() == "chroma": return self.to_chroma(docs, collection_name)
+        elif self.pipeline.lower() == "print": return self.to_printer(docs, collection_name)
 
+    def to_printer(self, docs, collection_name):
+        print(f"Printing: {self.current_file} {collection_name}")
+        for d in docs:
+            print(d)
 
     def to_chroma(self, docs, collection_name):
         Log.i(f"importing [ {len(docs)} ] docs in [ {collection_name} ]")
@@ -142,46 +147,3 @@ class RaiFileExtractor:
                 VECTOR_DB_CLIENT.delete_collection(collection_name=collection)
             except Exception as e:
                 Log.e(e)
-
-
-""" -> public INTAKE <- """
-
-
-# def store_doc(collection_name: Optional[str], file: RaiPath):
-#     Log.i(f"Processing file: {file}")
-#     try:
-#         filename = file.file_name
-#
-#         # Guess the content type based on the file extension
-#         content_type, encoding = mimetypes.guess_type(file.path)
-#         Log.i(f"Detected content_type: {content_type}")
-#
-#         if collection_name is None:
-#             with open(file.path, "rb") as f:
-#                 collection_name = calculate_sha256(f)[:63]
-#
-#         loader = RaiDataLoader(file.path).loader
-#         data = loader.load()
-#
-#         try:
-#             result = store_data_in_vector_db(data, collection_name)
-#
-#             if result:
-#                 return {
-#                     "status": True,
-#                     "collection_name": collection_name,
-#                     "filename": filename,
-#                     "known_type": file.ext_type,
-#                 }
-#             else:
-#                 return {}
-#         except Exception as e:
-#             Log.e(e)
-#             return {}
-#     except Exception as e:
-#         Log.e(e)
-#         if "No pandoc was found" in str(e):
-#             return {}
-#         else:
-#             return {}
-

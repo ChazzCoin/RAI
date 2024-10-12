@@ -198,17 +198,10 @@ class RaiMetadataLoader:
         metadata = self.parse_ai_response(metadata_json)
         if not metadata:
             if count < 3:
-                self.ai_generation_function(prepared_data, count=count + 1)
-        if metadata: self.metadata = metadata
+                self.ai_generate_metadata(prepared_data, count=count + 1)
+        if metadata: self.metadata = DataLoaderMetadata.from_dict(metadata)
 
     def parse_ai_response(self, response_text: str, count:int=0) -> Dict[str, Any]:
-        """
-        Parses the AI model's response to extract metadata.
-        Args:
-            response_text (str): The raw text response from the AI model.
-        Returns:
-            Dict[str, Any]: Parsed metadata.
-        """
         metadata = None
         try:
             metadata = json.loads(response_text)
@@ -226,51 +219,6 @@ class RaiMetadataLoader:
                     return self.parse_ai_response(temp, count + 1)
         return metadata
 
-    def update_metadata_from_analysis(
-            self, analysis_results: Dict[str, Any]):
-        """
-        Updates the DataLoaderMetadata object based on AI analysis results.
-        Args:
-            metadata (DataLoaderMetadata): The metadata object to update.
-            analysis_results (Dict[int, Dict[str, Any]]): The analysis results from the AI model.
-        Returns:
-            None
-        """
-        # Assuming we're aggregating metadata from all analyzed data
-        for idx, result in analysis_results.items():
-            for key, value in result.items():
-                if hasattr(self.metadata, key):
-                    setattr(self.metadata, key, value)
-                else:
-                    self.metadata.custom_fields[key] = value
-
-    # def ai_analysis_function(self, prepared_data: List[str]) -> Dict[str, Any]:
-    #     # Process data in batches
-    #     batch_size = 5  # Adjust as needed
-    #     analysis_results = {}
-    #     for i in range(0, len(prepared_data), batch_size):
-    #         batch = prepared_data[i:i + batch_size]
-    #         # Combine batch into a single prompt if appropriate
-    #         # Send batch to AI model and process responses
-    #         # Update analysis_results with batch results
-    #     return analysis_results
-
-    # def update_metadata_from_analysis(
-    #         self, analysis_results: Dict[int, Dict[str, Any]]
-    # ) -> None:
-    #     # Define a mapping
-    #     field_mapping = {
-    #         'document_title': 'title',
-    #         'document_category': 'category',
-    #         # Add other mappings as needed
-    #     }
-    #     for idx, result in analysis_results.items():
-    #         for key, value in result.items():
-    #             metadata_field = field_mapping.get(key, key)
-    #             if hasattr(self.metadata, metadata_field):
-    #                 setattr(self.metadata, metadata_field, value)
-    #             else:
-    #                 self.metadata.custom_fields[metadata_field] = value
     @staticmethod
     def extract_json_with_regex(text):
         import regex
