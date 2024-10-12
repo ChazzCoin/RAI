@@ -36,7 +36,7 @@ def pipeline_convert_raw_text_to_jsonl_dataset(raw_text, output_file, role: str 
     save_jsonl_response(json_data, output_file)
 
 def request_jsonl_formatting_from_ai(raw_text: str, role: str = RoleParkCitySoccerClub):
-    return openai_client.chat_request(System_Prompt(role), raw_text, model="gpt-4o-mini")
+    return openai_client.openai_generate(System_Prompt(role), raw_text, model="gpt-4o-mini")
 
 def save_jsonl_response(jsonl_string, output_file):
     if jsonl_string.__contains__('jsonl'):

@@ -48,7 +48,7 @@ class RAGWithChroma(ChromaInstance):
         system_prompt = self.inject_into_system_prompt(q_results)
         print(system_prompt, "\n------------\n")
         """ 2. Request AI Response """
-        ai_response = openai.chat_request(system=system_prompt, user=query)
+        ai_response = openai.openai_generate(system_prompt=system_prompt, user_prompt=query)
         """ 3. Form Final Chat Response """
         output = self.append_metadata_to_response(ai_response, q_results)
         """ 4. Print and Return Response """

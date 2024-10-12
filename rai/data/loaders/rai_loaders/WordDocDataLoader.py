@@ -14,6 +14,7 @@ from rai.data.loaders.rai_loaders.VisionDataLoader import VisionDataLoader
 Log = Log("WordDocDataLoader")
 
 class WordDocDataLoader(BaseLoader):
+    cache: [RaiLoaderDocument] = None
     def __init__(self, file_path: str, metadata:dict=DEFAULT_METADATA):
         self.file_path = file_path
         self.metadata = metadata
@@ -32,11 +33,15 @@ class WordDocDataLoader(BaseLoader):
         useful for embeddings, querying, and AI processing.
         """
         try:
+            if self.cache:
+                Log.i(f"Returning Cached Loader: [ {self.file_path} ]")
+                return self.cache
             document = docx.Document(self.file_path)
             formatted_paragraphs = self.format_docx(document)
             if formatted_paragraphs:
                 Log.i(f"Docx Success: [ {self.file_path} ]")
-                return RaiLoaderDocument.generate_documents(formatted_paragraphs, metadata=self.metadata)
+                self.cache = RaiLoaderDocument.generate_documents(formatted_paragraphs, metadata=self.metadata)
+                return self.cache
             else:
                 raise ValueError("DOCX is empty or could not be processed.")
         except Exception as e:
@@ -50,7 +55,8 @@ class WordDocDataLoader(BaseLoader):
                     # Fallback to LastResortLoader if all else fails
                     Log.w("WordDocLoader Failed, last resorting.", e)
                     loader = LastResortDataLoader(self.file_path, metadata=self.metadata)
-            return loader.load()
+            self.cache = loader.load()
+            return self.cache
     @staticmethod
     def format_docx(document: docx.Document) -> [str]:
         """

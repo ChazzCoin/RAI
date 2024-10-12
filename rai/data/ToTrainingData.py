@@ -4,7 +4,7 @@ import openai
 import time
 import threading
 from typing import List, Dict, Any
-from rai.assistant.openai_client import chat_request
+from rai.assistant.openai_client import openai_generate
 
 
 class ToTrainingData:
@@ -60,7 +60,7 @@ class ToTrainingData:
 
         while retry_count < max_retries:
             try:
-                assistant_reply = chat_request(self._system_prompt(), document['content'], model="gpt-4o-mini")
+                assistant_reply = openai_generate(self._system_prompt(), document['content'], model="gpt-4o-mini")
                 self._save_to_file(assistant_reply)
                 print(f"Processed document from URL: {document['url']}")
                 break

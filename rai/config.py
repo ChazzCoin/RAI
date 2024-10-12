@@ -417,6 +417,11 @@ OLLAMA_PORT = PersistentConfig(
     os.environ.get("OLLAMA_PORT", 11434),
 )
 
+DEFAULT_OLLAMA_MODEL = PersistentConfig(
+    "DEFAULT_OLLAMA_MODEL",
+    "ollama.default_model",
+    os.environ.get("DEFAULT_OLLAMA_MODEL", 'llama3:latest'),
+)
 def load_oauth_providers():
     OAUTH_PROVIDERS.clear()
     if GOOGLE_CLIENT_ID.value and GOOGLE_CLIENT_SECRET.value:

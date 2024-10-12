@@ -2,22 +2,21 @@ import os
 
 import PyPDF2
 from langchain_community.document_loaders import PyPDFLoader
-from langchain_core.document_loaders import BaseLoader
 
 from F.LOG import Log
 
 from rai.data.loaders import verify_loader_data
 from rai.data.loaders.rai_loaders.LastResortDataLoader import LastResortDataLoader
-from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiLoaderDocument
+from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiLoaderDocument, RaiBaseLoader
 from rai.data.loaders.rai_loaders.RaiMetadataLoader import DEFAULT_METADATA
 from rai.data.loaders.rai_loaders.VisionDataLoader import VisionDataLoader
 
 Log = Log("PdfDataLoader")
 
-class PdfDataLoader(BaseLoader):
+class PdfDataLoader(RaiBaseLoader):
+
     def __init__(self, file_path: str, metadata=DEFAULT_METADATA):
-        self.file_path = file_path
-        self.metadata = metadata
+        super().__init__(file_path, metadata)
         self._validate_file_path()
 
     def _validate_file_path(self):
@@ -33,13 +32,16 @@ class PdfDataLoader(BaseLoader):
         useful for embeddings, querying, and AI processing.
         """
         try:
-
+            if self.cache:
+                Log.i(f"Returning Cached Loader: [ {self.file_path} ]")
+                return self.cache
             with open(self.file_path, 'rb') as file:
                 reader = PyPDF2.PdfReader(file)
                 formatted_pages = self.format_pdf(reader)
                 if formatted_pages:
                     Log.i(f"PyPDF2 Reader Success: [ {self.file_path} ]")
-                    return RaiLoaderDocument.generate_documents(formatted_pages, metadata=self.metadata)
+                    self.cache = RaiLoaderDocument.generate_documents(formatted_pages, metadata=self.metadata)
+                    return self.cache
                 else:
                     raise ValueError("PDF is empty or could not be processed.")
         except Exception as e:
@@ -52,7 +54,8 @@ class PdfDataLoader(BaseLoader):
                 if not verify_loader_data(loader):
                     # Fallback to LastResortLoader if all else fails
                     loader = LastResortDataLoader(self.file_path, metadata=self.metadata)
-            return loader.load()
+            self.cache = loader.load()
+            return self.cache
 
     @staticmethod
     def format_pdf(reader: PyPDF2.PdfReader) -> [str]:

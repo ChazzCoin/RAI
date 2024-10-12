@@ -11,21 +11,25 @@ from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiLoaderDocument
 Log = Log("JSONLDataLoader")
 
 class JSONLDataLoader(BaseLoader):
+    cache: [RaiLoaderDocument] = None
     def __init__(self, file_path: str, metadata={ 'image':'' }):
         self.file_path = file_path
         self.metadata = metadata if not None else { 'image': '' }
 
     def load(self):
-        docs = []
+        if self.cache:
+            Log.i(f"Returning Cached Loader: [ {self.file_path} ]")
+            return self.cache
+        self.cache = []
         try:
             with jsonlines.open(self.file_path) as reader:
                 for obj in reader:
                     data_string = DICT.get_any(keys=["content", "text", "page", "page_content"], dic=obj)
-                    docs.append(RaiLoaderDocument(page_content=data_string, metadata=self.metadata))
+                    self.cache.append(RaiLoaderDocument(page_content=data_string, metadata=self.metadata))
         except Exception as e:
             Log.e(e)
-            docs = []
-        return docs
+            self.cache = []
+        return self.cache
 
     @staticmethod
     def load_file(file:str):

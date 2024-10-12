@@ -5,42 +5,31 @@ from F.LOG import Log
 
 from rai.data.extraction.intake.Vision import VisionExtractor
 from rai.data.loaders import delete_folder
-from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiLoaderDocument
+from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiLoaderDocument, RaiBaseLoader
 
 Log = Log("VisionDataLoader")
 
-class VisionDataLoader:
+class VisionDataLoader(RaiBaseLoader):
 
-    def __init__(self, file_path: str, metadata:dict={ 'image': '' }, delete_cache=True):
-        self.file_path = file_path
-        self.metadata = metadata if not None else {'image': ''}
+    def __init__(self, file_path: str, metadata: dict = {'image': ''}):
+        super().__init__(file_path, metadata)
         self.data = VisionExtractor(self.file_path).extract(save_images=True)
-        if delete_cache:
-            # self.delete_cached_folder()
-            time.sleep(1)
-
-    def delete_cached_folder(self):
-        try:
-            out = os.path.splitext(self.file_path)[0]
-            Log.w(f"Deleting Cached Output Dir: [ {out}_output ]")
-            delete_folder(f"{out}_output")
-        except Exception as e:
-            Log.e(f"Error removing OS: {e}")
 
     def load(self, load_text=True, load_images=True):
         Log.w("VisionDataLoader [ load() ] has been called.")
         if not load_text and not load_images:
             return []
-
-        filtered_data = []
+        if self.cache:
+            Log.i(f"Returning Cached Loader: [ {self.file_path} ]")
+            return self.cache
         for page in self.data:
             content = ""
             if load_text:
                 content = page.get('page_content', '')
             if load_images:
                 self.metadata['image'] = page.get('image', '')
-            filtered_data.append(RaiLoaderDocument(page_content=content, metadata=self.metadata))
-        return filtered_data
+            self.cache.append(RaiLoaderDocument(page_content=content, metadata=self.metadata))
+        return self.cache
 
     def get_pages(self, load_text=True, load_images=True):
         if self.data is None:
@@ -61,18 +50,6 @@ class VisionDataLoader:
         if self.data is None:
             self.load()
         return self.data
-
-    def is_empty(self):
-        if not self.data:
-            return True
-        return False
-
-    def should_fallback(self):
-        if not self.data:
-            Log.w("No Vision Data. Falling Back.")
-            return True
-        Log.w("Vision Found Data.")
-        return False
 
     def load_d(self):
         if self.data is None:

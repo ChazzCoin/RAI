@@ -21,7 +21,7 @@ Only return the formatted data.
 """
 
 def request_auto_format_of_raw_data(raw_text: str):
-    return openai_client.chat_request(System_Prompt(Auto_Format), raw_text, model="gpt-4o-mini")
+    return openai_client.openai_generate(System_Prompt(Auto_Format), raw_text, model="gpt-4o-mini")
 
 def request_chromadb_format(raw_text: str):
-    return openai_client.chat_request(System_Prompt(Chromadb_Format), raw_text, model="gpt-4o-mini")
+    return openai_client.openai_generate(System_Prompt(Chromadb_Format), raw_text, model="gpt-4o-mini")

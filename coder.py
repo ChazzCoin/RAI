@@ -13,7 +13,7 @@ def run(input:str):
     system_prompt = rag.inject_into_system_prompt(results)
     print(system_prompt, "\n------------\n")
     # Request AI Response
-    ai_response = api.chat_request(system=system_prompt, user=user_prompt)
+    ai_response = api.openai_generate(system_prompt=system_prompt, user_prompt=user_prompt)
     print(ai_response, "\n------------\n")
     # Form Final Chat Response
     output = rag.append_metadata_to_response(ai_response, results)

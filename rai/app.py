@@ -14,6 +14,7 @@ from rai.config import (
     RAG_EMBEDDING_MODEL,
     OLLAMA_PORT,
     OLLAMA_HOST,
+DEFAULT_OLLAMA_MODEL,
     OPENAI_API_KEY,
 DEFAULT_OLLAMA_EMBEDDING_MODEL,
     RAG_EMBEDDING_MODEL_AUTO_UPDATE,
@@ -81,6 +82,7 @@ class AppStateConfig:
         self.config.OPENAI_API_KEY = OPENAI_API_KEY
         self.config.OLLAMA_HOST = OLLAMA_HOST
         self.config.OLLAMA_PORT = OLLAMA_PORT
+        self.config.DEFAULT_OLLAMA_MODEL = DEFAULT_OLLAMA_MODEL
 
         self.config.PDF_EXTRACT_IMAGES = PDF_EXTRACT_IMAGES
 

@@ -199,6 +199,12 @@ class RaiPath(str):
         else:
             print("No files found.")
 
+    def is_metadata_file(self):
+        if self.is_file:
+            if self.endswith("metadata.json"):
+                return True
+        return False
+
     def __str__(self) -> str:
         return self.path.absolute().__str__()
 

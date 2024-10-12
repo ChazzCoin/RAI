@@ -1,9 +1,7 @@
 
 
 from F.LOG import Log
-from langchain_core.document_loaders import BaseLoader
-
-from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiLoaderDocument
+from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiLoaderDocument, RaiBaseLoader
 from rai.data.loaders.rai_loaders.RaiMetadataLoader import DEFAULT_METADATA
 from rai.data.loaders.rai_loaders.RawTextDataLoader import RawTextDataLoader
 from rai.data.extraction.read import read_file
@@ -11,10 +9,9 @@ from rai.data.extraction.read import read_file
 Log = Log("LastResortLoader")
 DEFAULT_CONTENT = "This data is unknown at this time."
 
-class LastResortDataLoader(BaseLoader):
+class LastResortDataLoader(RaiBaseLoader):
     def __init__(self, file_path: str, metadata: dict = DEFAULT_METADATA):
-        self.file_path = file_path
-        self.metadata = metadata
+        super().__init__(file_path, metadata)
 
     def load(self):
         """
@@ -24,10 +21,14 @@ class LastResortDataLoader(BaseLoader):
         """
         try:
             Log.w(f"LastResortDataLoader has been called!: [ {self.file_path} ]")
+            if self.cache:
+                Log.i(f"Returning Cached Loader: [ {self.file_path} ]")
+                return self.cache
             raw_text = read_file(self.file_path, enable_vision=False)
             if raw_text:
                 loader = RawTextDataLoader(raw_text, metadata=self.metadata)
-                return loader.load()
+                self.cache = loader.load()
+                return self.cache
             else:
                 raise ValueError("Failed to extract raw text from the file.")
         except Exception as e:

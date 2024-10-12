@@ -1,6 +1,3 @@
-import os
-import shutil
-import stat
 from langchain_community.document_loaders import (
     BSHTMLLoader,
     OutlookMessageLoader,
@@ -10,7 +7,6 @@ from langchain_community.document_loaders import (
     UnstructuredRSTLoader,
     UnstructuredXMLLoader,
 )
-from langchain_core.document_loaders import BaseLoader
 from rai.data import RaiPath
 from F.LOG import Log
 
@@ -19,6 +15,8 @@ from rai.data.loaders.rai_loaders.JsonlDataLoader import JSONLDataLoader
 from rai.data.loaders.rai_loaders.LastResortDataLoader import LastResortDataLoader
 from rai.data.loaders.rai_loaders.PdfDataLoader import PdfDataLoader
 from rai.data.loaders.rai_loaders.PowerPointDataLoader import PowerPointDataLoader
+from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiBaseLoader
+from rai.data.loaders.rai_loaders.RaiMetadataLoader import RaiMetadataLoader
 from rai.data.loaders.rai_loaders.TableDataLoader import TableDataLoader
 from rai.data.loaders.rai_loaders.WordDocDataLoader import WordDocDataLoader
 
@@ -27,61 +25,66 @@ Log = Log("RaiDataLoader")
 DEFAULT_CONTENT = "This data is unknown at this time."
 
 class RaiDataLoader:
-    file:str = None
-    loader: BaseLoader = None
+    file:RaiPath = None
+    metadata:dict = None
+    meta_loader: RaiMetadataLoader = None
+    # loader: RaiBaseLoader = None
     """ -> private DATA LOADER HELPER <- """
 
-    def __init__(self, file):
-        self.file = file
-        self.loader = self.get_loader(file)
+    def __init__(self, file, metadata:dict=None, meta_loader:RaiMetadataLoader=None):
+        self.file = RaiPath(file)
+        self.metadata = metadata
+        self.meta_loader = meta_loader
+        if not self.metadata and self.meta_loader:
+            self.metadata = self.meta_loader.metadata.to_dict()
+        # self.loader = self.get_loader()
 
-    @staticmethod
-    def get_loader(file_path: str) -> BaseLoader:
-        rai_file = RaiPath(file_path)
-        file_ext = rai_file.ext_type
+    @property
+    def loader(self) -> RaiBaseLoader:
+        file_ext = self.file.ext_type
         Log.w(f"Finding Dataloader for Ext: [ {file_ext} ]...")
         try:
             if file_ext == "pdf":
-                loader = PdfDataLoader(file_path)
+                loader = PdfDataLoader(self.file, metadata=self.metadata)
             elif file_ext in ["csv", "xls", "xlsx"]:
-                loader = TableDataLoader(file_path)
+                loader = TableDataLoader(self.file, metadata=self.metadata)
             elif file_ext == "jsonl":
-                loader = JSONLDataLoader(file_path)
+                loader = JSONLDataLoader(self.file, metadata=self.metadata)
             elif file_ext == "json":
-                loader = JSONDataLoader(file_path)
+                loader = JSONDataLoader(self.file, metadata=self.metadata)
             elif file_ext == "rst":
-                loader = UnstructuredRSTLoader(file_path, mode="elements")
+                loader = UnstructuredRSTLoader(self.file, mode="elements")
             elif file_ext == "xml":
-                loader = UnstructuredXMLLoader(file_path)
+                loader = UnstructuredXMLLoader(self.file)
             elif file_ext in ["htm", "html"]:
-                loader = BSHTMLLoader(file_path, open_encoding="unicode_escape")
+                loader = BSHTMLLoader(self.file, open_encoding="unicode_escape")
             elif file_ext == "md":
-                loader = UnstructuredMarkdownLoader(file_path)
+                loader = UnstructuredMarkdownLoader(self.file)
             elif file_ext == "epub":
-                loader = UnstructuredEPubLoader(file_path)
+                loader = UnstructuredEPubLoader(self.file)
             elif file_ext == "docx":
-                loader = WordDocDataLoader(file_path)
+                loader = WordDocDataLoader(self.file, metadata=self.metadata)
             elif file_ext in ["ppt", "pptx"]:
-                loader = PowerPointDataLoader(file_path)
+                loader = PowerPointDataLoader(self.file, metadata=self.metadata)
             elif file_ext == "msg":
-                loader = OutlookMessageLoader(file_path)
+                loader = OutlookMessageLoader(self.file)
             elif file_ext == "txt":
-                loader = LastResortDataLoader(file_path)
+                loader = LastResortDataLoader(self.file, metadata=self.metadata)
             elif file_ext in known_source_ext:
-                loader = TextLoader(file_path, autodetect_encoding=True)
+                loader = TextLoader(self.file, autodetect_encoding=True)
             else:
-                loader = TextLoader(file_path, autodetect_encoding=True)
+                loader = TextLoader(self.file, autodetect_encoding=True)
         except Exception as e:
             Log.w("Failed, falling back to original read file.", e)
             loader = None
         """ Fallback Intake Method """
         verification = RaiDataLoader.verify_loader_data(loader)
         if not verification:
-            loader = LastResortDataLoader(file_path)
+            loader = LastResortDataLoader(self.file, metadata=self.metadata)
         return loader
 
     @staticmethod
-    def verify_loader_data(loader: BaseLoader) -> bool:
+    def verify_loader_data(loader: RaiBaseLoader) -> bool:
         try:
             # Attempt to load data from the provided loader
             data = loader.load()

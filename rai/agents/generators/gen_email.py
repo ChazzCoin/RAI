@@ -14,7 +14,7 @@ X. Send Email to Team
 def generate_team_email(subject: str, body: str):
     system_prompt = TEAM_UPDATE_SYSTEM_PROMPT
     user_prompt = USER_TEAM_EMAIL_PROMPT(subject, body)
-    email = openai_client.chat_request(system_prompt, user_prompt)
+    email = openai_client.openai_generate(system_prompt, user_prompt)
     print(email)
     return email
 

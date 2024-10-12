@@ -7,7 +7,7 @@ def run_manual_files(FILES: [str]):
     for file in FILES:
         try:
             content = FPDF(file_path=file).extract_text_from_pdf(file)
-            results = api.chat_request(system=sys_prompt, user=content, model="gpt-4o-mini")
+            results = api.openai_generate(system_prompt=sys_prompt, user_prompt=content, model="gpt-4o-mini")
             print("-------")
             print(results)
             print("-------")

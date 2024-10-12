@@ -1,20 +1,15 @@
 import os
-
 import pandas as pd
 from F.LOG import Log
 from langchain_community.document_loaders import CSVLoader, UnstructuredExcelLoader
-from langchain_core.document_loaders import BaseLoader
-
-from rai.data.loaders import verify_loader_data
 from rai.data.loaders.rai_loaders.LastResortDataLoader import LastResortDataLoader
-from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiLoaderDocument
-
+from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiLoaderDocument, RaiBaseLoader
 Log = Log("TableDataLoader")
 
-class TableDataLoader(BaseLoader):
-    def __init__(self, file_path: str, metadata:dict={ 'image':'' }):
-        self.file_path = file_path
-        self.metadata = metadata if not None else { 'image': '' }
+class TableDataLoader(RaiBaseLoader):
+
+    def __init__(self, file_path: str, metadata: dict = {'image': ''}):
+        super().__init__(file_path, metadata)
         self._validate_file_path()
 
     def _validate_file_path(self):
@@ -30,13 +25,17 @@ class TableDataLoader(BaseLoader):
         useful for embeddings, querying, and AI processing.
         """
         try:
+            if self.cache:
+                Log.i(f"Returning Cached Loader: [ {self.file_path} ]")
+                return self.cache
             if self.file_path.endswith('.csv'):
                 df = pd.read_csv(self.file_path)
             else:
                 df = pd.read_excel(self.file_path)
             formatted_data = self.format_dataframe(df)
             if formatted_data:
-                return RaiLoaderDocument.generate_documents(formatted_data, metadata=self.metadata)
+                self.cache = RaiLoaderDocument.generate_documents(formatted_data, metadata=self.metadata)
+                return self.cache
             else:
                 raise ValueError("Dataframe is empty or could not be processed.")
         except Exception as e:
@@ -46,11 +45,12 @@ class TableDataLoader(BaseLoader):
                 loader = CSVLoader(self.file_path)
             else:
                 loader = UnstructuredExcelLoader(self.file_path)
-            if not verify_loader_data(loader):
+            if not self.verify_loader_data(loader):
                 # Fallback to LastResortLoader if all else fails
                 Log.w("TableLoader Failed, last resorting.", e)
                 loader = LastResortDataLoader(self.file_path, metadata=self.metadata)
-            return loader.load()
+            self.cache = loader.load()
+            return self.cache
 
     @staticmethod
     def format_dataframe(df: pd.DataFrame) -> [str]:

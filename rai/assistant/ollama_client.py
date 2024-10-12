@@ -1,7 +1,7 @@
 import numpy as np
 import requests, json, logging
 from requests.exceptions import HTTPError, RequestException
-from rai.assistant.models import ApiEngines as engines
+from rai.assistant.ai import RaiAi as engines
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -49,13 +49,13 @@ def download_ollama_model(name, insecure=False, stream=True, timeout=60):
     except Exception as err:
         print(f"An unexpected error occurred: {err}")
         raise
-def ollama_request_chat(prompt:str, content:str, model:str=None, forward:bool=False):
+def ollama_generate(system_prompt:str, user_prompt:str, model:str=None, forward:bool=False):
     headers = {'Content-Type': 'application/json'}
     payload = {
         "model": engines.OLLAMA.default_model(override=model),
         "messages": [
-            { "role": "system", "content": prompt },
-            { "role": "user", "content": content }
+            { "role": "system", "content": system_prompt},
+            { "role": "user", "content": user_prompt}
         ],
         "stream": False
     }

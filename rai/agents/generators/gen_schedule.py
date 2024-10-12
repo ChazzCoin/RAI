@@ -15,7 +15,7 @@ def generate_schedule():
     Time Slots: 4:30 PM Start - 10:00 PM End
     Blackout Dates: November 20th - November 27th, December 19th - December 27th
     """
-    sql_query = openai_client.chat_request(system_prompt, user_prompt)
+    sql_query = openai_client.openai_generate(system_prompt, user_prompt)
     print(sql_query)
     return sql_query
 

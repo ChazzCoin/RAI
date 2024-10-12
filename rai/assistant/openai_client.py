@@ -8,7 +8,7 @@ import os
 from openai.types.chat import ChatCompletion
 from F import DICT
 from rai.app import state
-from rai.assistant.models import ApiEngines as engine
+from rai.assistant.ai import RaiAi as engine
 
 
 default_model = os.getenv("DEFAULT_OPENAI_MODEL")
@@ -26,7 +26,7 @@ async def get_embeddings(text):
     }
     data = {
         'input': text,
-        'model': engine.Embedding_MODELS.OpenAI,
+        'model': engine.EMBEDDINGS.OpenAI,
     }
     async with aiohttp.ClientSession() as session:
         async with session.post('https://api.openai.com/v1/embeddings', headers=headers, json=data) as resp:
@@ -73,14 +73,14 @@ def generate_embeddings(text):
         print(f"Failed to embed text with openai: {e}")
         return []
 
-def chat_request(system: str, user: str, model: str = default_model, content_only: bool = True):
+def openai_generate(system_prompt: str, user_prompt: str, model: str = default_model, content_only: bool = True):
     print(f"Model: {model}")
     response = getClient().chat.completions.create(
         model=model,
         response_format={"type": "text"},
         messages=[
-            {"role": "system", "content": system},
-            {"role": "user", "content": user}
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
         ]
     )
     print(response)

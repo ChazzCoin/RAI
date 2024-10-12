@@ -14,7 +14,7 @@ Log = Log("PowerPointDataLoader")
 
 
 class PowerPointDataLoader(BaseLoader):
-
+    cache: [RaiLoaderDocument] = None
     def __init__(self, file_path: str, metadata=None):
         if metadata is None:
             metadata = {'image': ''}
@@ -35,10 +35,14 @@ class PowerPointDataLoader(BaseLoader):
         useful for embeddings, querying, and AI processing.
         """
         try:
+            if self.cache:
+                Log.i(f"Returning Cached Loader: [ {self.file_path} ]")
+                return self.cache
             presentation = Presentation(self.file_path)
             formatted_slides = self.format_presentation(presentation)
             if formatted_slides:
-                return RaiLoaderDocument.generate_documents(formatted_slides, metadata=self.metadata)
+                self.cache = RaiLoaderDocument.generate_documents(formatted_slides, metadata=self.metadata)
+                return self.cache
             else:
                 raise ValueError("Presentation is empty or could not be processed.")
         except Exception as e:
@@ -52,7 +56,8 @@ class PowerPointDataLoader(BaseLoader):
                 if not verify_loader_data(loader):
                     # Fallback to LastResortLoader if all else fails
                     loader = LastResortDataLoader(self.file_path, metadata=self.metadata)
-            return loader.load()
+            self.cache = loader.load()
+            return self.cache
 
     @staticmethod
     def format_presentation(presentation: Presentation) -> [str]:
