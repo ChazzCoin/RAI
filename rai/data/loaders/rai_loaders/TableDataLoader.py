@@ -7,6 +7,7 @@ from langchain_core.document_loaders import BaseLoader
 
 from rai.data.loaders import verify_loader_data
 from rai.data.loaders.rai_loaders.LastResortDataLoader import LastResortDataLoader
+from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiLoaderDocument
 
 Log = Log("TableDataLoader")
 
@@ -35,7 +36,7 @@ class TableDataLoader(BaseLoader):
                 df = pd.read_excel(self.file_path)
             formatted_data = self.format_dataframe(df)
             if formatted_data:
-                return formatted_data
+                return RaiLoaderDocument.generate_documents(formatted_data, metadata=self.metadata)
             else:
                 raise ValueError("Dataframe is empty or could not be processed.")
         except Exception as e:
@@ -48,7 +49,7 @@ class TableDataLoader(BaseLoader):
             if not verify_loader_data(loader):
                 # Fallback to LastResortLoader if all else fails
                 Log.w("TableLoader Failed, last resorting.", e)
-                loader = LastResortDataLoader(self.file_path)
+                loader = LastResortDataLoader(self.file_path, metadata=self.metadata)
             return loader.load()
 
     @staticmethod
@@ -66,7 +67,7 @@ class TableDataLoader(BaseLoader):
         formatted_rows.append(f"Headers: {header_str}")
 
         for index, row in df.iterrows():
-            row_data = [f"{headers[i]}: {str(row[i])}" for i in range(len(headers))]
+            row_data = [f"{header}: {str(value)}" for header, value in zip(headers, row)]
             row_str = " | ".join(row_data)
             formatted_rows.append(row_str)
 

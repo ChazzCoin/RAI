@@ -38,10 +38,7 @@ class PowerPointDataLoader(BaseLoader):
             presentation = Presentation(self.file_path)
             formatted_slides = self.format_presentation(presentation)
             if formatted_slides:
-                docs = []
-                for slide in formatted_slides:
-                    docs.append(RaiLoaderDocument(page_content=slide, metadata=self.metadata))
-                return docs
+                return RaiLoaderDocument.generate_documents(formatted_slides, metadata=self.metadata)
             else:
                 raise ValueError("Presentation is empty or could not be processed.")
         except Exception as e:
@@ -54,7 +51,7 @@ class PowerPointDataLoader(BaseLoader):
                 loader = UnstructuredPowerPointLoader(self.file_path)
                 if not verify_loader_data(loader):
                     # Fallback to LastResortLoader if all else fails
-                    loader = LastResortDataLoader(self.file_path)
+                    loader = LastResortDataLoader(self.file_path, metadata=self.metadata)
             return loader.load()
 
     @staticmethod

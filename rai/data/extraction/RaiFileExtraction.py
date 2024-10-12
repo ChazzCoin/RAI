@@ -15,6 +15,7 @@ from rai.data.loaders import RaiDataLoaders
 Log = Log("RaiFileExtractor")
 
 class RaiFileExtractor:
+    pipeline: str = "chroma"
     collection_prefix: str = None
     base_directory:RaiPath = None
     current_file:str = "None"
@@ -48,11 +49,11 @@ class RaiFileExtractor:
         for collection_name in self.file_to_import_by_collection.keys():
             files_to_handle = self.file_to_import_by_collection[collection_name]
             for file in files_to_handle:
-                self._process_file(file, collection_name)
+                self.process_file(file, collection_name)
 
         Log.s(f"Finished Importing Files: Total [ {self.file_to_import_count} ]")
         return True
-    def _process_file(self, file: Path, collection_name: str):
+    def process_file(self, file: Path, collection_name: str):
         """
         Processes a single collection represented by the subdirectory.
         """
@@ -65,61 +66,23 @@ class RaiFileExtractor:
             Log.i(f"Processing: [ {raiFile} ] for Collection: [ {collection_name} ]")
             loader = RaiDataLoaders.RaiDataLoader(raiFile).loader
             data = loader.load()
-
-            # Storing the data into vector DB
             try:
-                result = self.store_data_in_vector_db(data, collection_name)
+                result = self.batch_data(data, collection_name)
                 if result:
                     Log.s(f"Finished Importing: [ {raiFile.file_name} ]")
-
             except Exception as e:
                 Log.w(f"Error importing file '{raiFile.file_name}' to Chroma DB: {e}")
-
         except Exception as e:
             Log.w(f"Error importing file '{raiFile}': {e}")
-    def _process_collection(self, directory: Path, collection_name: str):
-        """
-        Processes a single collection represented by the subdirectory.
-        """
-        # Assuming RaiPath handles directory paths for yielding files
-        raiFile = RaiPath(directory)
-        for path in raiFile.list_directory(files_only=False):
-            try:
-                if path.is_dir():
-                    continue
-                filename = path.name
-                # Open the file for processing
-                Log.i(f"Processing: [ {path} ] for Collection: [ {collection_name} ]")
-                loader = RaiDataLoaders.RaiDataLoader(path).loader
-                data = loader.load()
-
-                # Storing the data into vector DB
-                try:
-                    Log.i(f"Saving: {filename}")
-                    result = self.store_data_in_vector_db(data, collection_name)
-                    if result:
-                        Log.s(f"Saved: [ {filename} ]")
-
-                except Exception as e:
-                    Log.e(f"Error saving data for file '{filename}' to Chroma DB: {e}")
-                    continue
-
-            except Exception as e:
-                Log.e(f"Error processing file '{path}': {e}")
-                continue
-    def store_data_in_vector_db(self, data, collection_name):
+    def batch_data(self, data, collection_name):
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=app.state.config.CHUNK_SIZE,
             chunk_overlap=app.state.config.CHUNK_OVERLAP,
             add_start_index=True,
         )
-
         docs = text_splitter.split_documents(data)
-
-        if len(docs) > 0:
-            return self.__store_docs_in_vector_db(docs, collection_name)
-        else:
-            raise ValueError(ERROR_MESSAGES.EMPTY_CONTENT)
+        if len(docs) > 0: return self.__store_docs_in_vector_db(docs, collection_name)
+        else: raise ValueError(ERROR_MESSAGES.EMPTY_CONTENT)
     def store_text_in_vector_db(self, text, metadata, collection_name, overwrite:bool=False) -> bool:
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=app.state.config.CHUNK_SIZE,
@@ -128,6 +91,9 @@ class RaiFileExtractor:
         )
         docs = text_splitter.create_documents([text], metadatas=[metadata])
         return self.__store_docs_in_vector_db(docs, collection_name, overwrite=overwrite)
+
+
+
     def __store_docs_in_vector_db(self, docs, collection_name, overwrite:bool=False):
         Log.i(f"importing [ {len(docs)} ] docs in [ {collection_name} ]")
 

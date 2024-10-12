@@ -36,23 +36,20 @@ class WordDocDataLoader(BaseLoader):
             formatted_paragraphs = self.format_docx(document)
             if formatted_paragraphs:
                 Log.i(f"Docx Success: [ {self.file_path} ]")
-                docs = []
-                for paragraph in formatted_paragraphs:
-                    docs.append(RaiLoaderDocument(page_content=paragraph, metadata=self.metadata))
-                return docs
+                return RaiLoaderDocument.generate_documents(formatted_paragraphs, metadata=self.metadata)
             else:
                 raise ValueError("DOCX is empty or could not be processed.")
         except Exception as e:
             # Fallback to VisionDataLoader if the primary method fails
             Log.w(f"Docx Failed, Falling back to Vision: [ {self.file_path} ]")
-            loader = VisionDataLoader(self.file_path)
+            loader = VisionDataLoader(self.file_path, metadata=self.metadata)
             if loader.should_fallback():
                 # Fallback to PyPDFLoader if VisionDataLoader is empty
                 loader = Docx2txtLoader(self.file_path)
                 if not verify_loader_data(loader):
                     # Fallback to LastResortLoader if all else fails
                     Log.w("WordDocLoader Failed, last resorting.", e)
-                    loader = LastResortDataLoader(self.file_path)
+                    loader = LastResortDataLoader(self.file_path, metadata=self.metadata)
             return loader.load()
     @staticmethod
     def format_docx(document: docx.Document) -> [str]:

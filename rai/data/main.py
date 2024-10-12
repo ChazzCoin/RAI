@@ -16,7 +16,8 @@ def scrape_site(url:str, pages=0):
 
 if __name__ == '__main__':
     db = "parkone"
-    directory = "/Users/chazzromeo/Desktop/ParkCityTrainingData"
+    # directory = "/Users/chazzromeo/Desktop/ParkCityTrainingData"
+    directory = "/Users/chazzromeo/Desktop/data"
     # training_path = RaiPath.find_directory_path("ParkCityTrainingData")
     # print(training_path)
     # delete_collects(*RAI_DBs(db))
