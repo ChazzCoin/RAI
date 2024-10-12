@@ -1,15 +1,16 @@
 import os
 import csv
 from F import LIST
-from rai.data.intake.PDF_v1 import FPDF
 from docx import Document as DocxDocument
 from openpyxl import load_workbook
 from pptx import Presentation
 from F.LOG import Log
-from rai.data.intake.Vision import VisionExtractor
+
+from rai.data.extraction.intake.PDF_v1 import FPDF
+from rai.data.extraction.intake.Vision import VisionExtractor
 
 # Configure logging
-Log = Log("Files.Read")
+Log = Log("files.read")
 
 """ MASTER FILE OPENER """
 def read_file(file_path, enable_vision: bool = False):
@@ -26,28 +27,28 @@ def read_file(file_path, enable_vision: bool = False):
     file_ext = os.path.splitext(file_path)[1].lower()
 
     if enable_vision:
-        vision = __vision_text_extractor(file_path)
+        vision = VisionExtractor._vision_extract_text(file_path, save_images=False)
         if vision: return vision
         else: Log.w("Vision/OCR Failed, reverting back to basic extraction.")
     try:
-        if file_ext == '.txt':
+        if file_ext in ['.txt', 'txt']:
             return _read_txt(file_path)
-        elif file_ext == '.pdf':
+        elif file_ext in ['.pdf', 'pdf']:
             return _read_pdf(file_path)
-        elif file_ext == '.docx':
+        elif file_ext in ['.docx', 'docx']:
             return _read_docx(file_path)
-        elif file_ext == '.xlsx':
+        elif file_ext in ['.xlsx', 'xlsx']:
             return _read_xlsx(file_path)
-        elif file_ext == '.pptx':
+        elif file_ext in ['.pptx', 'pptx']:
             return _read_pptx(file_path)
-        elif file_ext == '.csv':
+        elif file_ext in ['.csv', 'csv']:
             return _read_csv(file_path)
         else:
-            Log.e(f"Unsupported file format: {file_ext}")
+            Log.w(f"Unsupported file format: {file_ext}")
             return "No Content"
 
     except Exception as e:
-        Log.e(f"Error reading file {file_path}: {e}")
+        Log.w(f"Error reading file {file_path}: {e}")
         return "No Content"
 
 # Helper functions for different file formats
@@ -58,28 +59,10 @@ def _read_txt(file_path):
     with open(file_path, 'r', encoding='utf-8') as file:
         return file.read()
 
-def __vision_text_extractor(file_path):
-    Log.i(f"Attempting Vision OCR Text Extraction on: {file_path}")
-    text = []
-    try:
-        temp = VisionExtractor._vision_extract_text(file_path, save_images=False)
-        for item in temp:
-            tempText = item["text"]
-            text.append(tempText)
-        if not text or len(text) == 0:
-            return None
-        Log.s(f"Vision OCR Text Extraction Success: Page Count: [ {len(text)} ]")
-        return '\n'.join(text)
-    except Exception as e:
-        Log.e(f"Error reading PDF file: {file_path}: {e}")
-        return None
 
 def _read_pdf(file_path):
     """Reads and returns the text contents of a .pdf file."""
     Log.i(f"Reading PDF file: {file_path}")
-    vision = __vision_text_extractor(file_path)
-    if vision:
-        return vision
     with open(file_path, 'rb') as file:
         try:
             return LIST.to_str(FPDF.extract_text_from_pdf(file))
@@ -91,9 +74,6 @@ def _read_pdf(file_path):
 def _read_docx(file_path):
     """Reads and returns the text contents of a .docx file."""
     Log.i(f"Reading DOCX file: {file_path}")
-    vision = __vision_text_extractor(file_path)
-    if vision:
-        return vision
     doc = DocxDocument(file_path)
     return '\n'.join([para.text for para in doc.paragraphs])
 
@@ -113,9 +93,6 @@ def _read_xlsx(file_path):
 def _read_pptx(file_path):
     """Reads and returns the text contents of a .pptx file."""
     Log.i(f"Reading PPTX file: {file_path}")
-    vision = __vision_text_extractor(file_path)
-    if vision:
-        return vision
     prs = Presentation(file_path)
     text = []
     for slide in prs.slides:

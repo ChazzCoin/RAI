@@ -4,3 +4,15 @@
 3. Add File Path of the directory
 4. Add any other environment variables
 5. Install all python dependencies
+
+-- app.state.config / .env --
+
+--Importing Data--
+
+
+--Data Loaders--
+
+
+--ChromaDB--
+
+--Chat API--

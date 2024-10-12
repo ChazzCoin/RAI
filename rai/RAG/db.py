@@ -14,7 +14,7 @@ Log = Log("ChromaClient")
 CHROMA_DATA_PATH = f"/chroma"
 CHROMA_TENANT = os.environ.get("CHROMA_TENANT", chromadb.DEFAULT_TENANT)
 CHROMA_DATABASE = os.environ.get("CHROMA_DATABASE", chromadb.DEFAULT_DATABASE)
-CHROMA_HTTP_HOST = os.environ.get("DEFAULT_CHROMA_SERVER_HOST", "192.168.1.6")
+CHROMA_HTTP_HOST = os.environ.get("DEFAULT_CHROMA_SERVER_HOST", "local")
 CHROMA_HTTP_PORT = int(os.environ.get("DEFAULT_CHROMA_SERVER_PORT", 8000))
 # Comma-separated list of header=value pairs
 CHROMA_HTTP_HEADERS = os.environ.get("CHROMA_HTTP_HEADERS", "")
@@ -28,19 +28,28 @@ CHROMA_HTTP_SSL = os.environ.get("CHROMA_HTTP_SSL", "false").lower() == "true"
 
 class ChromaClient:
     def __init__(self, host=CHROMA_HTTP_HOST, port=CHROMA_HTTP_PORT):
-        self.client = chromadb.HttpClient(
-            host=host,
-            port=port,
-            headers=CHROMA_HTTP_HEADERS,
-            ssl=CHROMA_HTTP_SSL,
-            tenant=chromadb.DEFAULT_TENANT,
-            database=chromadb.DEFAULT_DATABASE,
-            settings=Settings(allow_reset=True, anonymized_telemetry=False),
-        )
-        Log.t("Chroma Host:", CHROMA_HTTP_HOST)
-        Log.t("Chroma Port:", CHROMA_HTTP_PORT)
-        Log.t("Chroma Database:", CHROMA_DATABASE)
-        Log.t("Chroma Tenant:", CHROMA_TENANT)
+
+        if CHROMA_HTTP_HOST == "local":
+            Log.w("\n--Chroma PersistentClient--\n")
+            self.client = chromadb.PersistentClient(
+                tenant=chromadb.DEFAULT_TENANT,
+                database=chromadb.DEFAULT_DATABASE,
+            )
+        else:
+            Log.w("\n--Chroma HttpClient--\n")
+            self.client = chromadb.HttpClient(
+                host=host,
+                port=port,
+                headers=CHROMA_HTTP_HEADERS,
+                ssl=CHROMA_HTTP_SSL,
+                tenant=chromadb.DEFAULT_TENANT,
+                database=chromadb.DEFAULT_DATABASE,
+                settings=Settings(allow_reset=True, anonymized_telemetry=False),
+            )
+            Log.w("Chroma Host:", CHROMA_HTTP_HOST)
+            Log.w("Chroma Port:", CHROMA_HTTP_PORT)
+            Log.w("Chroma Database:", CHROMA_DATABASE)
+            Log.w("Chroma Tenant:", CHROMA_TENANT)
 
     def has_collection(self, collection_name: str) -> bool:
         # Check if the collection exists based on the collection name.
@@ -104,7 +113,7 @@ class ChromaClient:
         )
         for batch in tqdm(batches, f"Inserting into [ {collection_name} ]", colour="green"):
             collection.add(*batch)
-        Log.s(f"Added {len(batches)} batched documents into Chroma Collection:", collection_name)
+        Log.s(f"Added {len(batches)} batched document(s) into Chroma Collection:", collection_name)
 
     def upsert(self, collection_name: str, items: list[VectorItem]):
         # Update the items in the collection, if the items are not present, insert them. If the collection does not exist, it will be created.

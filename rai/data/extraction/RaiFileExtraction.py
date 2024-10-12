@@ -4,18 +4,22 @@ from F.LOG import Log
 from tqdm import tqdm
 from pathlib import Path
 from rai.data import RaiPath
-from rai.data.RaiDataLoaders import RaiDataLoader
 from datetime import datetime
 from rai.constants import ERROR_MESSAGES
 from rai.RAG.connector import VECTOR_DB_CLIENT
 from rai.assistant.ollama_client import generate_chroma_embeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-Log = Log("Rai File Loader")
 
-class RaiFileLoader:
+from rai.data.loaders import RaiDataLoaders
+
+Log = Log("RaiFileExtractor")
+
+class RaiFileExtractor:
     collection_prefix: str = None
     base_directory:RaiPath = None
     current_file:str = "None"
+    file_to_import_by_collection: {str:list} = {}
+    file_to_import_count = 0
 
     def __init__(self, base_directory: str, collection_prefix:str=str(uuid.uuid4())):
         self.base_directory = RaiPath(base_directory)
@@ -28,15 +32,51 @@ class RaiFileLoader:
         """
         if collection_prefix is not None:
             self.collection_prefix = collection_prefix
+        Log.i(f"Preparing Files for Import: [ {self.base_directory} ]")
         for sub_dir in self.base_directory.list_directory(files_only=False):
-            Log.i(f"Starting Import [ {sub_dir} ]")
             if sub_dir.is_dir():
                 d_name = sub_dir.name
                 collection_name = f"{self.collection_prefix}-{d_name}"
-                self._process_collection(sub_dir, collection_name)
+                raiDirectory = RaiPath(sub_dir)
+                file_list = []
+                for files in raiDirectory.list_directory(files_only=False):
+                    file_list.append(files)
+                    self.file_to_import_count += 1
+                self.file_to_import_by_collection[collection_name] = file_list
 
-        Log.s("Completed Document scanning.")
+        Log.s(f"Starting Import: Total [ {self.file_to_import_count} ]")
+        for collection_name in self.file_to_import_by_collection.keys():
+            files_to_handle = self.file_to_import_by_collection[collection_name]
+            for file in files_to_handle:
+                self._process_file(file, collection_name)
+
+        Log.s(f"Finished Importing Files: Total [ {self.file_to_import_count} ]")
         return True
+    def _process_file(self, file: Path, collection_name: str):
+        """
+        Processes a single collection represented by the subdirectory.
+        """
+        # Assuming RaiPath handles directory paths for yielding files
+        raiFile = RaiPath(file)
+        try:
+            if raiFile.is_directory:
+                return
+            # Open the file for processing
+            Log.i(f"Processing: [ {raiFile} ] for Collection: [ {collection_name} ]")
+            loader = RaiDataLoaders.RaiDataLoader(raiFile).loader
+            data = loader.load()
+
+            # Storing the data into vector DB
+            try:
+                result = self.store_data_in_vector_db(data, collection_name)
+                if result:
+                    Log.s(f"Finished Importing: [ {raiFile.file_name} ]")
+
+            except Exception as e:
+                Log.w(f"Error importing file '{raiFile.file_name}' to Chroma DB: {e}")
+
+        except Exception as e:
+            Log.w(f"Error importing file '{raiFile}': {e}")
     def _process_collection(self, directory: Path, collection_name: str):
         """
         Processes a single collection represented by the subdirectory.
@@ -50,7 +90,7 @@ class RaiFileLoader:
                 filename = path.name
                 # Open the file for processing
                 Log.i(f"Processing: [ {path} ] for Collection: [ {collection_name} ]")
-                loader = RaiDataLoader(path).loader
+                loader = RaiDataLoaders.RaiDataLoader(path).loader
                 data = loader.load()
 
                 # Storing the data into vector DB
@@ -95,7 +135,6 @@ class RaiFileLoader:
         metadatas = [{**doc.metadata, **({})} for doc in docs]
         # ChromaDB does not like datetime formats
         # for meta-data so convert them to string.
-        Log.i("Preparing metadata for chromadb...")
         for metadata in tqdm(metadatas, "Preparing metadata for chromadb...", colour="yellow"):
             for key, value in metadata.items():
                 if isinstance(value, datetime):

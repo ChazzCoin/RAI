@@ -7,6 +7,7 @@ from F import DICT
 from bs4 import BeautifulSoup
 import re
 from F.LOG import Log
+Log = Log("RaiWebExtraction")
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -15,13 +16,15 @@ from selenium.webdriver.chrome.service import Service as ChromeService
 from webdriver_manager.chrome import ChromeDriverManager
 
 from rai.data import RaiPath, RaiDirectories
-from rai.data.RaiDataLoaders import JSONLLoader
 import time
 from selenium.common.exceptions import (
     WebDriverException,
     TimeoutException,
     NoSuchElementException,
 )
+
+from rai.data.loaders.rai_loaders.JsonlDataLoader import JSONLDataLoader
+
 
 class RaiUrl(str):
     url: str = ""
@@ -232,7 +235,7 @@ class RaiWebDriver:
         return content
 
 """ Master Web Crawler """
-class RaiWebCrawler(RaiWebDriver):
+class RaiWebExtractor(RaiWebDriver):
     scrape_limit = 0
     scrape_count = 0
     current_site_name = ""
@@ -241,7 +244,7 @@ class RaiWebCrawler(RaiWebDriver):
     output_file:RaiPath
 
     def __init__(self, base_url: str, output_dir:str=None):
-        super(RaiWebCrawler, self).__init__()
+        super(RaiWebExtractor, self).__init__()
         if output_dir is None:
             output_dir = RaiDirectories.output()
         self.url = RaiUrl(base_url)
@@ -276,7 +279,7 @@ class RaiWebCrawler(RaiWebDriver):
 
     def _save_data(self, data: dict):
         with self.data_lock:
-            JSONLLoader.save_file(data, self.output_file)
+            JSONLDataLoader.save_file(data, self.output_file)
 
     def is_within_base_url(self, url: str) -> bool:
         parsed_base = urlparse(self.url)
@@ -347,5 +350,5 @@ def remove_non_printable_ascii(text):
     return ''.join([c for c in text if ord(c) < 128])
 
 if __name__ == '__main__':
-    RaiWebCrawler.save('https://textract.readthedocs.io/en/stable/', page_limit=2)
+    RaiWebExtractor.save('https://textract.readthedocs.io/en/stable/', page_limit=2)
     # RaiWebCrawler(base_url='https://academy.veo.co', output_dir='output').start()

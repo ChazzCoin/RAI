@@ -1,12 +1,9 @@
 import os
 import shutil
 from pathlib import Path
-from typing import Union
-
-# TXT_FILE = lambda name: f"{name}.txt"
-# JSONL_FILE = lambda name: f"{name}.jsonl"
-# JSON_FILE = lambda name: f"{name}.json"
-
+from typing import Union, Optional
+from F.LOG import Log
+Log = Log("RaiPath/Files")
 class RaiDirectories:
     @staticmethod
     def output() -> str: return f"{RaiPath.get_directory_path(__file__)}/files/output"
@@ -42,6 +39,16 @@ class RaiPath(str):
 
     def __new__(cls, path: Union[str, Path]=""):
         return super(RaiPath, cls).__new__(cls, path)
+
+    @staticmethod
+    def find_directory_path(directory_name: str, start_path: str = "/") -> Optional[str]:
+        Log.i(f"RaiPath Search: Finding {directory_name}...")
+        for root, dirs, files in os.walk(start_path):
+            if directory_name in dirs:
+                Log.s("RaiPath Search: Folder found!")
+                return os.path.abspath(os.path.join(root, directory_name))
+        Log.w("RaiPath Search: Folder not found...")
+        return None  # Return None if the directory is not found
 
     @property
     def is_file(self) -> bool:
