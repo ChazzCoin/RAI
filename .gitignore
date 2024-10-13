@@ -12,3 +12,5 @@ chroma/*
 *.jpg
 *.jpeg
 /chroma
+/dist
+*.egg-info
