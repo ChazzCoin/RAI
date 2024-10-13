@@ -9,7 +9,7 @@ NC='\033[0m' # No Color
 
 # Project setup variables
 PROJECT_DIR=$(pwd)
-VENV_DIR="$PROJECT_DIR/venv"
+VENV_DIR="$PROJECT_DIR/.venv"
 PYTHON_VERSION="python3"
 
 # Check if Python 3 is installed
@@ -43,6 +43,18 @@ else
     echo -e "${GREEN}No requirements.txt found. Skipping dependency installation.${NC}"
 fi
 
+# Rename .env-template to .env if it exists and .env does not already exist
+ENV_TEMPLATE_FILE="$PROJECT_DIR/.env-template"
+ENV_FILE="$PROJECT_DIR/.env"
+if [ ! -f "$ENV_FILE" ] && [ -f "$ENV_TEMPLATE_FILE" ]; then
+    echo -e "${GREEN}Renaming .env-template to .env...${NC}"
+    mv "$ENV_TEMPLATE_FILE" "$ENV_FILE"
+else
+    echo -e "${GREEN}Either .env already exists or no .env-template file found. Skipping renaming.${NC}"
+fi
+
+python3 setup.py sdist
+pip install -e .
 # Additional setup tasks
 # Add any additional setup here, like environment variables or creating necessary directories
 
@@ -54,4 +66,4 @@ echo -e "${GREEN}Setup complete!${NC}"
 
 # Instructions for the user
 echo -e "${GREEN}To start working on your project, activate the virtual environment by running:${NC}"
-echo "source venv/bin/activate"
+echo "source .venv/bin/activate"

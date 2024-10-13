@@ -1,3 +1,4 @@
+import sys
 from abc import ABC, abstractmethod
 from F.CLASS import Flass
 import F
@@ -27,11 +28,38 @@ class PromptRegistry(ABC, Flass):
         return [prompt_cls().get_prompt() for prompt_cls in cls._registry[category]]
 
     @classmethod
-    def get_all(cls):
+    def get_all_types(cls):
         prompts = []
         for category, prompt_classes in cls._registry.items():
-            prompts.extend([prompt_cls().get_prompt() for prompt_cls in prompt_classes])
+            prompts.extend([prompt_cls().category_type() for prompt_cls in prompt_classes])
         return prompts
+
+    @classmethod
+    def yield_all_types(cls):
+        prompts = []
+        for category, prompt_classes in cls._registry.items():
+            prompts.extend([prompt_cls().category_type() for prompt_cls in prompt_classes])
+        for prompt in prompts:
+            yield prompt
+
+    @classmethod
+    def list_prompts_by_category(cls, category):
+        if category not in cls._registry:
+            raise ValueError(f"No prompts found for category '{category}'.")
+        for cat in PromptRegistry.yield_all_types():
+            for prompt_cls in cls._registry[cat]:
+                newC = prompt_cls.__name__
+                module = sys.modules[__name__]  # Assuming the class is in the current module.
+                new_prompt_cls = getattr(module, newC)  # Replace prompt_cls_name with the string name.
+                new_instance = new_prompt_cls()
+                old_instance = prompt_cls()
+                temp = Flass.get_method_names(new_instance)
+                temp2 = Flass.get_method_names(old_instance)
+                results = []
+                for item in temp:
+                    if str(item).endswith('_prompt'):
+                        results.append(item)
+                return results
 
     @classmethod
     def get_prompt_method(cls, category, method_name):
@@ -84,18 +112,21 @@ class PromptRegistry(ABC, Flass):
         {specialty}
         GOLDEN RULE: If you do not know the answer based on information I give you, please just state you don't know.
         """
-
     @abstractmethod
-    def get_system_prompt(self, context:str="") -> str: pass
+    def category_type(self) -> str: pass
     @abstractmethod
-    def get_context_expander_prompt(self, previous_messages=[]) -> str: pass
+    def system_prompt(self, context:str= "") -> str: pass
     @abstractmethod
-    def get_qa_training_formatter_prompt(self, role: str = ""): pass
+    def context_expander_prompt(self, previous_messages=[]) -> str: pass
+    @abstractmethod
+    def qa_training_formatter_prompt(self, role: str = ""): pass
 
 class SoccerPrompt(PromptRegistry, category="soccer"):
-    def get_qa_training_formatter_prompt(self, role: str = ""): pass
+    def category_type(self) -> str: return "soccer"
 
-    def get_context_expander_prompt(self, previous_messages=[]) -> str:
+    def qa_training_formatter_prompt(self, role: str = ""): pass
+
+    def context_expander_prompt(self, previous_messages=[]) -> str:
         return f"""
         1. Add keywords to add context to users questions.
         2. Keywords should be based on youth soccer organizations and clubs.
@@ -114,7 +145,7 @@ class SoccerPrompt(PromptRegistry, category="soccer"):
         RESPONSE RULE: Only return the Users Input with keywords and nothing else.
         """
 
-    def get_system_prompt(self, context:str=""):
+    def system_prompt(self, context:str= ""):
         return f"""
             This is a custom system prompt for soccer.
             {context}
@@ -122,17 +153,18 @@ class SoccerPrompt(PromptRegistry, category="soccer"):
 
 
 class MetadataPrompt(PromptRegistry, category="metadata"):
-    def get_qa_training_formatter_prompt(self, role: str = ""): pass
+    def category_type(self) -> str: return "metadata"
+    def qa_training_formatter_prompt(self, role: str = ""): pass
 
-    def get_context_expander_prompt(self, previous_messages=[]) -> str: pass
+    def context_expander_prompt(self, previous_messages=[]) -> str: pass
 
-    def get_system_prompt(self, context: str = ""):
+    def system_prompt(self, context: str = ""):
         return f"""
         !!GOLDEN RESPONSE RULE!!
         ->ONLY RETURN THE JSON METADATA OBJECT. NOTHING ELSE.<-
         ->DO NOT TO MODIFY MY METADATA OBJECT. VALIDATE MY MODEL MATCHES YOUR MODEL BEFORE YOU RESPOND TO ME.<-
         """
-    def get_metadata_extraction_prompt(self, default_model:dict, content:str=""):
+    def extraction_prompt(self, default_model:dict, content:str= ""):
         return f"""
         You will read the following content and you will extract out the following metadata details.
         1. Look at each key name in the model and then try to determine the value for the key, based on the content.
@@ -157,9 +189,10 @@ class MetadataPrompt(PromptRegistry, category="metadata"):
         """
 
 class TrainingDataPrompt(PromptRegistry, category="training"):
-    def get_context_expander_prompt(self, previous_messages=[]) -> str: pass
-    def get_system_prompt(self, context:str=""): pass
-    def get_qa_training_formatter_prompt(self, role: str = ""):
+    def category_type(self) -> str: return "training"
+    def context_expander_prompt(self, previous_messages=[]) -> str: pass
+    def system_prompt(self, context:str= ""): pass
+    def qa_training_formatter_prompt(self, role: str = ""):
         return f"""
         You are now my personal AI Training Assistant. I will provide you with raw datasets and you will do the following.
         
@@ -176,9 +209,10 @@ class TrainingDataPrompt(PromptRegistry, category="training"):
 
 
 class AutoFormatPrompt(PromptRegistry, category="autoformat"):
-    def get_context_expander_prompt(self, previous_messages=[]) -> str: pass
-    def get_system_prompt(self, context: str = ""): pass
-    def get_qa_training_formatter_prompt(self, role: str = ""): pass
+    def category_type(self) -> str: return "autoformat"
+    def context_expander_prompt(self, previous_messages=[]) -> str: pass
+    def system_prompt(self, context: str = ""): pass
+    def qa_training_formatter_prompt(self, role: str = ""): pass
     @staticmethod
     def base_format_prompt(format_type:str, content:str):
         return f"""
