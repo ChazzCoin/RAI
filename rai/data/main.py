@@ -17,7 +17,6 @@ Pipelines:
 
 
 """
-
 prompt = get_prompt('soccer', 'get_system_prompt', ())
 prompt = get_prompt('metadata', 'get_ai_extraction_prompt', ())
 """

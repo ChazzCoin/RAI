@@ -13,6 +13,10 @@ numpy>=1.26
 torch>=2.4
 transformers>=4.44
 datasets>=3.0
+peewee>=3.17
+peewee-migrate>=1.13.0
+quart-cors>=0.7.0
+openai>=1.45.1
 
 # Specific utility packages
 tiktoken>=0.7
