@@ -1,12 +1,6 @@
-import os
-import time
-
 from F.LOG import Log
-
 from rai.data.extraction.intake.Vision import VisionExtractor
-from rai.data.loaders import delete_folder
 from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiLoaderDocument, RaiBaseLoader
-
 Log = Log("VisionDataLoader")
 
 class VisionDataLoader(RaiBaseLoader):

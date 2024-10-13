@@ -254,7 +254,7 @@ class RaiWebExtractor(RaiWebDriver):
         self.output_file = RaiPath(RaiPath.join_path(self.output_dir, RaiPath.ADD_JSONL_EXT(self.domain_name)))
         self.to_visit_urls = {self.url}
         self.data_lock = threading.Lock()
-        self._prepare_output_directory()
+        self.output_dir.verify_create_directory()
         self._load_existing_data()
 
     @classmethod
@@ -264,22 +264,11 @@ class RaiWebExtractor(RaiWebDriver):
         newcls.crawl()
         return newcls
 
-    def _prepare_output_directory(self):
-        os.makedirs(self.output_dir, exist_ok=True)
-
     def _load_existing_data(self):
-        if os.path.exists(self.output_file):
-            with open(self.output_file, 'r', encoding='utf-8') as f:
-                for line in f:
-                    try:
-                        item = json.loads(line)
-                        self.visited_urls.add(item['url'])
-                    except json.JSONDecodeError:
-                        continue
+        self.visited_urls = JSONLDataLoader.load_file(self.output_file)
 
     def _save_data(self, data: dict):
-        with self.data_lock:
-            JSONLDataLoader.save_file(data, self.output_file)
+        with self.data_lock: JSONLDataLoader.save_file(data, self.output_file)
 
     def is_within_base_url(self, url: str) -> bool:
         parsed_base = urlparse(self.url)
@@ -320,7 +309,7 @@ class RaiWebExtractor(RaiWebDriver):
             data = self.form_data(url, details, text)
             self._save_data(data)
         except (WebDriverException, TimeoutException, NoSuchElementException) as e:
-            print(f"Error scraping {url}: {e}")
+            Log.e(f"Error scraping {url}: {e}")
 
     def crawl(self):
         while self.to_visit_urls:
@@ -330,13 +319,13 @@ class RaiWebExtractor(RaiWebDriver):
             current_url = self.to_visit_urls.pop()
             if current_url in self.visited_urls:
                 continue
-            print(f"Scraping: {current_url}")
+            Log.w(f"Scraping: {current_url}")
             self.visited_urls.add(current_url)
             self._scrape_page(current_url)
             self.scrape_count += 1
 
         # self.driver.quit()
-        print("Crawling completed.")
+        Log.s("Crawling completed.")
 
     def start(self):
         crawl_thread = threading.Thread(target=self.crawl)

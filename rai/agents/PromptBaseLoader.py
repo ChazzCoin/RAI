@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
+from F.CLASS import Flass
+import F
 
-
-class PromptRegistry(ABC):
+class PromptRegistry(ABC, Flass):
     _registry = {}
 
     def __init_subclass__(cls, category=None, **kwargs):
@@ -33,17 +34,46 @@ class PromptRegistry(ABC):
         return prompts
 
     @classmethod
-    def get_prompt_method(cls, category, method_name, content=""):
+    def get_prompt_method(cls, category, method_name):
         if category not in cls._registry:
             raise ValueError(f"No prompts found for category '{category}'.")
         custom_methods = []
         for prompt_cls in cls._registry[category]:
             if hasattr(prompt_cls, method_name):
-                custom_methods.append(getattr(prompt_cls(), method_name)(content))
+                method = getattr(prompt_cls(), method_name)
+                return method
         if not custom_methods:
             raise ValueError(f"No method '{method_name}' found in category '{category}'.")
-        return custom_methods
-
+        return None
+    @staticmethod
+    def get(category, method_name, args=None):
+        try:
+            func = PromptRegistry.get_prompt_method(category, method_name)
+            arg_type = PromptRegistry.get_func_type(func)
+            if not args or arg_type == "none":
+                return func()
+            elif arg_type == "args":
+                return func(*args)
+            elif arg_type == "kwargs":
+                return func(**args)
+            else:
+                return func(args)
+        except Exception as e:
+            print(f"There was an error running FairFunction. error=[ {e} ]")
+    @staticmethod
+    def get_func_type(func):
+        sig = F.get_signature(func)
+        sigStr = str(sig).replace("(", "").replace(")", "")
+        t = F.convert_signature_arguments(sigStr)
+        l = len(t)
+        if l >= 2:
+            return "args"
+        elif F.is_kwargs(t):
+            return "kwargs"
+        elif not t or str(t) == '':
+            return "none"
+        else:
+            return "single"
     @staticmethod
     def get_general_system_prompt_template(ai_name:str, org_name:str, org_rep_type:str, specialty:str) -> str:
         return f"""
@@ -62,7 +92,7 @@ class PromptRegistry(ABC):
     @abstractmethod
     def get_qa_training_formatter_prompt(self, role: str = ""): pass
 
-class SoccerPrompt(PromptRegistry, category="Soccer"):
+class SoccerPrompt(PromptRegistry, category="soccer"):
     def get_qa_training_formatter_prompt(self, role: str = ""): pass
 
     def get_context_expander_prompt(self, previous_messages=[]) -> str:
@@ -91,7 +121,42 @@ class SoccerPrompt(PromptRegistry, category="Soccer"):
         """
 
 
-class TrainingDataPrompt(PromptRegistry, category="TrainingData"):
+class MetadataPrompt(PromptRegistry, category="metadata"):
+    def get_qa_training_formatter_prompt(self, role: str = ""): pass
+
+    def get_context_expander_prompt(self, previous_messages=[]) -> str: pass
+
+    def get_system_prompt(self, context: str = ""):
+        return f"""
+        !!GOLDEN RESPONSE RULE!!
+        ->ONLY RETURN THE JSON METADATA OBJECT. NOTHING ELSE.<-
+        ->DO NOT TO MODIFY MY METADATA OBJECT. VALIDATE MY MODEL MATCHES YOUR MODEL BEFORE YOU RESPOND TO ME.<-
+        """
+    def get_metadata_extraction_prompt(self, default_model:dict, content:str=""):
+        return f"""
+        You will read the following content and you will extract out the following metadata details.
+        1. Look at each key name in the model and then try to determine the value for the key, based on the content.
+        2. Extract keywords and some of the most important words used or the topic/category the text is about as tags.
+        3. Only look for the model details.
+        4. Return the exact metadata model I give you. Do not change anything.
+        5. Try to guess the overall context and attempt to fill out all attributes even if you don't know.
+        6. DO NOT MAKE UP NEW OR DIFFERENT ATTRIBUTES, just mold your response to fit my model no matter what!
+
+        METADATA MODEL:
+        {default_model}
+
+        CONTENT:
+        {content}
+
+        RESPONSE RULES:
+        1. ONLY RETURN THE JSON METADATA OBJECT AND THE ATTRIBUTES IVE GIVEN YOU.
+        2. DO NOT MAKE UP ATTRIBUTES. Mold the reponse to fit my model.
+        3. Verify your response model matches my metadata model PERFECTLY! 100%.
+        
+        If you send me a different metadata object model, you fucking failed me.
+        """
+
+class TrainingDataPrompt(PromptRegistry, category="training"):
     def get_context_expander_prompt(self, previous_messages=[]) -> str: pass
     def get_system_prompt(self, context:str=""): pass
     def get_qa_training_formatter_prompt(self, role: str = ""):
@@ -110,7 +175,7 @@ class TrainingDataPrompt(PromptRegistry, category="TrainingData"):
         """
 
 
-class AutoFormatPrompt(PromptRegistry, category="AutoFormat"):
+class AutoFormatPrompt(PromptRegistry, category="autoformat"):
     def get_context_expander_prompt(self, previous_messages=[]) -> str: pass
     def get_system_prompt(self, context: str = ""): pass
     def get_qa_training_formatter_prompt(self, role: str = ""): pass

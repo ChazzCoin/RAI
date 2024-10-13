@@ -37,7 +37,12 @@ class RaiDataLoader:
         self.meta_loader = meta_loader
         if not self.metadata and self.meta_loader:
             self.metadata = self.meta_loader.metadata.to_dict()
-        # self.loader = self.get_loader()
+
+    def check_run_metadata_generator(self) -> bool:
+        if self.meta_loader.meta_ai:
+            self.metadata = self.meta_loader.generate_ai_metadata()
+            if self.metadata: return True
+        return False
 
     @property
     def loader(self) -> RaiBaseLoader:
@@ -81,9 +86,6 @@ class RaiDataLoader:
         verification = RaiDataLoader.verify_loader_data(loader)
         if not verification:
             loader = LastResortDataLoader(self.file, metadata=self.metadata)
-
-        # for d in loader.load():
-        #     print(d.page_content)
         return loader
 
     @staticmethod
