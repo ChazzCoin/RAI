@@ -34,7 +34,7 @@ executor = ThreadPoolExecutor(max_workers=1)
 
 IMAGE_FOLDER = f"{os.path.dirname(__file__)}/files/images"
 
-RAI_VERSION = "0.4.2:hypercorn"
+RAI_VERSION = "0.5.0:hypercorn"
 RAI_FOOTER_MESSAGE = lambda model, text: f"""\n
 {text}\n
 | Rai Youth Sports Chat | AI Model: {model} | API Version: {RAI_VERSION} |

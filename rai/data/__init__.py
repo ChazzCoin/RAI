@@ -1,5 +1,7 @@
 import os
+import re
 import shutil
+import unicodedata
 from pathlib import Path
 from typing import Union, Optional
 from F.LOG import Log
@@ -211,14 +213,38 @@ class RaiPath(str):
         except OSError as e: Log.e(f"OS error occurred while creating directory '{path}': {e}")
         return False
 
+    @staticmethod
+    def sanitize_file_name_for_chromadb(file_name: str, max_length: int = 64) -> str:
+        filename = RaiPath(file_name)
+        # Normalize the Unicode string to decompose combined characters
+        file_name = unicodedata.normalize('NFKD', file_name)
+        # Remove accents and diacritics
+        file_name = file_name.encode('ascii', 'ignore').decode('ascii')
+        # Convert to lowercase
+        file_name = file_name.lower()
+        # Replace any sequence of invalid characters with a single underscore
+        # Allowed characters: alphanumeric, underscore, hyphen
+        file_name = re.sub(r'[^a-z0-9_\-]+', '_', file_name)
+        # Remove leading and trailing underscores or hyphens
+        file_name = file_name.strip('_-')
+        # Truncate to the maximum allowed length
+        file_name = file_name[:max_length]
+        file_name = file_name.replace(".", "_")
+        file_name = file_name.replace("-", "_")
+        # Ensure the name is not empty after sanitization
+        if not file_name:
+            return filename
+
+        return file_name
     def __str__(self) -> str: return self.path.absolute().__str__()
     def __repr__(self) -> str: return self.__str__()
 
 # Example Usage
 if __name__ == "__main__":
     # Initialize a file or directory
-    entity = RaiPath(__file__)
-    print(entity.directory_path)
+    # entity = RaiPath(__file__)
+    sanny = RaiPath.sanitize_file_name_for_chromadb("all-team-assignment-players.csv")
+    print(sanny)
     # Example operations
     # if entity.is_file:
     #     print("File Size:", entity.size, "bytes")
