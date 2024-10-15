@@ -63,37 +63,54 @@ class RaiFileExtractor:
         elif self.config.base_path.is_file:
             self.import_file(collection_prefix)
 
-    def import_directory(self, collection_prefix:str=None, directory_path:str=None):
+    def import_directory(self, collection_prefix: str = None, directory_path: str = None):
         if directory_path is not None:
             self.config.base_path = RaiPath(directory_path)
-        if collection_prefix is not None: self.config.collection_prefix = collection_prefix
-        # 1. -> This prepares the directory of files to be imported properly.
+        if collection_prefix is not None:
+            self.config.collection_prefix = collection_prefix
+
         Log.i(f"Preparing Files for Import: [ {self.config.base_path} ]")
-        for sub_dir in self.config.base_path.list_directory(files_only=False):
-            if sub_dir.is_dir():
-                d_name = sub_dir.name
-                collection_name = f"{self.config.collection_prefix}-{d_name}"
-                raiDirectory = RaiPath(sub_dir)
-                file_list = []
-                for files in raiDirectory.list_directory(files_only=False):
-                    file_list.append(files)
-                    self.file_to_import_count += 1
-                self.file_to_import_by_collection[collection_name] = file_list
-        # 2. -> This takes the files that were prepared and begins to import one by one.
+        self.file_to_import_count = 0
+        self.file_to_import_by_collection = {}
+
+        # Recursively traverse the directory tree starting from base_path
+        for file_path in self.config.base_path.path.rglob('*'):
+            if file_path.is_file():
+                # Construct the relative path from base_path to the file's parent directory
+                rel_path = file_path.parent.relative_to(self.config.base_path)
+                path_parts = rel_path.parts  # Get the parts of the relative path
+                # Construct the collection name by joining the collection prefix and path parts
+                collection_name = '.'.join([self.config.collection_prefix] + list(path_parts))
+                # Add the file to the corresponding collection
+                self.file_to_import_by_collection.setdefault(collection_name, []).append(file_path)
+                self.file_to_import_count += 1
+
+        # Proceed with the import process
         Log.s(f"Starting Import: Total [ {self.file_to_import_count} ]")
-        for collection_name in self.file_to_import_by_collection.keys():
-            files_to_handle = self.file_to_import_by_collection[collection_name]
+        for collection_name, files_to_handle in self.file_to_import_by_collection.items():
+            # First, handle metadata files
+            if not str(collection_name).__contains__('.'):
+                continue
             for file in files_to_handle:
-                """ Handle Metadata File """
                 if RaiPath(file).is_metadata_file():
                     self.meta_loader = RaiMetadataLoader(meta_file=file)
+            # Then, handle document files
             for file in files_to_handle:
                 if RaiPath(file).is_metadata_file():
                     continue
-                """ Handle Document File """
+                if str(file).endswith('.DS_Store'):
+                    continue
+                """
+                    Handle Naming...
+                    csv, xlsx need to be their own collection.
+                """
                 self.current_file = RaiPath(file)
-                self.import_file(collection_name)
-        # 3. -> Completed all file imports.
+                chained_collection_name = collection_name
+                if self.current_file.ext_type in ['csv', 'xlsx']:
+                    file_collection_name = RaiPath.sanitize_file_name_for_chromadb(self.current_file)
+                    chained_collection_name = f"{chained_collection_name}-{file_collection_name}"
+                # self.import_file(collection_name)
+                print(f"Final Collection Name: [ {chained_collection_name} ] \nFile: [ {self.current_file.file_name} ]\n")
         Log.s(f"Finished Importing Files: Total [ {self.file_to_import_count} ]")
         return True
 

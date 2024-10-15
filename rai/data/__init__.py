@@ -215,7 +215,7 @@ class RaiPath(str):
 
     @staticmethod
     def sanitize_file_name_for_chromadb(file_name: str, max_length: int = 64) -> str:
-        filename = RaiPath(file_name)
+        file_name = RaiPath(file_name).file_name
         # Normalize the Unicode string to decompose combined characters
         file_name = unicodedata.normalize('NFKD', file_name)
         # Remove accents and diacritics
@@ -231,11 +231,31 @@ class RaiPath(str):
         file_name = file_name[:max_length]
         file_name = file_name.replace(".", "_")
         file_name = file_name.replace("-", "_")
-        # Ensure the name is not empty after sanitization
-        if not file_name:
-            return filename
-
         return file_name
+    @staticmethod
+    def get_directory_chains(parent_directory):
+        if not os.path.isdir(parent_directory):
+            raise ValueError(f"The provided parent_directory '{parent_directory}' is not a valid directory.")
+
+        directory_chains = []
+
+        for dirpath, dirnames, filenames in os.walk(parent_directory):
+            if not dirnames:
+                # This directory has no subdirectories
+                rel_path = os.path.relpath(dirpath, parent_directory)
+                if rel_path == '.':
+                    # This is the parent directory itself
+                    chain = os.path.basename(parent_directory)
+                else:
+                    # Split the relative path into components
+                    parts = rel_path.split(os.sep)
+                    # Add the parent directory name at the front
+                    parts = [os.path.basename(parent_directory)] + parts
+                    # Join the parts with periods
+                    chain = '.'.join(parts)
+                directory_chains.append(chain)
+
+        return directory_chains
     def __str__(self) -> str: return self.path.absolute().__str__()
     def __repr__(self) -> str: return self.__str__()
 
@@ -243,8 +263,10 @@ class RaiPath(str):
 if __name__ == "__main__":
     # Initialize a file or directory
     # entity = RaiPath(__file__)
-    sanny = RaiPath.sanitize_file_name_for_chromadb("all-team-assignment-players.csv")
-    print(sanny)
+    sanny = RaiPath.get_directory_chains("/Users/chazzromeo/Desktop/pcsc2024")
+    print("Parent Directory: [ /Users/chazzromeo/Desktop/pcsc2024 ]")
+    for item in sanny:
+        print(item)
     # Example operations
     # if entity.is_file:
     #     print("File Size:", entity.size, "bytes")

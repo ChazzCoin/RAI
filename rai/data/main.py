@@ -55,10 +55,10 @@ def find_file(file_name): pass
 if __name__ == '__main__':
     print(PromptRegistry.list_prompts_by_category('metadata'))
     # list_prompt_categories()
-    # config = RaiConfig()
-    # config.pipeline = RaiFileExtractor.Pipelines.CHROMA
-    # config.generate_ai_metadata = True
-    # config.overwrite = True
-    # config.base_path = RaiPath("/Users/chazzromeo/Desktop/data")
-    # config.collection_prefix = "parkone"
-    # run_rai_file_extraction(fig=config)
+    config = RaiConfig()
+    config.pipeline = RaiFileExtractor.Pipelines.CHROMA
+    config.generate_ai_metadata = True
+    config.overwrite = True
+    config.base_path = RaiPath("/Users/chazzromeo/Desktop/pcsc2024")
+    config.collection_prefix = "pcsc2024"
+    run_rai_file_extraction(fig=config)
