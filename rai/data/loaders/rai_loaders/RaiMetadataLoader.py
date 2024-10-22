@@ -169,11 +169,11 @@ class RaiMetadataLoader:
 
     @staticmethod
     def get_metadata_system_prompt():
-        return PromptRegistry.get('metadata', 'get_system_prompt')
+        return PromptRegistry.get('metadata', 'system_prompt')
     @staticmethod
     def __get_metadata_extraction_prompt(content:str):
         model = str(DataLoaderMetadata().toJson())
-        return PromptRegistry.get('metadata', 'get_metadata_extraction_prompt', (model, content))
+        return PromptRegistry.get('metadata', 'extraction_prompt', (model, content))
 
     def __gen_meta_ai(self, prepared_data: List[str], count:int=0):
         try:

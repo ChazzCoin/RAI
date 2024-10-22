@@ -17,7 +17,7 @@ from chdb.rag import RAGWithChroma
 from rai.agents.weather import get_weather_by_zip, get_air_quality
 from rai.assistant.context import ContextHelper
 from rai.internal.redisdb import RaiCache
-from rai.RAG.newmain import query_chroma_by_user_auth
+from rai.RAG.newmain import query_chroma_by_prefix
 from rai import env
 
 
@@ -84,7 +84,7 @@ async def chat_completion(idx:Optional[int]=None):
     mod_title: str = DICT.get('title', modelIn_data)
     mod_ai_name: str = DICT.get('ai_name', modelIn_data)
     mod_org_rep_type: str = DICT.get('org_rep_type', modelIn_data)
-    mod_collection: str = DICT.get('collection', modelIn_data, 'none')
+    mod_collection_prefix: str = DICT.get('collection', modelIn_data, 'none')
     mod_zip_code = DICT.get('zip', modelIn_data, '00000')
     mod_specialty: str = DICT.get('org_specialty', modelIn_data)
     mod_system_prompt_lambda = DICT.get('prompt', modelIn_data)(mod_ai_name, mod_title, mod_org_rep_type, mod_specialty)
@@ -107,11 +107,11 @@ async def chat_completion(idx:Optional[int]=None):
         real_time_data = combine(weather_cache)
 
     """     USER PROMPT INTERCEPTOR    """
-    if mod_collection != "none":
+    if mod_collection_prefix != "none":
         ollama_prompt: str = mod_context_prompt_lambda(pre_user_messages)
         ollama_request: str = await ollama_quick_generation(ollama_prompt, user_message, modelIn=mod_ollama_model, debug=True)
         user_message: str = interceptUserPrompt(
-            collection=mod_collection,
+            collection=mod_collection_prefix,
             user_message=user_message,
             context_message=ollama_request,
             specialty=mod_specialty,
@@ -264,7 +264,7 @@ CHROMADB SEARCH
 """
 def search(user_message:str, collection_name:str):
     # embeds = await get_embeddings(user_message)
-    results = query_chroma_by_user_auth(user_auth="ADMIN", collection_prefix=collection_name, query=user_message)
+    results = query_chroma_by_prefix(prefix=collection_name, query=user_message, k=15)
     Log.i("Search Result Count:", results)
     return results
 """     

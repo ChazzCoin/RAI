@@ -1,7 +1,6 @@
 import time
 import uuid
 from distutils.command.config import config
-
 from F.CLASS import Flass
 from rai import app
 from F.LOG import Log
@@ -28,7 +27,7 @@ class RaiConfig(Flass):
     split_documents: bool = False
     metadatas: [dict] = None
     generate_ai_metadata: bool = False
-    meta_loader: RaiMetadataLoader = None
+    meta_loader: RaiMetadataLoader = RaiMetadataLoader()
     text_splitter: RecursiveCharacterTextSplitter = None
 
 class RaiFileExtractor:
@@ -93,7 +92,7 @@ class RaiFileExtractor:
                 continue
             for file in files_to_handle:
                 if RaiPath(file).is_metadata_file():
-                    self.meta_loader = RaiMetadataLoader(meta_file=file)
+                    self.config.meta_loader = RaiMetadataLoader(meta_file=file)
             # Then, handle document files
             for file in files_to_handle:
                 if RaiPath(file).is_metadata_file():
@@ -105,11 +104,9 @@ class RaiFileExtractor:
                     csv, xlsx need to be their own collection.
                 """
                 self.current_file = RaiPath(file)
-                chained_collection_name = collection_name
-                if self.current_file.ext_type in ['csv', 'xlsx']:
-                    file_collection_name = RaiPath.sanitize_file_name_for_chromadb(self.current_file)
-                    chained_collection_name = f"{chained_collection_name}-{file_collection_name}"
-                # self.import_file(collection_name)
+                file_collection_name = RaiPath.sanitize_file_name_for_chromadb(self.current_file)
+                chained_collection_name = f"{collection_name}-{file_collection_name}"
+                self.import_file(collection_name)
                 print(f"Final Collection Name: [ {chained_collection_name} ] \nFile: [ {self.current_file.file_name} ]\n")
         Log.s(f"Finished Importing Files: Total [ {self.file_to_import_count} ]")
         return True
@@ -121,7 +118,7 @@ class RaiFileExtractor:
                 self.current_file = RaiPath(file_path)
             if self.current_file.is_directory: return
             Log.i(f"Processing: [ {self.current_file.file_name} ] for Collection: [ {collection_name} ]")
-            loader = RaiDataLoaders.RaiDataLoader(self.current_file, meta_loader=self.meta_loader).loader
+            loader = RaiDataLoaders.RaiDataLoader(self.current_file, meta_loader=self.config.meta_loader).loader
             try:
                 result = self.__run_pipeline(collection_name, loader=loader)
                 if result: Log.s(f"Finished Importing: [ {self.current_file.file_name} ]")

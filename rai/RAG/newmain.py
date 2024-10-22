@@ -2,7 +2,7 @@ import logging
 from typing import Optional
 from pydantic import BaseModel
 
-from rai.RAG.connector import VECTOR_DB_CLIENT
+from rai.data.extraction.RaiFileExtraction import VECTOR_DB_CLIENT
 from rai.RAG.utils import query_collection_with_hybrid_search, query_collection
 from rai.assistant.ollama_client import generate_chroma_embeddings
 from rai.env import SRC_LOG_LEVELS
@@ -77,6 +77,11 @@ external.development.player-[file_name]
 external.development.parent-[file_name]
     schedules
 external.schedules.events-[file_name]           (guest)
+
+
+1. Internal or External
+2. Figure out context -> onboarding, development, schedules, financial, general
+3. Loop through all context collection files...
 """
 
 # Define the ordered lists for each authentication type
@@ -128,11 +133,17 @@ def validate_user_role(user_role):
         raise ValueError(f"Invalid user role: {user_role}")
 
 
-def get_all_collections():
+def get_all_collections(prefix=None):
     try:
         # Assuming you have a ChromaDB client instance named 'chromadb_client'
-        collections = VECTOR_DB_CLIENT.list_collections()
+        collections = VECTOR_DB_CLIENT.client.list_collections()
         collection_names = [collection.name for collection in collections]
+        if prefix:
+            filtered_by_prefix = []
+            for collection_name in collection_names:
+                if collection_name.startswith(prefix):
+                    filtered_by_prefix.append(collection_name)
+            collection_names = filtered_by_prefix
         return collection_names
     except Exception as e:
         Log.e("Error retrieving collections from ChromaDB", e)
@@ -166,6 +177,24 @@ def get_user_auth_collections(prefix, user_role):
 
     return list(collection_names)
 
+def query_chroma_by_prefix(prefix:str, query: str, k: int = 50, hybrid=False):
+    try:
+        user_collections = get_all_collections(prefix)
+        Log.i(f"Collections: {user_collections}")
+        return query_chroma_form(
+            form_data=QueryCollectionsForm(
+                collection_names=user_collections,
+                query=query,
+                k=k
+            ),
+            hybrid=hybrid
+        )
+    except ValueError as e:
+        Log.e(f"Validation error: {e}")
+        return None
+    except Exception as e:
+        Log.e("An unexpected error occurred", e)
+        return None
 
 # Query function
 def query_chroma_by_user_auth(prefix:str, user_role: str, query: str, k: int = 50, hybrid=False):
@@ -221,13 +250,14 @@ def query_chroma_form(form_data: QueryCollectionsForm, hybrid=False):
         return {}
 
 if __name__ == "__main__":
-    user_role = 'parent'
-    query = 'Upcoming soccer events'
-    results = query_chroma_by_user_auth(user_role, query)
-    if results:
-        print("Query Results:", results)
-    else:
-        print("No results returned.")
+    print(get_all_collections(prefix='pcsc2024'))
+    # user_role = 'parent'
+    # query = 'Upcoming soccer events'
+    # results = query_chroma_by_user_auth(user_role, query)
+    # if results:
+    #     print("Query Results:", results)
+    # else:
+    #     print("No results returned.")
 
 #     results = query_chroma_by_user_auth(user_auth="ADMIN", collection_prefix="parkcitysc", query="Who coaches the 2015 girls teams?")
 #     print(results)

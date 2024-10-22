@@ -1,7 +1,7 @@
 from rai.agents.PromptBaseLoader import PromptRegistry
 from rai.data import RaiPath
 from rai.data.extraction.read import read_file
-from rai.data.extraction.RaiFileExtraction import RaiFileExtractor, RaiConfig
+from rai.data.extraction.RaiFileExtraction import RaiFileExtractor, RaiConfig, VECTOR_DB_CLIENT
 from rai.data.extraction.RaiWebExtraction import RaiWebExtractor
 
 RAI_DBs = lambda db: (f"{db}-main", f"{db}-internal", f"{db}-development")
@@ -53,8 +53,9 @@ def find_directory(file_name): pass
 def find_file(file_name): pass
 
 if __name__ == '__main__':
-    print(PromptRegistry.list_prompts_by_category('metadata'))
+    # print(PromptRegistry.list_prompts_by_category('metadata'))
     # list_prompt_categories()
+    # print(VECTOR_DB_CLIENT.client.list_collections())
     config = RaiConfig()
     config.pipeline = RaiFileExtractor.Pipelines.CHROMA
     config.generate_ai_metadata = True

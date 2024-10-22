@@ -22,7 +22,7 @@ RAI_MODs = {
             'initials': 'PCSC',
             'ai_name': 'Bruno',
             'org_rep_type': 'Personal Customer Representative',
-            'collection': 'parkcitysc',
+            'collection': 'pcsc2024',
             'prompt': GENERAL_PROMPT_TEMPLATE,
             'context_prompt': context.SOCCER_CLUB_CONTEXT_EXPANDER,
             'openai': 'gpt-4o',
