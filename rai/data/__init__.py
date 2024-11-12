@@ -1,3 +1,4 @@
+import hashlib
 import os
 import re
 import shutil
@@ -214,7 +215,7 @@ class RaiPath(str):
         return False
 
     @staticmethod
-    def sanitize_file_name_for_chromadb(file_name: str, max_length: int = 64) -> str:
+    def sanitize_file_name_for_chromadb(file_name: str, max_length: int = 8) -> str:
         file_name = RaiPath(file_name).file_name
         # Normalize the Unicode string to decompose combined characters
         file_name = unicodedata.normalize('NFKD', file_name)

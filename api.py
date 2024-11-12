@@ -16,10 +16,10 @@ from rai.RaiModels import RAI_MODs, getRaiModels
 from chdb.rag import RAGWithChroma
 from rai.agents.weather import get_weather_by_zip, get_air_quality
 from rai.assistant.context import ContextHelper
-from rai.internal.redisdb import RaiCache
+# from rai.internal.redisdb import RaiCache
 from rai.RAG.newmain import query_chroma_by_prefix
 from rai import env
-
+from nlp.Categorizer import Topics
 
 Log = Log("RAI API Bruno Canary")
 app = Quart(__name__)
@@ -27,18 +27,19 @@ app = cors(app, allow_origin="*")
 
 collection_name = "documents"
 contexter = ContextHelper()
-cache = RaiCache()
-rag = RAGWithChroma(collection_name=collection_name)
+# cache = RaiCache()
+# rag = RAGWithChroma(collection_name=collection_name)
 looper = asyncio.get_event_loop()
 executor = ThreadPoolExecutor(max_workers=1)
 
 IMAGE_FOLDER = f"{os.path.dirname(__file__)}/files/images"
 
 RAI_VERSION = "0.5.0:hypercorn"
-RAI_FOOTER_MESSAGE = lambda model, text: f"""\n
-{text}\n
-| Rai Youth Sports Chat | AI Model: {model} | API Version: {RAI_VERSION} |
-"""
+RAI_FOOTER_MESSAGE = lambda model, text: ""
+# RAI_FOOTER_MESSAGE = lambda model, text: f"""\n
+# {text}\n
+# | Rai Youth Sports Chat | AI Model: {model} | API Version: {RAI_VERSION} |
+# """
 
 
 def decode_and_save_image(encoded_image):
@@ -51,16 +52,62 @@ def decode_and_save_image(encoded_image):
 CACHE_KEY_TWO = lambda one, two: f"{one}:{two}"
 CACHE_KEY_THREE = lambda one, two, three: f"{one}:{two}:{three}"
 
+PROMPT_CACHE = {
+
+}
+
 def combine(*obj:str):
     result = ""
     for o in obj:
         result = f"{result}\n{o}"
     return result
 
+
+from rai.data.extraction.intake.PDF_v1 import FPDF
+import base64
+import imghdr
+import io
+
+
+def decode_base64_to_file(base64_string, output_file_name=None):
+    """
+    Decodes a base64 string and saves it as a JPEG, PNG, or PDF file.
+
+    :param base64_string: The base64-encoded string.
+    :param output_file_name: Optional; name of the output file without extension.
+    :return: The path of the saved file.
+    """
+    # Decode the base64 string
+    file_data = base64.b64decode(base64_string)
+
+    # Determine file type
+    if file_data.startswith(b'%PDF'):
+        file_extension = 'pdf'
+        # If it's a PDF, extract the text
+        return FPDF.extract_text_from_pdf_bytes(file_data)
+    else:
+        # Check if it's an image (jpeg or png)
+        file_extension = imghdr.what(None, file_data)
+        if file_extension not in ['jpeg', 'png']:
+            raise ValueError("Unsupported file type: the base64 string does not represent a JPEG, PNG, or PDF file.")
+
+    # Set output file name if not provided
+    # output_file_name = output_file_name or 'decoded_file'
+    # output_file_path = f"{output_file_name}.{file_extension}"
+
+    # Save the file
+    # with open(output_file_path, 'wb') as f:
+    #     f.write(file_data)
+
+    return file_data
+
+
 @app.route('/api/chat/{idx}', methods=['POST', 'OPTIONS'])
 @app.route('/api/chat', methods=['POST', 'OPTIONS'])
 async def chat_completion(idx:Optional[int]=None):
     print(idx)
+    immediate_response_override = False
+    immediate_response_message = "Something Seems to have gone wrong."
     """     GRAB HEADERS   """
     request.headers['Content-Type'] = 'application/json'
     # print(f"Headers received: {headers}")
@@ -78,37 +125,112 @@ async def chat_completion(idx:Optional[int]=None):
 
 
     """     GET MAPPED MODEL      """
-    request_in_model: str = DICT.get('model', jbody, 'gpt-4o-mini')
-    modelIn_data: dict = DICT.get(request_in_model, RAI_MODs)
+    current_rai_model: str = DICT.get('model', jbody, 'gpt-4o-mini')
+    modelIn_data: dict = DICT.get(current_rai_model, RAI_MODs)
 
     mod_title: str = DICT.get('title', modelIn_data)
     mod_ai_name: str = DICT.get('ai_name', modelIn_data)
+    mod_initials: str = DICT.get('initials', modelIn_data)
     mod_org_rep_type: str = DICT.get('org_rep_type', modelIn_data)
     mod_collection_prefix: str = DICT.get('collection', modelIn_data, 'none')
     mod_zip_code = DICT.get('zip', modelIn_data, '00000')
     mod_specialty: str = DICT.get('org_specialty', modelIn_data)
-    mod_system_prompt_lambda = DICT.get('prompt', modelIn_data)(mod_ai_name, mod_title, mod_org_rep_type, mod_specialty)
+    mod_system_prompt_lambda = DICT.get('prompt', modelIn_data) #(mod_ai_name, mod_title, mod_org_rep_type, mod_specialty)
     mod_context_prompt_lambda = DICT.get('context_prompt', modelIn_data)
     mod_openai_model: str = DICT.get('openai', modelIn_data, 'gpt-4o-mini')
     mod_ollama_model: str = DICT.get('ollama', modelIn_data, 'llama3:latest')
 
     """ TODO     CACHE OUT    """
     # cache_queue = cache.get_queued_chat_data(modelIn)
-    weather_cache = None # await get_refresh_cached_weather(request_in_model, mod_zip_code)
+    weather_cache = None # await get_refresh_cached_weather(current_rai_model, mod_zip_code)
 
     """     EXTRACT USER MESSAGES AND IMAGES    """
     user_message: str = get_last_user_message(jbody)
     pre_user_messages: list = get_previous_user_messages(jbody)
     user_images: list = get_last_user_images(jbody)
 
+    we_have_file_data = False
+    try:
+        # TODO: file_data needs to be a list of file_data for each image uploaded...
+        file_data = decode_base64_to_file(LIST.get(0, user_images, "Needs Clinical Review!"))
+        if file_data: we_have_file_data = True
+    except Exception as e:
+        print(e)
+        file_data = "Needs Clinical Review!"
+
+    """ CONTEXT ANALYZER """
+    # the_context = ""
+    # try:
+    #
+    #     user_context = analyze_context(user_message)
+    #     if user_context:
+    #         the_context = LIST.get(0, user_context, "general")
+    #     print(user_context)
+    #     print(the_context)
+    # except Exception as e:
+    #     print(e)
+
     """     REAL-TIME DATA INTERCEPTOR    """
     real_time_data = None
     if weather_cache: # TODO: dynamic....
         real_time_data = combine(weather_cache)
 
+    """ System Prompt Overrider """
+    if str(user_message).lower().startswith('new prompt'):
+        current_message = str(user_message).replace('new prompt', '')
+        immediate_response_message = "The New Prompt has been added successfully. Ready to proceed."
+        if we_have_file_data:
+            # The File is the new prompt (because the message is empty)
+            if is_empty_message(current_message):
+                fsp = file_data
+                immediate_response_override = True
+            else:
+                # The message is the prompt, the file is the referral.
+                fsp = current_message
+                user_message = file_data
+        else:
+            # No file. Message is the prompt.
+            fsp = current_message
+            immediate_response_override = True
+        PROMPT_CACHE[current_rai_model] = fsp
+
+    if str(user_message).lower().startswith('reset prompt'):
+        PROMPT_CACHE[current_rai_model] = mod_system_prompt_lambda
+        immediate_response_message = "The Prompt has been reset successfully. Ready to proceed."
+        immediate_response_override = True
+
+    final_system_prompt = DICT.get(current_rai_model, PROMPT_CACHE, mod_system_prompt_lambda)
+
     """     USER PROMPT INTERCEPTOR    """
-    if mod_collection_prefix != "none":
-        ollama_prompt: str = mod_context_prompt_lambda(pre_user_messages)
+    new_user_message: dict = {
+        'role': 'user',
+        'content': f"{user_message}"
+    }
+    messages: list = setupSingleMessageForChatSequence(final_system_prompt, new_user_message)
+    if mod_initials == "MRA":
+        user_message = f"REFERRAL:\n {file_data}"
+        new_user_message: dict = {
+            'role': 'user',
+            'content': f"{user_message}"
+        }
+
+        """     SETUP MESSAGES FOR CHAT SEQUENCE   """
+        messages: list = setupSingleMessageForChatSequence(final_system_prompt, new_user_message)
+        print(messages)
+    if mod_initials == "MRC":
+        new_user_message: dict = {
+            'role': 'user',
+            'content': f"{user_message}"
+        }
+
+        """     SETUP MESSAGES FOR CHAT SEQUENCE   """
+        messages: list = setupSingleMessageForChatSequence(final_system_prompt, new_user_message)
+        print(messages)
+    elif mod_initials != "none":
+        if isinstance(mod_system_prompt_lambda, str):
+            ollama_prompt: str = mod_system_prompt_lambda
+        else:
+            ollama_prompt: str = mod_system_prompt_lambda(mod_ai_name, mod_title, mod_org_rep_type, mod_specialty)
         ollama_request: str = await ollama_quick_generation(ollama_prompt, user_message, modelIn=mod_ollama_model, debug=True)
         user_message: str = interceptUserPrompt(
             collection=mod_collection_prefix,
@@ -118,29 +240,31 @@ async def chat_completion(idx:Optional[int]=None):
             pre_text=real_time_data,
             debug=True
         )
+        new_user_message: dict = {
+            'role': 'user',
+            'content': f"{user_message}"
+        }
+        messages: list = setupMessagesForChatSequence(final_system_prompt, messages, new_user_message)
 
-    new_user_message: dict = {
-        'role': 'user',
-        'content': f"{user_message}"
-    }
 
-    """     SETUP MESSAGES FOR CHAT SEQUENCE   """
-    messages: list = setupMessagesForChatSequence(mod_system_prompt_lambda, messages, new_user_message)
-
-    """     GENERATE AI CHAT RESPONSE   """
-    if isOpenAI(request_in_model):
-        ai_response: str = await openai_chat_generation(messages, modelIn=mod_openai_model, debug=True)
+    appended_response: str = ""
+    """ Response Override """
+    if immediate_response_override:
+        appended_response = immediate_response_message
     else:
-        ai_response: str = await ollama_chat_generation(messages, modelIn=mod_ollama_model, debug=True)
+        """     GENERATE AI CHAT RESPONSE   """
+        if isOpenAI(current_rai_model):
+            ai_response: str = await openai_chat_generation(messages, modelIn=mod_openai_model, debug=True)
+        else:
+            ai_response: str = await ollama_chat_generation(messages, modelIn=mod_ollama_model, debug=True)
+        """ TODO    CACHE IN    """
+        # cache.queue_chat_data(modelIn, ai_response)
+        """     FOOTER MESSAGE     """
+        appended_message = RAI_FOOTER_MESSAGE(mod_openai_model, "")
+        """     PREPARE AND SEND FINAL RESPONSE     """
+        appended_response = appender(response_message=ai_response, message_to_append=appended_message)
 
-    """ TODO    CACHE IN    """
-    # cache.queue_chat_data(modelIn, ai_response)
 
-    """     FOOTER MESSAGE     """
-    appended_message: str = RAI_FOOTER_MESSAGE(mod_openai_model, "")
-
-    """     PREPARE AND SEND FINAL RESPONSE     """
-    appended_response: str = appender(response_message=ai_response, message_to_append=appended_message)
     final_response: dict = to_chat_response(appended_response, role="assistant", options=jbody['options'])
     return Response(f"\n{json.dumps(final_response)}\n", content_type='text/event-stream')
 
@@ -149,18 +273,30 @@ def isOpenAI(model:str) -> bool:
         return False
     return True
 
+
+def is_empty_message(input_str: str) -> bool:
+    # Check if input is None or an empty string after stripping whitespace
+    if input_str is None or input_str.strip() == "":
+        return True
+    return False
+"""
+CONTEXT ANALYZER
+"""
+def analyze_context(user_input:str):
+    results = Topics.RUN_MAIN_CATEGORIZER(user_input)
+    return results
 """ 
 CACHE WEATHER
 """
 async def get_refresh_cached_weather(model, zip):
-    weather_cache = cache.get_weather_data(model)
-    if weather_cache:
-        return weather_cache
-    weather_result = get_weather_by_zip(zip)
-    air_quality = await get_air_quality(zip)
-    weather_report = f"{weather_result}\n{air_quality}"
-    cache.cache_weather_data(model, f"Current Weather and Air Quality Data for {zip}\n{weather_report}\n")
-    return weather_report
+    weather_cache = "" #cache.get_weather_data(model)
+    # if weather_cache:
+    #     return weather_cache
+    # weather_result = get_weather_by_zip(zip)
+    # air_quality = await get_air_quality(zip)
+    # weather_report = f"{weather_result}\n{air_quality}"
+    # cache.cache_weather_data(model, f"Current Weather and Air Quality Data for {zip}\n{weather_report}\n")
+    return "weather_report"
 
 """ 
 GENERATE AI CHAT RESPONSE 
@@ -247,6 +383,11 @@ async def ollama_quick_generation(system_prompt, user_prompt, modelIn:str="llama
 """     
 SETUP MESSAGES FOR CHAT SEQUENCE   
 """
+def setupSingleMessageForChatSequence(system_prompt, new_user_message):
+    return [
+            {'role': 'system', 'content': system_prompt},
+            new_user_message
+        ]
 def setupMessagesForChatSequence(system_prompt, messages, new_user_message):
     if len(messages) <= 1:
         Log.i("Creating New Message...")
@@ -278,11 +419,11 @@ def interceptUserPrompt(collection, user_message:str, context_message:str, speci
         results = search(f"{user_message} {context_message}", collection)
     Log.i("Returning custom SYS Prompt.")
     if debug:
-        user_prompt = rag.inject_into_system_prompt(user_message, specialty=specialty, docs=results, text=pre_text)
+        user_prompt = "rag.inject_into_system_prompt(user_message, specialty=specialty, docs=results, text=pre_text)"
         print("--User Prompt--")
         print(user_prompt)
         return user_prompt
-    return rag.inject_into_system_prompt(user_message, specialty=specialty, docs=results, text=pre_text)
+    return "rag.inject_into_system_prompt(user_message, specialty=specialty, docs=results, text=pre_text)"
 """     
 RESPONSE MESSAGE APPENDER   
 """

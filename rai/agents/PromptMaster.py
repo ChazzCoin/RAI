@@ -121,6 +121,66 @@ class PromptRegistry(ABC, Flass):
     @abstractmethod
     def qa_training_formatter_prompt(self, role: str = ""): pass
 
+
+class MedicalDiagnosisPrompt(PromptRegistry, category="MedicalDiagnosis"):
+    def category_type(self) -> str: return "MedicalDiagnosis"
+
+    def context_expander_prompt(self, previous_messages=[]) -> str: pass
+
+    def system_prompt(self, context: str = ""): pass
+
+    def diagnostics(self, isChatBot: bool = False):
+        role = 'Take the following pdf document and determine which category the referral should be scheduled under. Only provide the results and why you chose that category.'
+        if isChatBot: role = "You are a Medical Referral Assistant who will take in a Question about a diagnosis and then use the following information to help place the diagnosis into one of the following doctors buckets."
+        return f"""
+        ROLE:
+        {role} 
+    
+        1. Pediatrics, Spine, General 
+        - Doctor to Schedule with: Dr. Anthony Martino
+        - Diagnoses: Lumbar stenosis, cervical stenosis, lumbar radiculopathy, cervical radiculopathy, cervical myelopathy, spondylosis, degenerative spinal disease, hydrocephalus
+        - Clinic Requirements: Imaging
+        
+        2. Spine, Complex spine, Deformity, General
+        - Doctor to Schedule with: Dr. Richard Menger
+        - Diagnoses: Spinal deformity, Lumbar stenosis, cervical stenosis, lumbar radiculopathy, cervical radiculopathy, cervical myelopathy, spondylosis, degenerative spinal disease
+        - Clinic Requirements: Imaging
+        
+        3. Tumor, Skull base, Vascular, General
+        - Doctor to Schedule with: Dr. Jai Thakur
+        - Diagnoses: Brain tumor, glioma, glioblastoma, brain metastatic disease, aneurysm, AVM, trigeminal neuralgia
+        - Clinic Requirements: Imaging, referring physician clinic note if applicable
+        
+        4. Functional, General
+        - Doctor to Schedule with: Dr. Andrew Romeo
+        - Diagnoses: Parkinson’s, Essential Tremor, Epilepsy, Obstructive Sleep Apnea, Seizures, Normal Pressure Hydrocephalus, Pseudotumor, Idiopathic Intracranial Hypertension
+        - Clinic Requirements: Referring physician clinic note if applicable. All pseudotumor or idiopathic intracranial hypertension patients must have an ophthalmology note. All obstructive sleep apnea patients must have a sleep study performed within 2 years documenting AHI of 15 or greater and a BMI under 37. All spine patients must have imaging.
+        
+        5. Pediatric, General
+        - Doctor to Schedule with: Dr. Matthew Pearson
+        - Diagnoses: Hydrocephalus, Chiari Malformation, Epilepsy
+        - Clinic Requirements: Imaging
+        
+        6. Spine, General, Trauma
+        - Doctor to Schedule with: Dr. John Amburgy
+        - Diagnoses: Lumbar stenosis, cervical stenosis, lumbar radiculopathy, cervical radiculopathy, cervical myelopathy, spondylosis, degenerative spinal disease
+        - Clinic Requirements: Imaging
+        
+        FINAL. To Be Reviewed
+        - Needs Clinician Review by Human
+        - Unknown or Undetermined diagnosis
+        
+        *Notice there is some overlap btw general and spine.  
+        **Dr. Andrew Romeo can also see cervical radiculopathy and
+        cervical radiculopathy if other physician clinics are too full. Dr. Jai Thakur and Dr. Matthew
+        Pearson can also see normal pressure hydrocephalus and pseudotumor/intracranial idiopathic
+        hypertension. Spinal cord stimulator referrals should go to Dr. Anthony Martino. 
+        - The model needs to identify those and flag them for clinician review.   
+        - So one additional bucket should be Needs Clinician Review.  
+        - I probably have too many of those type in the sample referrals.  
+        - In a real world setting, i dont think that will be more than maybe 5% or so. 
+        """
+
 class SoccerPrompt(PromptRegistry, category="soccer"):
     def category_type(self) -> str: return "soccer"
 
@@ -145,7 +205,7 @@ class SoccerPrompt(PromptRegistry, category="soccer"):
         RESPONSE RULE: Only return the Users Input with keywords and nothing else.
         """
 
-    def system_prompt(self, context:str= ""):
+    def system(self, context:str= ""):
         return f"""
             This is a custom system prompt for soccer.
             {context}

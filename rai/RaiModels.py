@@ -1,7 +1,7 @@
 import uuid
 
 from rai.agents.prompts import context
-
+from rai.agents.PromptMaster import PromptRegistry
 GENERAL_PROMPT_TEMPLATE = lambda ai_name, org_name, org_rep_type, specialty: f"""
 Your name is {ai_name}, {org_name}'s {org_rep_type}.
 You are here to serve at the pleasure of the members of {org_name}.
@@ -10,6 +10,54 @@ You are going to be a detailed and honest customer service representative who wi
 {specialty}
 GOLDEN RULE: If you do not know the answer based on information I give you, please just state you don't know.
 """
+
+assistant_role = 'Take the following pdf document and determine which category the referral should be scheduled under. Only provide the results and why you chose that category.'
+chat_role = "You are a Medical Referral Assistant who will take in a Question about a diagnosis and then use the following information to help place the diagnosis into one of the following doctors buckets."
+diag_prompt = lambda isChat: f"""
+        ROLE:
+        {chat_role if isChat else assistant_role} 
+
+        1. General Spine 
+        - Doctor to Schedule with: Martino, Menger, or Ambury
+        - Diagnoses: lumbar radiculopathy, lumbar stenosis, cervical radiculopathy, cervical myelopathy, spondylosis, low back pain, neck pain
+        2. Complex Spine
+        - Doctor to Schedule with: Menger or Amburgy
+        - Diagnoses: Scoliosis, spinal deformity
+        3. Tumor 
+        - Doctor to Schedule with: Thakur
+        - Diagnoses: meningioma, glioma, glioblastoma, acoustic neuroma, metastatic tumor, trigeminal neuralgia, face pain
+        4. Pediatrics 
+        - Doctor to Schedule with: Pearson
+        - Diagnoses: chiari, craniosynostosis, spina bifida, spinal dysraphism, myelomeningocele, any patient that is younger (<) 15 year old
+        5. Functional 
+        - Doctor to Schedule with: Romeo
+        - Diagnoses: epilepsy for patients over age 15, seizure, parkinsons, tremor, obstructive sleep apnea, normal pressure hydrocephalus
+        6. General Cranial
+        - Doctor to Schedule with: Pearson, Romeo, or Thakur
+        - Diagnoses: hydrocephalus, normal pressure hydrocephalus, pseudotumor, chiari 
+
+        FINAL. To Be Reviewed
+        - Needs Clinician Review by Human
+        - Unknown or Undetermined diagnosis
+
+        *Notice there is some overlap btw general and spine.  
+        **Dr. Andrew Romeo can also see cervical radiculopathy and
+        cervical radiculopathy if other physician clinics are too full. Dr. Jai Thakur and Dr. Matthew
+        Pearson can also see normal pressure hydrocephalus and pseudotumor/intracranial idiopathic
+        hypertension. Spinal cord stimulator referrals should go to Dr. Anthony Martino. 
+        - The model needs to identify those and flag them for clinician review.   
+        - So one additional bucket should be Needs Clinician Review.  
+        - I probably have too many of those type in the sample referrals.  
+        - In a real world setting, i dont think that will be more than maybe 5% or so. 
+        
+        RESPONSE:
+        Please return the following,
+        1. Referral Patients Name
+        2. Category
+        3. Doctor's Name (if available)
+        4. Reason
+"""
+
 
 """ -- YOU MUST ADD THE MODEL HERE FOR IT TO 'MOLD' TO YOUR CONFIGURATION -- """
 RAI_MODs = {
@@ -43,6 +91,66 @@ RAI_MODs = {
                 'quantization_level': 'Q8_0'
             }
          },
+    'referral-assistant:latest': {
+            'name': 'referral-assistant:latest',
+            'model': 'referral-assistant:latest',
+            'zip':'',
+            'address': '',
+            'title': 'Medical Referral Assistant',
+            'initials': 'MRA',
+            'ai_name': 'Dyo',
+            'org_rep_type': 'Knowledge Base',
+            'collection': 'referral-assistant',
+            'prompt': diag_prompt(False),
+            'context_prompt': context.MEDICAL_CONTEXT_EXPANDER,
+            'openai': 'gpt-4o',
+            'ollama': 'llama3:latest',
+            'org_type': 'Medical',
+            'org_specialty': f"""
+            
+            """,
+            'modified_at': '2024-07-02T06:32:47.913084094Z',
+            'size': 177669289,
+            'digest': 'c4ff0145029b23c94b81626b5cdd671a5c48140a3f8d972575efb9d145527581',
+            'details': {
+                'parent_model': '',
+                'format': 'gguf',
+                'family': 'gpt2',
+                'families': ['gpt2'],
+                'parameter_size': '163.04M',
+                'quantization_level': 'Q8_0'
+            }
+         },
+    'referral-chat:latest': {
+        'name': 'referral-chat:latest',
+        'model': 'referral-chat:latest',
+        'zip': '',
+        'address': '',
+        'title': 'Medical Referral Assistant',
+        'initials': 'MRC',
+        'ai_name': 'Dyo',
+        'org_rep_type': 'Knowledge Base',
+        'collection': 'referral-assistant',
+        'prompt': diag_prompt(True),
+        'context_prompt': context.MEDICAL_CONTEXT_EXPANDER,
+        'openai': 'gpt-4o',
+        'ollama': 'llama3:latest',
+        'org_type': 'Medical',
+        'org_specialty': f"""
+
+            """,
+        'modified_at': '2024-07-02T06:32:47.913084094Z',
+        'size': 177669289,
+        'digest': 'c4ff0145029b23c94b81626b5cdd671a5c48140a3f8d972575efb9d145527581',
+        'details': {
+            'parent_model': '',
+            'format': 'gguf',
+            'family': 'gpt2',
+            'families': ['gpt2'],
+            'parameter_size': '163.04M',
+            'quantization_level': 'Q8_0'
+        }
+    },
     'medical-neuro:latest': {
             'name': 'medical-neuro:latest',
             'model': 'medical-neuro:latest',

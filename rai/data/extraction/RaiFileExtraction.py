@@ -79,7 +79,17 @@ class RaiFileExtractor:
                 rel_path = file_path.parent.relative_to(self.config.base_path)
                 path_parts = rel_path.parts  # Get the parts of the relative path
                 # Construct the collection name by joining the collection prefix and path parts
-                collection_name = '.'.join([self.config.collection_prefix] + list(path_parts))
+
+                p = ""
+                if path_parts:
+                   depth = 0
+                   for part in path_parts:
+                       if depth == 0:
+                           p += "." + str(part)[:1]
+                       else:
+                           p += "." + str(part)[:3]
+                       depth += 1
+                collection_name = self.config.collection_prefix + p
                 # Add the file to the corresponding collection
                 self.file_to_import_by_collection.setdefault(collection_name, []).append(file_path)
                 self.file_to_import_count += 1

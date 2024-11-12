@@ -9,7 +9,7 @@ from F.CLASS import Flass
 from F.LOG import Log
 from functools import singledispatchmethod
 
-from rai.agents.PromptBaseLoader import PromptRegistry
+from rai.agents.PromptMaster import PromptRegistry
 from rai.assistant.ai import RaiAi
 from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiBaseLoader
 

@@ -133,7 +133,57 @@ def validate_user_role(user_role):
         raise ValueError(f"Invalid user role: {user_role}")
 
 
-def get_all_collections(prefix=None):
+def get_all_collections3(prefix: str = None, subfix: str = None):
+    try:
+        # Assuming you have a ChromaDB client instance named 'VECTOR_DB_CLIENT'
+        collections = VECTOR_DB_CLIENT.client.list_collections()
+        collection_names = [collection.name for collection in collections]
+
+        # Filter by prefix if provided
+        if prefix:
+            collection_names = [col for col in collection_names if col.startswith(prefix)]
+
+        # Further filter by subfix if provided
+        if subfix:
+            filtered_collections = []
+            for collection_name in collection_names:
+                split_name = collection_name.split('.')
+                if subfix in split_name:
+                    filtered_collections.append(collection_name)
+            collection_names = filtered_collections
+
+        return collection_names
+
+    except Exception as e:
+        # Log error with proper context
+        Log.e(f"Error retrieving collections from ChromaDB: {e}")
+        return []
+def get_all_collections(prefix=None, subfix:str=None):
+    try:
+        # Assuming you have a ChromaDB client instance named 'chromadb_client'
+        collections = VECTOR_DB_CLIENT.client.list_collections()
+        collection_names = [collection.name for collection in collections]
+        if prefix:
+            filtered_by_prefix = []
+            valid = False
+            for collection_name in collection_names:
+                c_split = collection_name.split('.')
+                if collection_name.startswith(prefix) and subfix:
+                    for c in c_split:
+                        if c == subfix:
+                            valid = True
+                elif collection_name.startswith(prefix):
+                    valid = True
+                if valid:
+                    filtered_by_prefix.append(collection_name)
+                    valid = False
+            collection_names = filtered_by_prefix
+        return collection_names
+    except Exception as e:
+        Log.e("Error retrieving collections from ChromaDB", e)
+        return []
+
+def get_all_collections_old(prefix=None):
     try:
         # Assuming you have a ChromaDB client instance named 'chromadb_client'
         collections = VECTOR_DB_CLIENT.client.list_collections()

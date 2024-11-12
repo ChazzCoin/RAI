@@ -25,9 +25,9 @@ class Topics:
     @classmethod
     def ALL_CATEGORIES(cls):
         newCls = cls()
-        newCls.build_all_categories()
+        # newCls.build_all_categories()
         newCls.build_main_categories()
-        newCls.build_sub_categories()
+        # newCls.build_sub_categories()
         return newCls
 
 
@@ -151,13 +151,14 @@ class Topics:
 
 if __name__ == "__main__":
     # print(TERMS_LIST)
+    finance = "When asking about the cost for the year for your 8-year-old son, you're likely looking for a breakdown of any associated expenses over a full year, whether it's for school, sports, or other activities he's involved in. This could include tuition or enrollment fees if he's in school or after-school programs, uniform or equipment costs if he's participating in sports or clubs, and any additional costs like field trips, materials, or other resources. Knowing the annual cost would provide a comprehensive view of what to budget for, allowing you to plan accordingly and ensure he has everything he needs for a successful year in his activities and education."
+    development = "When considering your child's development over the coming year, you may be curious about what milestones or skills are typical for their age and what activities or approaches could support their growth. At 8 years old, children are often developing rapidly in areas such as social skills, academic learning, physical coordination, and emotional awareness. Understanding which aspects of their development to focus on, whether it’s fostering resilience, encouraging curiosity, or supporting friendships, can be key in guiding them. You might want to explore resources that nurture these areas, such as engaging educational activities, interactive play, or even structured sports or arts programs that support both physical and cognitive growth. By tailoring these experiences to their interests and developmental needs, you can create an environment that encourages them to thrive and reach their potential."
+    sched_maybe = "How often are the practices, and how long do they usually last? I want to make sure my child isn't too exhausted!"
+    dev_one = "How can I help them improve at home? I don’t want to be pushy, but if there are things we could practice, I’d love to know."
     t = Topics.ALL_CATEGORIES()
-    collection = "models"
-    # -> Model
-    name = "programming"
-    weighted_terms = t.main_categories[name]["weighted_terms"]
-    secondary_weighted_terms = t.main_categories[name]["secondary_weighted_terms"]
-    from FCM.Jarticle.jModels import jModels
-    jm = jModels()
-    modelQ = jm.create_model_query(name, weighted_terms, secondary_weighted_terms)
-    jm.add_model(modelQ)
+    results = t.main_categorizer(finance)
+    print(results)
+    # name = "development"
+    # weighted_terms = t.main_categories[name]["weighted_terms"]
+    # print(weighted_terms)
+    # secondary_weighted_terms = t.main_categories[name]["secondary_weighted_terms"]

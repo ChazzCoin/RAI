@@ -2,7 +2,7 @@ from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.converter import TextConverter
 from pdfminer.layout import LAParams
 from pdfminer.pdfpage import PDFPage
-from io import StringIO
+from io import BytesIO, StringIO
 from rai.data import TextCleaner
 
 PDF_MODEL = lambda x: {}
@@ -74,6 +74,40 @@ class FPDF:
         fp.close()
         device.close()
         retstr.close()
+        return text
+
+    @staticmethod
+    def extract_text_from_pdf_bytes(file_data):
+        """
+        Extracts text from a PDF file given as raw byte data.
+
+        :param file_data: The PDF file content as a raw byte string.
+        :return: Extracted text as a string.
+        """
+        # Set up resource manager, output StringIO, and LAParams
+        rsrcmgr = PDFResourceManager()
+        retstr = StringIO()
+        laparams = LAParams()
+        device = TextConverter(rsrcmgr, retstr, laparams=laparams)
+
+        # Use BytesIO to handle the bytes input as a stream
+        fp = BytesIO(file_data)
+
+        # Set up PDF interpreter
+        interpreter = PDFPageInterpreter(rsrcmgr, device)
+
+        # Extract text from each page
+        for page in PDFPage.get_pages(fp, caching=True, check_extractable=True):
+            interpreter.process_page(page)
+
+        # Get the full text
+        text = retstr.getvalue()
+
+        # Close the resources
+        fp.close()
+        device.close()
+        retstr.close()
+
         return text
 
 

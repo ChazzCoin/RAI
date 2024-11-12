@@ -44,14 +44,15 @@ def categorizer_layer2(content, categories: {}):
     highest_main_cat_name = LIST.get(0, cater)
     highest_main_score = LIST.get(1, cater)
     highest_main_matches = LIST.get(2, cater)
-    if highest_main_cat_name == UNSURE or highest_main_cat_name == UNKNOWN:
-        return cater
-    # -> 3.
-    secondary_weighted_terms = DICT.get("secondary_weighted_terms", categories[highest_main_cat_name], default=False)
-    caterLayer2 = private_run_matcher(word_list, secondary_weighted_terms)
-    second_score = LIST.get(0, caterLayer2, 0)
-    final_score = highest_main_score + second_score
-    return highest_main_cat_name, final_score, highest_main_matches
+    return cater
+    # if highest_main_cat_name == UNSURE or highest_main_cat_name == UNKNOWN:
+    #     return cater
+    # # -> 3.
+    # secondary_weighted_terms = DICT.get("secondary_weighted_terms", categories[highest_main_cat_name], default=False)
+    # caterLayer2 = private_run_matcher(word_list, secondary_weighted_terms)
+    # second_score = LIST.get(0, caterLayer2, 0)
+    # final_score = highest_main_score + second_score
+    # return highest_main_cat_name, final_score, highest_main_matches
 
 
 def private_content_to_wordList(content):
@@ -131,8 +132,13 @@ def private_remove_empty_scores(cats, all_scores):
                 highest_score = score
                 highest_topic_name = topic_name
             cat_scores[topic_name] = result
-    if highest_score < 200:
-        highest_topic_name = UNKNOWN
-    elif highest_score < 500:
-        highest_topic_name = UNSURE
+    # if highest_score < 200:
+    #     highest_topic_name = UNKNOWN
+    # elif highest_score < 500:
+    #     highest_topic_name = UNSURE
     return highest_topic_name, highest_score, cat_scores
+
+
+if __name__ == "__main__":
+    sent = "What does the year cost for my 8 year old son?"
+    categorize()

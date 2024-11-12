@@ -1,8 +1,9 @@
-from rai.agents.PromptBaseLoader import PromptRegistry
+from rai.agents.PromptMaster import PromptRegistry
 from rai.data import RaiPath
 from rai.data.extraction.read import read_file
 from rai.data.extraction.RaiFileExtraction import RaiFileExtractor, RaiConfig, VECTOR_DB_CLIENT
 from rai.data.extraction.RaiWebExtraction import RaiWebExtractor
+from rai.RAG.newmain import get_all_collections3
 
 RAI_DBs = lambda db: (f"{db}-main", f"{db}-internal", f"{db}-development")
 
@@ -55,11 +56,12 @@ def find_file(file_name): pass
 if __name__ == '__main__':
     # print(PromptRegistry.list_prompts_by_category('metadata'))
     # list_prompt_categories()
+    print(get_all_collections3('pcsc2024.internal', 'schedules'))
     # print(VECTOR_DB_CLIENT.client.list_collections())
-    config = RaiConfig()
-    config.pipeline = RaiFileExtractor.Pipelines.CHROMA
-    config.generate_ai_metadata = True
-    config.overwrite = True
-    config.base_path = RaiPath("/Users/chazzromeo/Desktop/pcsc2024")
-    config.collection_prefix = "pcsc2024"
-    run_rai_file_extraction(fig=config)
+    # config = RaiConfig()
+    # config.pipeline = RaiFileExtractor.Pipelines.CHROMA
+    # config.generate_ai_metadata = True
+    # config.overwrite = True
+    # config.base_path = RaiPath("/Users/chazzromeo/Desktop/pcsc2024")
+    # config.collection_prefix = "pcsc2024"
+    # run_rai_file_extraction(fig=config)
