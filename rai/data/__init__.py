@@ -167,7 +167,9 @@ class RaiPath(str):
     @staticmethod
     def parse(path): return Path(path)
     @property
-    def is_file(self) -> bool: return self.path.is_file()
+    def is_file(self) -> bool:
+        if self.endswith(".json"): return True
+        return self.path.is_file()
     @property
     def is_directory(self) -> bool: return self.path.is_dir()
     @property

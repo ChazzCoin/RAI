@@ -96,8 +96,8 @@ class RaiDataLoader:
             # Check if data is not None, is a list, and has valid contents
             if data is None:
                 return False
-            if not isinstance(data, list):
-                return False
+            # if not isinstance(data, list):
+            #     return False
             if len(data) == 0:
                 return False
             # If all checks pass, return True

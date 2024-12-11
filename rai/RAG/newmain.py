@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from rai.data.extraction.RaiFileExtraction import VECTOR_DB_CLIENT
 from rai.RAG.utils import query_collection_with_hybrid_search, query_collection
 from rai.assistant.ollama_client import generate_chroma_embeddings
+from rai.assistant.openai_client import generate_embeddings
 from rai.env import SRC_LOG_LEVELS
 from rai import app
 
@@ -133,31 +134,34 @@ def validate_user_role(user_role):
         raise ValueError(f"Invalid user role: {user_role}")
 
 
-def get_all_collections3(prefix: str = None, subfix: str = None):
+def get_all_collections_by_chain(*collection_paths:str):
     try:
         # Assuming you have a ChromaDB client instance named 'VECTOR_DB_CLIENT'
         collections = VECTOR_DB_CLIENT.client.list_collections()
         collection_names = [collection.name for collection in collections]
 
+        base_path = chain_collection_names(*collection_paths)
         # Filter by prefix if provided
-        if prefix:
-            collection_names = [col for col in collection_names if col.startswith(prefix)]
+        final_names = [col for col in collection_names if col.startswith(base_path)]
 
-        # Further filter by subfix if provided
-        if subfix:
-            filtered_collections = []
-            for collection_name in collection_names:
-                split_name = collection_name.split('.')
-                if subfix in split_name:
-                    filtered_collections.append(collection_name)
-            collection_names = filtered_collections
-
-        return collection_names
+        return final_names
 
     except Exception as e:
         # Log error with proper context
         Log.e(f"Error retrieving collections from ChromaDB: {e}")
         return []
+
+def chain_collection_names(*collection_names:str):
+    collection_name = ""
+    index = 0
+    for c in collection_names:
+        if index == 0:
+            collection_name = c
+        else:
+            collection_name = f"{collection_name}.{c}"
+        index += 1
+    return collection_name
+
 def get_all_collections(prefix=None, subfix:str=None):
     try:
         # Assuming you have a ChromaDB client instance named 'chromadb_client'
@@ -227,9 +231,15 @@ def get_user_auth_collections(prefix, user_role):
 
     return list(collection_names)
 
-def query_chroma_by_prefix(prefix:str, query: str, k: int = 50, hybrid=False):
+"""
+model_prefix.internal/external.context
+
+BASE: prefix.external.general
+"""
+
+def query_chroma_by_prefix(*base_chain:str, query: str, k: int = 10, hybrid=False):
     try:
-        user_collections = get_all_collections(prefix)
+        user_collections = get_all_collections_by_chain(*base_chain)
         Log.i(f"Collections: {user_collections}")
         return query_chroma_form(
             form_data=QueryCollectionsForm(
@@ -280,7 +290,7 @@ def query_chroma_form(form_data: QueryCollectionsForm, hybrid=False):
             return query_collection_with_hybrid_search(
                 collection_names=form_data.collection_names,
                 query=form_data.query,
-                embedding_function=generate_chroma_embeddings,
+                embedding_function=generate_embeddings,
                 k=form_data.k if form_data.k else app.state.config.TOP_K,
                 reranking_function="",
                 r=(
@@ -291,7 +301,7 @@ def query_chroma_form(form_data: QueryCollectionsForm, hybrid=False):
             return query_collection(
                 collection_names=form_data.collection_names,
                 query=form_data.query,
-                embedding_function=generate_chroma_embeddings,
+                embedding_function=generate_embeddings,
                 k=form_data.k if form_data.k else 3,
             )
 

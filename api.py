@@ -17,7 +17,7 @@ from chdb.rag import RAGWithChroma
 from rai.agents.weather import get_weather_by_zip, get_air_quality
 from rai.assistant.context import ContextHelper
 # from rai.internal.redisdb import RaiCache
-from rai.RAG.newmain import query_chroma_by_prefix
+from rai.RAG.newmain import query_chroma_by_prefix, query_single_chroma_by_prefix
 from rai import env
 from nlp.Categorizer import Topics
 
@@ -123,14 +123,14 @@ async def chat_completion(idx:Optional[int]=None):
     chat_id = DICT.get('chatId', jbody, 'default')
     messages: list = jbody.get('messages', [])
 
-
     """     GET MAPPED MODEL      """
     current_rai_model: str = DICT.get('model', jbody, 'gpt-4o-mini')
     modelIn_data: dict = DICT.get(current_rai_model, RAI_MODs)
 
     mod_title: str = DICT.get('title', modelIn_data)
     mod_ai_name: str = DICT.get('ai_name', modelIn_data)
-    mod_initials: str = DICT.get('initials', modelIn_data)
+    mod_initials: str = DICT.get('initials', modelIn_data, "none")
+    mod_flow: str = DICT.get('ai_flow', modelIn_data, "none")
     mod_org_rep_type: str = DICT.get('org_rep_type', modelIn_data)
     mod_collection_prefix: str = DICT.get('collection', modelIn_data, 'none')
     mod_zip_code = DICT.get('zip', modelIn_data, '00000')
@@ -140,7 +140,7 @@ async def chat_completion(idx:Optional[int]=None):
     mod_openai_model: str = DICT.get('openai', modelIn_data, 'gpt-4o-mini')
     mod_ollama_model: str = DICT.get('ollama', modelIn_data, 'llama3:latest')
 
-    """ TODO     CACHE OUT    """
+    """ TODO CACHE OUT  """
     # cache_queue = cache.get_queued_chat_data(modelIn)
     weather_cache = None # await get_refresh_cached_weather(current_rai_model, mod_zip_code)
 
@@ -158,22 +158,10 @@ async def chat_completion(idx:Optional[int]=None):
         print(e)
         file_data = "Needs Clinical Review!"
 
-    """ CONTEXT ANALYZER """
-    # the_context = ""
-    # try:
-    #
-    #     user_context = analyze_context(user_message)
-    #     if user_context:
-    #         the_context = LIST.get(0, user_context, "general")
-    #     print(user_context)
-    #     print(the_context)
-    # except Exception as e:
-    #     print(e)
-
     """     REAL-TIME DATA INTERCEPTOR    """
     real_time_data = None
-    if weather_cache: # TODO: dynamic....
-        real_time_data = combine(weather_cache)
+    # if weather_cache: # TODO: dynamic....
+    #     real_time_data = combine(weather_cache)
 
     """ System Prompt Overrider """
     if str(user_message).lower().startswith('new prompt'):
@@ -193,13 +181,14 @@ async def chat_completion(idx:Optional[int]=None):
             fsp = current_message
             immediate_response_override = True
         PROMPT_CACHE[current_rai_model] = fsp
-
     if str(user_message).lower().startswith('reset prompt'):
         PROMPT_CACHE[current_rai_model] = mod_system_prompt_lambda
         immediate_response_message = "The Prompt has been reset successfully. Ready to proceed."
         immediate_response_override = True
 
     final_system_prompt = DICT.get(current_rai_model, PROMPT_CACHE, mod_system_prompt_lambda)
+    if type(final_system_prompt) not in [str]:
+        final_system_prompt = final_system_prompt(mod_ai_name, mod_title, mod_org_rep_type, mod_specialty)
 
     """     USER PROMPT INTERCEPTOR    """
     new_user_message: dict = {
@@ -207,7 +196,8 @@ async def chat_completion(idx:Optional[int]=None):
         'content': f"{user_message}"
     }
     messages: list = setupSingleMessageForChatSequence(final_system_prompt, new_user_message)
-    if mod_initials == "MRA":
+
+    if mod_flow == "MRA":
         user_message = f"REFERRAL:\n {file_data}"
         new_user_message: dict = {
             'role': 'user',
@@ -217,7 +207,7 @@ async def chat_completion(idx:Optional[int]=None):
         """     SETUP MESSAGES FOR CHAT SEQUENCE   """
         messages: list = setupSingleMessageForChatSequence(final_system_prompt, new_user_message)
         print(messages)
-    if mod_initials == "MRC":
+    elif mod_flow == "MRC":
         new_user_message: dict = {
             'role': 'user',
             'content': f"{user_message}"
@@ -226,19 +216,22 @@ async def chat_completion(idx:Optional[int]=None):
         """     SETUP MESSAGES FOR CHAT SEQUENCE   """
         messages: list = setupSingleMessageForChatSequence(final_system_prompt, new_user_message)
         print(messages)
-    elif mod_initials != "none":
-        if isinstance(mod_system_prompt_lambda, str):
+    elif mod_flow == "QA":
+        print("Running Query Assistant (QA) Flow.")
+        if type(mod_system_prompt_lambda) in [str]:
             ollama_prompt: str = mod_system_prompt_lambda
         else:
             ollama_prompt: str = mod_system_prompt_lambda(mod_ai_name, mod_title, mod_org_rep_type, mod_specialty)
         ollama_request: str = await ollama_quick_generation(ollama_prompt, user_message, modelIn=mod_ollama_model, debug=True)
-        user_message: str = interceptUserPrompt(
-            collection=mod_collection_prefix,
+
+        """ CONTEXT ANALYZER """
+        # query_context_name = analyze_context(ollama_request, default="general")
+
+        user_message: str = queryModelCollection(
+            mod_collection_prefix, "open",
             user_message=user_message,
             context_message=ollama_request,
-            specialty=mod_specialty,
-            pre_text=real_time_data,
-            debug=True
+            debug=False
         )
         new_user_message: dict = {
             'role': 'user',
@@ -246,7 +239,9 @@ async def chat_completion(idx:Optional[int]=None):
         }
         messages: list = setupMessagesForChatSequence(final_system_prompt, messages, new_user_message)
 
-
+    print("\n\n -- Query+UserMessage -- \n\n")
+    print(user_message)
+    print("\n\n")
     appended_response: str = ""
     """ Response Override """
     if immediate_response_override:
@@ -263,17 +258,17 @@ async def chat_completion(idx:Optional[int]=None):
         appended_message = RAI_FOOTER_MESSAGE(mod_openai_model, "")
         """     PREPARE AND SEND FINAL RESPONSE     """
         appended_response = appender(response_message=ai_response, message_to_append=appended_message)
-
-
+    """ Response Override """
     final_response: dict = to_chat_response(appended_response, role="assistant", options=jbody['options'])
+    print("\n\n -- Final Response -- \n\n")
+    print(final_response)
+    print("\n\n")
     return Response(f"\n{json.dumps(final_response)}\n", content_type='text/event-stream')
 
 def isOpenAI(model:str) -> bool:
     if model.startswith("llama"):
         return False
     return True
-
-
 def is_empty_message(input_str: str) -> bool:
     # Check if input is None or an empty string after stripping whitespace
     if input_str is None or input_str.strip() == "":
@@ -282,9 +277,24 @@ def is_empty_message(input_str: str) -> bool:
 """
 CONTEXT ANALYZER
 """
-def analyze_context(user_input:str):
-    results = Topics.RUN_MAIN_CATEGORIZER(user_input)
-    return results
+def analyze_context(request_in: str, default:str):
+    r = default
+
+    def analyzer(user_input:str):
+        results = Topics.RUN_MAIN_CATEGORIZER(user_input)
+        return results
+
+    try:
+        user_context = analyzer(request_in)
+        if user_context:
+            r = LIST.get(0, user_context, default)
+        print(r)
+    except Exception as e:
+        print(e)
+
+    return r
+
+
 """ 
 CACHE WEATHER
 """
@@ -389,7 +399,7 @@ def setupSingleMessageForChatSequence(system_prompt, new_user_message):
             new_user_message
         ]
 def setupMessagesForChatSequence(system_prompt, messages, new_user_message):
-    if len(messages) <= 1:
+    if type(new_user_message) in [list, tuple] and len(messages) <= 1:
         Log.i("Creating New Message...")
         temp = [
             {'role': 'system', 'content': system_prompt},
@@ -403,27 +413,37 @@ def setupMessagesForChatSequence(system_prompt, messages, new_user_message):
 """     
 CHROMADB SEARCH     
 """
-def search(user_message:str, collection_name:str):
+def search(user_message:str, *base_paths:str):
     # embeds = await get_embeddings(user_message)
-    results = query_chroma_by_prefix(prefix=collection_name, query=user_message, k=15)
+    results = query_chroma_by_prefix(*base_paths, query=user_message, k=25)
     Log.i("Search Result Count:", results)
     return results
 """     
 USER PROMPT INTERCEPTOR   
 """
-def interceptUserPrompt(collection, user_message:str, context_message:str, specialty:str, pre_text:str=None, debug:bool=False):
-    if collection == 'search':
-        collection_name = extract_args(user_message, 1)
-        results = search(f"{user_message} {context_message}", collection_name)
-    else:
-        results = search(f"{user_message} {context_message}", collection)
-    Log.i("Returning custom SYS Prompt.")
-    if debug:
-        user_prompt = "rag.inject_into_system_prompt(user_message, specialty=specialty, docs=results, text=pre_text)"
-        print("--User Prompt--")
-        print(user_prompt)
-        return user_prompt
-    return "rag.inject_into_system_prompt(user_message, specialty=specialty, docs=results, text=pre_text)"
+def queryModelCollection(*base_paths, user_message:str, context_message:str, debug:bool=False):
+    documents = ""
+    try:
+        # if collection == 'search':
+        #     collection_name = extract_args(user_message, 1)
+        #     results = search(f"{user_message} {context_message}", collection_name)
+        # else:
+        #
+        results = query_chroma_by_prefix(*base_paths, query=user_message, k=10)
+        if results:
+            docs:[] = DICT.get("documents", results, [])
+            documents = '\n'.join(LIST.flatten(docs))
+            return documents
+        Log.i("Returning custom SYS Prompt.")
+        if debug:
+            user_prompt = "rag.inject_into_system_prompt(user_message, specialty=specialty, docs=results, text=pre_text)"
+            print("--User Prompt--")
+            print(user_prompt)
+            return user_prompt
+        return results
+    except Exception as e:
+        Log.e("Failed to query", e)
+        return documents
 """     
 RESPONSE MESSAGE APPENDER   
 """

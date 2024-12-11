@@ -10,6 +10,7 @@ from rai.data import RaiPath
 from datetime import datetime
 from rai.RAG.connector import VECTOR_DB_CLIENT
 from rai.assistant.ollama_client import generate_chroma_embeddings
+from rai.assistant.openai_client import generate_embeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 from rai.data.loaders import RaiDataLoaders
@@ -171,6 +172,7 @@ class RaiFileExtractor:
     def get_texts(docs: []):
         metadatas = [doc.page_content for doc in docs]
         return metadatas
+    
 
     @staticmethod
     def get_metadatas(docs: []):
@@ -201,7 +203,7 @@ class RaiFileExtractor:
             temp = {
                 "id": str(uuid.uuid4()),
                 "text": txt,
-                "vector": generate_chroma_embeddings(text=txt),
+                "vector": generate_embeddings(text=txt),
                 "metadata": metadatas[idx],
             }
             items.append(temp)
@@ -224,6 +226,13 @@ class RaiFileExtractor:
                 VECTOR_DB_CLIENT.delete_collection(collection_name=collection)
             except Exception as e:
                 Log.e(e)
+
+    @staticmethod
+    def get_all_from_collection(collection: str):
+        try:
+            VECTOR_DB_CLIENT.get(collection_name=collection)
+        except Exception as e:
+            Log.e(e)
 
 
 """

@@ -20,6 +20,7 @@ def getClient():
 
 async def get_embeddings(text):
     """Asynchronously get embeddings from OpenAI API."""
+    print("GENERATE EMBEDDINGS - OPENAI")
     headers = {
         'Content-Type': 'application/json',
         'Authorization': f'Bearer {os.getenv("OPENAI_API_KEY")}',

@@ -14,7 +14,7 @@ Log = Log("ChromaClient")
 CHROMA_DATA_PATH = f"/chroma"
 CHROMA_TENANT = os.environ.get("CHROMA_TENANT", chromadb.DEFAULT_TENANT)
 CHROMA_DATABASE = os.environ.get("CHROMA_DATABASE", chromadb.DEFAULT_DATABASE)
-CHROMA_HTTP_HOST = "local" #os.environ.get("DEFAULT_CHROMA_SERVER_HOST", "local")
+CHROMA_HTTP_HOST = os.environ.get("DEFAULT_CHROMA_SERVER_HOST", "local") # "local" -OR- os.environ.get("DEFAULT_CHROMA_SERVER_HOST", "local")
 CHROMA_HTTP_PORT = int(os.environ.get("DEFAULT_CHROMA_SERVER_PORT", 8000))
 # Comma-separated list of header=value pairs
 CHROMA_HTTP_HEADERS = os.environ.get("CHROMA_HTTP_HEADERS", "")
@@ -61,7 +61,7 @@ class ChromaClient:
         return self.client.delete_collection(name=collection_name)
 
     def search(
-        self, collection_name: str, vectors: list[list[float | int]], limit: int
+        self, collection_name: str, vectors: list[list[float]], limit: int
     ) -> Optional[SearchResult]:
         # Search for the nearest neighbor items based on the vectors and return 'limit' number of results.
         collection = self.client.get_collection(name=collection_name)

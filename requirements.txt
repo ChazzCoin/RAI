@@ -4,10 +4,12 @@ openpyxl>=3.1
 requests>=2.32
 quart>=0.19
 hypercorn>=0.17
-chromadb>=0.5
+chromadb>=0.4.24
 python-dotenv>=1.0
 psycopg>=3.2
-pydantic>=2.8
+pydantic>=2.9.2
+pydantic-core>=2.23.4
+pydantic-settings>=2.5.2
 pandas>=2.2
 numpy>=1.26
 torch>=2.4
@@ -68,6 +70,7 @@ aiohttp>=3.10
 Colbert>=0.40
 huggingface-hub>=0.24
 faircore>=5.0
-
+fairresources==4.0.5
+feedparser==6.0.11
 # Gevent for concurrency
 gevent>=24.2

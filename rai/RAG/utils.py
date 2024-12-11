@@ -219,7 +219,34 @@ def query_collection(collection_names: list[str], query: str, embedding_function
                 Log.e(f"Error when querying the collection: {e}")
         else:
             pass
-    return merge_and_sort_query_results(results, k=k)
+    test = LIST.flatten(results)
+    f = []
+    for i in test:
+        f.append(i["documents"])
+    ff = LIST.flatten(f)
+    return { 'documents': ff }
+    # return merge_and_sort_query_results(results, k=k)
+
+# def query_single_collection(collection_name: str, query: str, embedding_function, k: int) -> dict[str, list[list[Any]]]:
+#     results = []
+#     Log.i(f"Querying [ {collection_name} ]")
+#     try:
+#         result = query_doc(
+#             collection_name=collection_name,
+#             query=query,
+#             k=50,
+#             embedding_function=embedding_function,
+#         )
+#         results.append(result.model_dump())
+#     except Exception as e:
+#         Log.e(f"Error when querying the collection: {e}")
+#     test = LIST.flatten(results)
+#     f = []
+#     for i in test:
+#         f.append(i["documents"])
+#     ff = LIST.flatten(f)
+#     return { 'documents': ff }
+#     # return merge_and_sort_query_results(results, k=k)
 
 def query_collection_with_hybrid_search(
     collection_names: list[str],

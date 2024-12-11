@@ -187,6 +187,7 @@ def __validate_and_fix_embeddings(embeds):
     return [np.float32(val) for val in embeds]
 
 def generate_chroma_embeddings(text, timeout=60):
+    print("GENERATE CHROMA EMBEDDINGS - OLLAMA")
     payload = {
         'model': engines.OLLAMA.embeddings_model(),
         'input': text
