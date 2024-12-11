@@ -4,10 +4,11 @@ openpyxl>=3.1
 requests>=2.32
 quart>=0.19
 hypercorn>=0.17
-chromadb>=0.4.24
+chromadb==0.5.11
+chroma-hnswlib==0.7.6
 python-dotenv>=1.0
 psycopg>=3.2
-pydantic>=2.9.2
+pydantic>=2.8
 pydantic-core>=2.23.4
 pydantic-settings>=2.5.2
 pandas>=2.2
