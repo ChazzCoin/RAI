@@ -7,7 +7,7 @@ from typing import Optional, List, Any
 class VectorItem(BaseModel):
     id: str
     text: str
-    vector: List[float | int]
+    vector: List[float]
     metadata: Any
 
 
@@ -18,4 +18,4 @@ class GetResult(BaseModel):
 
 
 class SearchResult(GetResult):
-    distances: Optional[List[List[float | int]]]
+    distances: Optional[List[List[float]]]
