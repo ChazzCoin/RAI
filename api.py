@@ -17,7 +17,7 @@ from chdb.rag import RAGWithChroma
 from rai.agents.weather import get_weather_by_zip, get_air_quality
 from rai.assistant.context import ContextHelper
 # from rai.internal.redisdb import RaiCache
-from rai.RAG.newmain import query_chroma_by_prefix
+from rai.RAG.Q import query_chroma_by_prefix
 from rai import env
 from nlp.Categorizer import Topics
 

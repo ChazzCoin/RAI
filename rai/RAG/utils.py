@@ -11,6 +11,12 @@ from rai.env import SRC_LOG_LEVELS
 from typing import Any
 from langchain_core.callbacks import CallbackManagerForRetrieverRun
 from langchain_core.retrievers import BaseRetriever
+
+import operator
+from typing import Optional, Sequence
+
+from langchain_core.callbacks import Callbacks
+from langchain_core.documents import BaseDocumentCompressor, Document
 from rai.ollama.main import (
     GenerateEmbeddingsForm,
     generate_ollama_embeddings,
@@ -52,26 +58,7 @@ class VectorSearchRetriever(BaseRetriever):
         return results
 
 
-def query_doc(
-    collection_name: str,
-    query: str,
-    embedding_function,
-    k: int,
-):
-    try:
-        result = VECTOR_DB_CLIENT.search(
-            collection_name=collection_name,
-            vectors=[embedding_function(query)],
-            limit=k,
-        )
 
-        print("result", result)
-
-        log.info(f"query_doc:result {result}")
-        return result
-    except Exception as e:
-        print(e)
-        raise e
 
 
 def query_doc_with_hybrid_search(
@@ -124,48 +111,6 @@ def query_doc_with_hybrid_search(
         Log.e(e)
         raise e
 
-
-def merge_and_sort_query_results(query_results: list[dict], k: int, reverse: bool = False) -> dict[str, list[list[Any]]]:
-    # Initialize lists to store combined data
-    combined_distances = []
-    combined_documents = []
-    combined_metadatas = []
-
-    for data in query_results:
-        combined_distances.extend(data["distances"][0])
-        combined_documents.extend(data["documents"][0])
-        combined_metadatas.extend(data["metadatas"][0])
-
-    # Create a list of tuples (distance, document, metadata)
-    combined = list(zip(combined_distances, combined_documents, combined_metadatas))
-
-    # Sort the list based on distances
-    combined.sort(key=lambda x: x[0], reverse=reverse)
-
-    # We don't have anything :-(
-    if not combined:
-        sorted_distances = []
-        sorted_documents = []
-        sorted_metadatas = []
-    else:
-        # Unzip the sorted list
-        sorted_distances, sorted_documents, sorted_metadatas = zip(*combined)
-
-        # Slicing the lists to include only k elements
-        sorted_distances = list(sorted_distances)[:k]
-        sorted_documents = list(sorted_documents)[:k]
-        sorted_metadatas = list(sorted_metadatas)[:k]
-
-    # Create the output dictionary
-    result = {
-        "distances": [sorted_distances],
-        "documents": [sorted_documents],
-        "metadatas": [sorted_metadatas],
-    }
-
-    return result
-
-
 def query_collection_by_auth_rank(collection_names: list[str], query: str, embedding_function, k: int) -> dict[str, list[list[Any]]]:
 
     # -> Ranking Config
@@ -202,30 +147,7 @@ def query_collection_by_auth_rank(collection_names: list[str], query: str, embed
 
     return merge_and_sort_query_results(final_results, k=k)
 
-def query_collection(collection_names: list[str], query: str, embedding_function, k: int) -> dict[str, list[list[Any]]]:
-    results = []
-    for collection_name in collection_names:
-        if collection_name:
-            Log.i(f"Querying [ {collection_name} ]")
-            try:
-                result = query_doc(
-                    collection_name=collection_name,
-                    query=query,
-                    k=k,
-                    embedding_function=embedding_function,
-                )
-                results.append(result.model_dump())
-            except Exception as e:
-                Log.e(f"Error when querying the collection: {e}")
-        else:
-            pass
-    test = LIST.flatten(results)
-    f = []
-    for i in test:
-        f.append(i["documents"])
-    ff = LIST.flatten(f)
-    return { 'documents': ff }
-    # return merge_and_sort_query_results(results, k=k)
+
 
 # def query_single_collection(collection_name: str, query: str, embedding_function, k: int) -> dict[str, list[list[Any]]]:
 #     results = []
@@ -519,11 +441,6 @@ def generate_openai_batch_embeddings(
         return None
 
 
-import operator
-from typing import Optional, Sequence
-
-from langchain_core.callbacks import Callbacks
-from langchain_core.documents import BaseDocumentCompressor, Document
 
 
 class RerankCompressor(BaseDocumentCompressor):

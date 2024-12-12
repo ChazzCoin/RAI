@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 
 import chromadb
 import requests
-from rai.internal.db import Base, get_db
+from rai.internal.db import Base
 from rai.env import (
     OPEN_WEBUI_DIR,
     DATA_DIR,

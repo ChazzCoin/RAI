@@ -4,11 +4,10 @@ import chromadb
 from chromadb import Settings
 from chromadb.utils.batch_utils import create_batches
 from typing import Optional
-
 from tqdm import tqdm
-
 from rai.RAG.models import VectorItem, SearchResult, GetResult
 from F.LOG import Log
+
 Log = Log("ChromaClient")
 # Chroma
 CHROMA_DATA_PATH = f"/chroma"

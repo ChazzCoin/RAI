@@ -1,20 +1,29 @@
-import psycopg
-from config import env
+import psycopg2
+import os
+
+post_name = os.environ.get("POSTGRES_DB_NAME", "rai")
+post_user = os.environ.get("POSTGRES_DB_USER", "rai")
+post_pass = os.environ.get("POSTGRES_DB_PASSWORD", "rai2024") # "local" -OR- os.environ.get("DEFAULT_CHROMA_SERVER_HOST", "local")
+post_host = os.environ.get("POSTGRES_DB_HOST", "192.168.1.6")
+post_port = int(os.environ.get("POSTGRES_DB_PORT", 5431))
 
 class PostgresClient:
-    connection: psycopg.connection
+    connection: psycopg2
+    cursor = None
 
     def __init__(self):
         # Initialize connection to PostgreSQL database using psycopg3
         try:
-            self.connection = psycopg.connect(
-                dbname=env("POSTGRES_DB_NAME"),
-                user=env("POSTGRES_DB_USER"),
-                password=env("POSTGRES_DB_PASSWORD"),
-                host=env("POSTGRES_DB_HOST"),
-                port=env("POSTGRES_DB_PORT")
+            self.connection = psycopg2.connect(
+                dbname=post_name,
+                user=post_user,
+                password=post_pass,
+                host=post_host,
+                port=post_port
             )
-        except psycopg.Error as e:
+            self.cursor = self.connection.cursor()
+            print(self.connection.info.status)
+        except psycopg2.Error as e:
             print(f"Error connecting to the database: {e}")
             raise
 
@@ -34,7 +43,7 @@ class PostgresClient:
 
                 # Format schema into AI-friendly output
                 return self.format_schema_for_prompt(schema_data)
-        except psycopg.Error as e:
+        except psycopg2.Error as e:
             print(f"Error fetching schema: {e}")
             return None
 
@@ -125,34 +134,39 @@ class PostgresClient:
             print(f"Error retrieving columns: {e}")
             return None
 
+
+POSTGRES_CLIENT = PostgresClient()
+
+
 # Usage example
-if __name__ == "__main__":
-    client = PostgresClient(dbname="mydb", user="myuser", password="mypassword", host="myremotehost")
-    client.connect()
+# if __name__ == "__main__":
+    # client = PostgresClient()
 
-    # Add a record
-    record = {"name": "John Doe", "age": 30, "city": "New York"}
-    client.add_record("users", record)
-
-    # Query table
-    users = client.query_table("users")
-    print(users)
-
-    # Get all tables
-    tables = client.get_tables()
-    print(tables)
-
-    # Get columns from table
-    columns = client.get_columns("users")
-    print(columns)
-
-    # Delete a record
-    client.delete_record("users", "name = 'John Doe'")
-
-    # Delete a table
-    client.delete_table("old_table")
-
-    client.close()
+    # client.connect()
+    #
+    # # Add a record
+    # record = {"name": "John Doe", "age": 30, "city": "New York"}
+    # client.add_record("users", record)
+    #
+    # # Query table
+    # users = client.query_table("users")
+    # print(users)
+    #
+    # # Get all tables
+    # tables = client.get_tables()
+    # print(tables)
+    #
+    # # Get columns from table
+    # columns = client.get_columns("users")
+    # print(columns)
+    #
+    # # Delete a record
+    # # client.delete_record("users", "name = 'John Doe'")
+    # #
+    # # # Delete a table
+    # # client.delete_table("old_table")
+    #
+    # client.close()
 
 
 

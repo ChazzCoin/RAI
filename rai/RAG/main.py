@@ -16,16 +16,16 @@ import validators
 from fastapi import Depends, File, Form, HTTPException, UploadFile, status
 from pydantic import BaseModel
 
+from rai.RAG.Q import QueryDocForm, query_doc, QueryCollectionsForm, query_collection
 from rai.RAG.utils import (
     get_embedding_function,
-    get_model_path,
-    query_collection,
-    query_collection_with_hybrid_search,
-    query_doc,
-    query_doc_with_hybrid_search,
 )
 from rai.models.documents import DocumentForm, Documents
-from rai.models.files import Files
+from rai.internal.postgres import POSTGRES_CLIENT
+from rai.models.files import FilesTable
+
+Files = FilesTable(POSTGRES_CLIENT)
+
 from rai.config import (
     BRAVE_SEARCH_API_KEY,
     CHUNK_OVERLAP,
@@ -191,18 +191,18 @@ class QuerySettingsForm(BaseModel):
     r: Optional[float] = None
     template: Optional[str] = None
     hybrid: Optional[bool] = None
-class QueryCollectionsForm(BaseModel):
-    collection_names: list[str]
-    query: str
-    k: Optional[int] = None
-    r: Optional[float] = None
-    hybrid: Optional[bool] = None
-class QueryDocForm(BaseModel):
-    collection_name: str
-    query: str
-    k: Optional[int] = None
-    r: Optional[float] = None
-    hybrid: Optional[bool] = None
+# class QueryCollectionsForm(BaseModel):
+#     collection_names: list[str]
+#     query: str
+#     k: Optional[int] = None
+#     r: Optional[float] = None
+#     hybrid: Optional[bool] = None
+# class QueryDocForm(BaseModel):
+#     collection_name: str
+#     query: str
+#     k: Optional[int] = None
+#     r: Optional[float] = None
+#     hybrid: Optional[bool] = None
 class FileConfig(BaseModel):
     max_size: Optional[int] = None
     max_count: Optional[int] = None
@@ -424,24 +424,12 @@ async def get_query_settings(user=Depends(get_admin_user)):
 
 def query_doc_handler(form_data: QueryDocForm):
     try:
-        if app.state.config.ENABLE_RAG_HYBRID_SEARCH:
-            return query_doc_with_hybrid_search(
-                collection_name=form_data.collection_name,
-                query=form_data.query,
-                embedding_function=app.state.EMBEDDING_FUNCTION,
-                k=form_data.k if form_data.k else app.state.config.TOP_K,
-                reranking_function=app.state.sentence_transformer_rf,
-                r=(
-                    form_data.r if form_data.r else app.state.config.RELEVANCE_THRESHOLD
-                ),
-            )
-        else:
-            return query_doc(
-                collection_name=form_data.collection_name,
-                query=form_data.query,
-                embedding_function=app.state.EMBEDDING_FUNCTION,
-                k=form_data.k if form_data.k else app.state.config.TOP_K,
-            )
+        return query_doc(
+            collection_name=form_data.collection_name,
+            query=form_data.query,
+            embedding_function=app.state.EMBEDDING_FUNCTION,
+            k=form_data.k if form_data.k else app.state.config.TOP_K,
+        )
     except Exception as e:
         log.exception(e)
         raise HTTPException(
@@ -450,24 +438,12 @@ def query_doc_handler(form_data: QueryDocForm):
         )
 def query_chroma(form_data: QueryCollectionsForm, hybrid=True):
     try:
-        if hybrid:
-            return query_collection_with_hybrid_search(
-                collection_names=form_data.collection_names,
-                query=form_data.query,
-                embedding_function=app.state.EMBEDDING_FUNCTION,
-                k=form_data.k if form_data.k else app.state.config.TOP_K,
-                reranking_function=app.state.sentence_transformer_rf,
-                r=(
-                    form_data.r if form_data.r else 0.0
-                ),
-            )
-        else:
-            return query_collection(
-                collection_names=form_data.collection_names,
-                query=form_data.query,
-                embedding_function=app.state.EMBEDDING_FUNCTION,
-                k=form_data.k if form_data.k else 3,
-            )
+        return query_collection(
+            collection_names=form_data.collection_names,
+            query=form_data.query,
+            embedding_function=app.state.EMBEDDING_FUNCTION,
+            k=form_data.k if form_data.k else 3,
+        )
 
     except Exception as e:
         log.exception(e)

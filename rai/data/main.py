@@ -3,7 +3,8 @@ from rai.data import RaiPath
 from rai.data.extraction.read import read_file
 from rai.data.extraction.RaiFileExtraction import RaiFileExtractor, RaiConfig, VECTOR_DB_CLIENT
 from rai.data.extraction.RaiWebExtraction import RaiWebExtractor
-from rai.RAG.newmain import get_all_collections_by_chain
+from rai.RAG.Q import get_all_collections_by_chain
+
 
 RAI_DBs = lambda db: (f"{db}-main", f"{db}-internal", f"{db}-development")
 

@@ -1,41 +1,12 @@
 import time
 from typing import Optional
-
-from rai.internal.db import Base, JSONField, get_db
-from rai.models.chats import Chats
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import BigInteger, Column, String, Text
 
-####################
-# User DB Schema
-####################
-
-
-class User(Base):
-    __tablename__ = "user"
-
-    id = Column(String, primary_key=True)
-    name = Column(String)
-    email = Column(String)
-    role = Column(String)
-    profile_image_url = Column(Text)
-
-    last_active_at = Column(BigInteger)
-    updated_at = Column(BigInteger)
-    created_at = Column(BigInteger)
-
-    api_key = Column(String, nullable=True, unique=True)
-    settings = Column(JSONField, nullable=True)
-    info = Column(JSONField, nullable=True)
-
-    oauth_sub = Column(Text, unique=True)
-
-
+# Assuming UserModel and other classes defined as before
 class UserSettings(BaseModel):
     ui: Optional[dict] = {}
     model_config = ConfigDict(extra="allow")
     pass
-
 
 class UserModel(BaseModel):
     id: str
@@ -56,25 +27,61 @@ class UserModel(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+# Columns in the 'user' table and their order:
+USER_COLUMNS = [
+    "id",
+    "name",
+    "email",
+    "role",
+    "profile_image_url",
+    "last_active_at",
+    "updated_at",
+    "created_at",
+    "api_key",
+    "settings",
+    "info",
+    "oauth_sub",
+]
 
-####################
-# Forms
-####################
-
-
-class UserRoleUpdateForm(BaseModel):
-    id: str
-    role: str
-
-
-class UserUpdateForm(BaseModel):
-    name: str
-    email: str
-    profile_image_url: str
-    password: Optional[str] = None
-
+def row_to_usermodel(row: tuple) -> Optional[UserModel]:
+    if not row:
+        return None
+    data = dict(zip(USER_COLUMNS, row))
+    # Convert to UserModel (settings and info JSON fields may be already parsed by psycopg, if not you'd need to parse them)
+    return UserModel(**data)
 
 class UsersTable:
+    def __init__(self, client):
+        self.client = client
+
+    def create_user_table(self):
+        """
+        Create the 'user' table if it does not already exist.
+        """
+        create_table_query = """
+        CREATE TABLE IF NOT EXISTS "user" (
+            id TEXT PRIMARY KEY,
+            name TEXT,
+            email TEXT,
+            role TEXT,
+            profile_image_url TEXT,
+            last_active_at BIGINT,
+            updated_at BIGINT,
+            created_at BIGINT,
+            api_key TEXT UNIQUE,
+            settings JSONB,
+            info JSONB,
+            oauth_sub TEXT UNIQUE
+        )
+        """
+        try:
+            self.client.cursor.execute(create_table_query)
+            self.client.connection.commit()
+            print("User table created or already exists.")
+        except Exception as e:
+            print(f"Error creating user table: {e}")
+            self.client.connection.rollback()
+
     def insert_new_user(
         self,
         id: str,
@@ -84,178 +91,209 @@ class UsersTable:
         role: str = "pending",
         oauth_sub: Optional[str] = None,
     ) -> Optional[UserModel]:
-        with get_db() as db:
-            user = UserModel(
-                **{
-                    "id": id,
-                    "name": name,
-                    "email": email,
-                    "role": role,
-                    "profile_image_url": profile_image_url,
-                    "last_active_at": int(time.time()),
-                    "created_at": int(time.time()),
-                    "updated_at": int(time.time()),
-                    "oauth_sub": oauth_sub,
-                }
-            )
-            result = User(**user.model_dump())
-            db.add(result)
-            db.commit()
-            db.refresh(result)
-            if result:
-                return user
-            else:
-                return None
+        user = UserModel(
+            id=id,
+            name=name,
+            email=email,
+            role=role,
+            profile_image_url=profile_image_url,
+            last_active_at=int(time.time()),
+            created_at=int(time.time()),
+            updated_at=int(time.time()),
+            oauth_sub=oauth_sub,
+        )
+
+        record = user.model_dump()
+        try:
+            self.client.add_record("user", record)
+            self.client.connection.commit()
+            return user
+        except Exception as e:
+            print(f"Error inserting user: {e}")
+            self.client.connection.rollback()
+            return None
 
     def get_user_by_id(self, id: str) -> Optional[UserModel]:
         try:
-            with get_db() as db:
-                user = db.query(User).filter_by(id=id).first()
-                return UserModel.model_validate(user)
-        except Exception:
+            query = f"SELECT * FROM \"user\" WHERE id = %s"
+            self.client.cursor.execute(query, (id,))
+            row = self.client.cursor.fetchone()
+            return row_to_usermodel(row)
+        except Exception as e:
+            print(f"Error getting user by id: {e}")
             return None
 
     def get_user_by_api_key(self, api_key: str) -> Optional[UserModel]:
         try:
-            with get_db() as db:
-                user = db.query(User).filter_by(api_key=api_key).first()
-                return UserModel.model_validate(user)
-        except Exception:
+            query = f"SELECT * FROM \"user\" WHERE api_key = %s"
+            self.client.cursor.execute(query, (api_key,))
+            row = self.client.cursor.fetchone()
+            return row_to_usermodel(row)
+        except Exception as e:
+            print(f"Error getting user by api_key: {e}")
             return None
 
     def get_user_by_email(self, email: str) -> Optional[UserModel]:
         try:
-            with get_db() as db:
-                user = db.query(User).filter_by(email=email).first()
-                return UserModel.model_validate(user)
-        except Exception:
+            query = f"SELECT * FROM \"user\" WHERE email = %s"
+            self.client.cursor.execute(query, (email,))
+            row = self.client.cursor.fetchone()
+            return row_to_usermodel(row)
+        except Exception as e:
+            print(f"Error getting user by email: {e}")
             return None
 
     def get_user_by_oauth_sub(self, sub: str) -> Optional[UserModel]:
         try:
-            with get_db() as db:
-                user = db.query(User).filter_by(oauth_sub=sub).first()
-                return UserModel.model_validate(user)
-        except Exception:
+            query = f"SELECT * FROM \"user\" WHERE oauth_sub = %s"
+            self.client.cursor.execute(query, (sub,))
+            row = self.client.cursor.fetchone()
+            return row_to_usermodel(row)
+        except Exception as e:
+            print(f"Error getting user by oauth_sub: {e}")
             return None
 
     def get_users(self, skip: int = 0, limit: int = 50) -> list[UserModel]:
-        with get_db() as db:
-            users = (
-                db.query(User)
-                # .offset(skip).limit(limit)
-                .all()
-            )
-            return [UserModel.model_validate(user) for user in users]
+        # For now, skip/limit commented out, but can be easily added to query
+        try:
+            query = "SELECT * FROM \"user\""
+            self.client.cursor.execute(query)
+            rows = self.client.cursor.fetchall()
+            return [row_to_usermodel(row) for row in rows if row]
+        except Exception as e:
+            print(f"Error getting users: {e}")
+            return []
 
     def get_num_users(self) -> Optional[int]:
-        with get_db() as db:
-            return db.query(User).count()
-
-    def get_first_user(self) -> UserModel:
         try:
-            with get_db() as db:
-                user = db.query(User).order_by(User.created_at).first()
-                return UserModel.model_validate(user)
-        except Exception:
+            query = "SELECT COUNT(*) FROM \"user\""
+            self.client.cursor.execute(query)
+            (count,) = self.client.cursor.fetchone()
+            return count
+        except Exception as e:
+            print(f"Error getting number of users: {e}")
+            return None
+
+    def get_first_user(self) -> Optional[UserModel]:
+        try:
+            query = "SELECT * FROM \"user\" ORDER BY created_at LIMIT 1"
+            self.client.cursor.execute(query)
+            row = self.client.cursor.fetchone()
+            return row_to_usermodel(row)
+        except Exception as e:
+            print(f"Error getting first user: {e}")
             return None
 
     def update_user_role_by_id(self, id: str, role: str) -> Optional[UserModel]:
         try:
-            with get_db() as db:
-                db.query(User).filter_by(id=id).update({"role": role})
-                db.commit()
-                user = db.query(User).filter_by(id=id).first()
-                return UserModel.model_validate(user)
-        except Exception:
+            query = "UPDATE \"user\" SET role = %s WHERE id = %s"
+            self.client.cursor.execute(query, (role, id))
+            self.client.connection.commit()
+            return self.get_user_by_id(id)
+        except Exception as e:
+            print(f"Error updating user role: {e}")
+            self.client.connection.rollback()
             return None
 
-    def update_user_profile_image_url_by_id(
-        self, id: str, profile_image_url: str
-    ) -> Optional[UserModel]:
+    def update_user_profile_image_url_by_id(self, id: str, profile_image_url: str) -> Optional[UserModel]:
         try:
-            with get_db() as db:
-                db.query(User).filter_by(id=id).update(
-                    {"profile_image_url": profile_image_url}
-                )
-                db.commit()
-
-                user = db.query(User).filter_by(id=id).first()
-                return UserModel.model_validate(user)
-        except Exception:
+            query = "UPDATE \"user\" SET profile_image_url = %s WHERE id = %s"
+            self.client.cursor.execute(query, (profile_image_url, id))
+            self.client.connection.commit()
+            return self.get_user_by_id(id)
+        except Exception as e:
+            print(f"Error updating user profile_image_url: {e}")
+            self.client.connection.rollback()
             return None
 
     def update_user_last_active_by_id(self, id: str) -> Optional[UserModel]:
         try:
-            with get_db() as db:
-                db.query(User).filter_by(id=id).update(
-                    {"last_active_at": int(time.time())}
-                )
-                db.commit()
-
-                user = db.query(User).filter_by(id=id).first()
-                return UserModel.model_validate(user)
-        except Exception:
+            now = int(time.time())
+            query = "UPDATE \"user\" SET last_active_at = %s WHERE id = %s"
+            self.client.cursor.execute(query, (now, id))
+            self.client.connection.commit()
+            return self.get_user_by_id(id)
+        except Exception as e:
+            print(f"Error updating user last_active_at: {e}")
+            self.client.connection.rollback()
             return None
 
-    def update_user_oauth_sub_by_id(
-        self, id: str, oauth_sub: str
-    ) -> Optional[UserModel]:
+    def update_user_oauth_sub_by_id(self, id: str, oauth_sub: str) -> Optional[UserModel]:
         try:
-            with get_db() as db:
-                db.query(User).filter_by(id=id).update({"oauth_sub": oauth_sub})
-                db.commit()
-
-                user = db.query(User).filter_by(id=id).first()
-                return UserModel.model_validate(user)
-        except Exception:
+            query = "UPDATE \"user\" SET oauth_sub = %s WHERE id = %s"
+            self.client.cursor.execute(query, (oauth_sub, id))
+            self.client.connection.commit()
+            return self.get_user_by_id(id)
+        except Exception as e:
+            print(f"Error updating user oauth_sub: {e}")
+            self.client.connection.rollback()
             return None
 
     def update_user_by_id(self, id: str, updated: dict) -> Optional[UserModel]:
-        try:
-            with get_db() as db:
-                db.query(User).filter_by(id=id).update(updated)
-                db.commit()
+        if not updated:
+            return self.get_user_by_id(id)
 
-                user = db.query(User).filter_by(id=id).first()
-                return UserModel.model_validate(user)
-                # return UserModel(**user.dict())
-        except Exception:
+        # Build the dynamic update query
+        set_clause = ", ".join([f"{key} = %s" for key in updated.keys()])
+        values = list(updated.values()) + [id]
+        query = f"UPDATE \"user\" SET {set_clause} WHERE id = %s"
+
+        try:
+            self.client.cursor.execute(query, values)
+            self.client.connection.commit()
+            return self.get_user_by_id(id)
+        except Exception as e:
+            print(f"Error updating user: {e}")
+            self.client.connection.rollback()
             return None
 
     def delete_user_by_id(self, id: str) -> bool:
+        from rai.models.chats import Chats  # Assuming this is available
         try:
-            # Delete User Chats
+            # First, delete associated chats
             result = Chats.delete_chats_by_user_id(id)
-
             if result:
-                with get_db() as db:
-                    # Delete User
-                    db.query(User).filter_by(id=id).delete()
-                    db.commit()
-
+                query = "DELETE FROM \"user\" WHERE id = %s"
+                self.client.cursor.execute(query, (id,))
+                self.client.connection.commit()
                 return True
             else:
                 return False
-        except Exception:
+        except Exception as e:
+            print(f"Error deleting user: {e}")
+            self.client.connection.rollback()
             return False
 
-    def update_user_api_key_by_id(self, id: str, api_key: str) -> str:
+    def update_user_api_key_by_id(self, id: str, api_key: str) -> bool:
         try:
-            with get_db() as db:
-                result = db.query(User).filter_by(id=id).update({"api_key": api_key})
-                db.commit()
-                return True if result == 1 else False
-        except Exception:
+            query = "UPDATE \"user\" SET api_key = %s WHERE id = %s"
+            self.client.cursor.execute(query, (api_key, id))
+            self.client.connection.commit()
+            return self.client.cursor.rowcount == 1
+        except Exception as e:
+            print(f"Error updating user api_key: {e}")
+            self.client.connection.rollback()
             return False
 
     def get_user_api_key_by_id(self, id: str) -> Optional[str]:
         try:
-            with get_db() as db:
-                user = db.query(User).filter_by(id=id).first()
-                return user.api_key
-        except Exception:
+            query = "SELECT api_key FROM \"user\" WHERE id = %s"
+            self.client.cursor.execute(query, (id,))
+            row = self.client.cursor.fetchone()
+            if row:
+                return row[0]
+            return None
+        except Exception as e:
+            print(f"Error getting user api_key: {e}")
             return None
 
+# Example usage:
+# client = PostgresClient()
+# users = UsersTable(client)
+# users.create_user_table()
+# new_user = users.insert_new_user(id="123", name="John Doe", email="john@example.com")
 
-Users = UsersTable()
+
+
+# Users = UsersTable()
+
