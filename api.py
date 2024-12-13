@@ -7,6 +7,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional, Union, BinaryIO
 import aiohttp
+from aiohttp.web_response import StreamResponse
 from quart import Quart, request, jsonify, Response, send_file
 from quart_cors import cors
 import requests
@@ -231,6 +232,7 @@ async def chat_completion(idx:Optional[int]=None):
     if type(final_system_prompt) not in [str]:
         final_system_prompt = final_system_prompt(mod_ai_name, mod_title, mod_org_rep_type, mod_specialty)
     MessageContext.set_system_prompt(final_system_prompt)
+
     """
     1. Message pass through
         - Append AI Response
@@ -260,7 +262,8 @@ async def chat_completion(idx:Optional[int]=None):
     elif mod_flow == "QA":
         user_message = queryModelCollection(
             mod_collection_prefix, "open",
-            user_message=MessageContext.get_last_user_message
+            user_message=MessageContext.get_last_user_message,
+            k=20
         )
         if user_message:
             MessageContext.modify_last_user_message(user_message)
@@ -272,15 +275,18 @@ async def chat_completion(idx:Optional[int]=None):
     if not immediate_response_override:
         """     GENERATE AI CHAT RESPONSE   """
         if isOpenAI(current_rai_model):
-            archived_ai_model = mod_openai_model
-            MessageContext.ai_response = await openai_chat_generation(MessageContext.messages, modelIn=mod_openai_model, debug=True)
+            MessageContext.ai_response = await openai_chat_generation(MessageContext.get_messages(), modelIn=mod_openai_model, debug=True)
         else:
-            archived_ai_model = mod_ollama_model
-            MessageContext.ai_response = await ollama_chat_generation(MessageContext.messages, modelIn=mod_ollama_model, debug=True)
+            MessageContext.ai_response = await ollama_chat_generation(MessageContext.get_messages(), modelIn=mod_ollama_model, debug=True)
 
     """ Response Override """
     response = MessageContext.stream_response()
     return Response(f"\n{json.dumps(response)}\n", content_type='text/event-stream')
+
+
+async def stream_json_payload(json_payload):
+    # Use payload to send the response or make an HTTP call
+    return Response(f"\n{json.dumps(json_payload)}\n")
 
 def isOpenAI(model:str) -> bool:
     if model.startswith("llama"):
@@ -403,6 +409,8 @@ class ChatSequence:
     last_user_message = ""
     messages = []
     is_single = False
+    is_first = False
+    needs_system_prompt = False
     _user: UserRequest = UserRequest()
     ai_response = ""
 
@@ -413,15 +421,35 @@ class ChatSequence:
         self.system_prompt = system_prompt if system_prompt else "You are a helpful assistant"
         self.last_user_message = self.get_last_user_message
         self._user = UserRequest(body)
+        print("Messages Length", len(self.messages))
+        if self.messages and len(self.messages) >= 1:
+            self.is_single = True
+        first_message = LIST.get(0, self.messages, {})
+        first_role = DICT.get("role", first_message, "")
+        if first_role and str(first_role) != "system":
+            self.needs_system_prompt = True
 
-    def set_system_prompt(self, system_prompt): self.system_prompt = system_prompt
-    def modify_last_user_message(self, new_message:str):
-        for message in self.yield_messages():
-            if message.get('role') == 'user':
-                message['content'] = new_message
-                break
+    def set_system_prompt(self, system_prompt):
+        self.system_prompt = system_prompt
+        if self.needs_system_prompt:
+            new_messages = [self.build_single_message('system', system_prompt)]
+            new_messages.extend(self.messages)
+            self.messages = new_messages
+
+    def modify_last_user_message(self, new_content:str):
+        last_message = LIST.get(-1, self.messages, {})
+        last_content = DICT.get("content", last_message, "")
+        modified_content = f"{new_content}\nUser's Request: {last_content}"
+        new_messages = self.messages[:-1]
+        new_messages.append(self.build_single_message('user', modified_content))
+        self.messages = new_messages
+
     def make_single(self, user_content:str=None, system_prompt:str=None):
         self.messages = self.singleMessageResponse(user_content if user_content else self.last_user_message, system_prompt if system_prompt else self.system_prompt)
+
+    def get_messages(self, is_single_message:bool = False, user_content:str=None, system_prompt:str=None):
+        if is_single_message: self.make_single(f"{self.get_last_user_message}\n{user_content}", system_prompt)
+        return self.messages
 
     @staticmethod
     def build_single_message(role='system', content=""):
@@ -506,9 +534,10 @@ def setupMessagesForChatSequence(system_prompt, messages, new_user_message):
 """     
 USER PROMPT INTERCEPTOR   
 """
-def queryModelCollection(*base_paths, user_message:str) -> Optional[str]:
+def queryModelCollection(*base_paths, user_message:str, k:int=5) -> Optional[str]:
     try:
-        results = query_chroma_by_prefix(*base_paths, query=user_message, k=3)
+        print("User Query:", user_message)
+        results = query_chroma_by_prefix(*base_paths, query=user_message, k=k)
         if results:
             docs:[] = DICT.get("documents", results, [])
             documents = '\n'.join(LIST.flatten(docs))

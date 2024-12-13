@@ -60,7 +60,7 @@ def get_all_collections_by_chain(*collection_paths:str):
         Log.e(f"Error retrieving collections from ChromaDB: {e}")
         return []
 
-def query_chroma_by_prefix(*base_chain:str, query: str, k: int = 10, hybrid=False):
+def query_chroma_by_prefix(*base_chain:str, query: str, k: int = 10):
     try:
         user_collections = get_all_collections_by_chain(*base_chain)
         Log.i(f"Collections: {user_collections}")
@@ -69,8 +69,7 @@ def query_chroma_by_prefix(*base_chain:str, query: str, k: int = 10, hybrid=Fals
                 collection_names=user_collections,
                 query=query,
                 k=k
-            ),
-            hybrid=hybrid
+            )
         )
     except ValueError as e:
         Log.e(f"Validation error: {e}")
@@ -79,7 +78,7 @@ def query_chroma_by_prefix(*base_chain:str, query: str, k: int = 10, hybrid=Fals
         Log.e("An unexpected error occurred", e)
         return None
 
-def query_chroma_form(form_data: QueryCollectionsForm, hybrid=False):
+def query_chroma_form(form_data: QueryCollectionsForm):
     try:
         return query_collection(
             collection_names=form_data.collection_names,
@@ -108,13 +107,13 @@ def query_collection(collection_names: list[str], query: str, embedding_function
                 Log.e(f"Error when querying the collection: {e}")
         else:
             pass
-    test = LIST.flatten(results)
-    f = []
-    for i in test:
-        f.append(i["documents"])
-    ff = LIST.flatten(f)
-    return { 'documents': ff }
-    # return merge_and_sort_query_results(results, k=k)
+    # test = LIST.flatten(results)
+    # f = []
+    # for i in test:
+    #     f.append(i["documents"])
+    # ff = LIST.flatten(f)
+    # return { 'documents': ff }
+    return merge_and_sort_query_results(results, k=k)
 
 def query_doc(collection_name: str, query: str, embedding_function, k: int):
     try:
