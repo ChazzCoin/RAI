@@ -13,3 +13,4 @@ chroma/*
 /chroma
 /dist
 *.egg-info
+*.pyc

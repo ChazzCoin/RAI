@@ -3,6 +3,7 @@ import asyncio
 import base64
 import json
 import os.path
+import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional, Union, BinaryIO
 import aiohttp
@@ -241,6 +242,15 @@ async def chat_completion(idx:Optional[int]=None):
     3. Ignore and Force Single
         - Ignore all old messages.
         - Essentially reset. 3 final messages, [system, user, assistant]
+        
+    TODO: 
+    1. FIX message setup. Not adding the custom system prompt properly.
+    2. Handle query flow better. Returning metadata.
+    3. Finalize File Intake and metadata setup.
+    4. Update the website front-end.
+    5. Setup docker compose yaml file.
+    6. Make Sure all setup is in a script or built in.
+    7. Adding chat archiving back.
     
     """
     if mod_flow == "MRA":
@@ -259,30 +269,18 @@ async def chat_completion(idx:Optional[int]=None):
             immediate_response_override = True
 
     archived_ai_model = "none"
-    # if not immediate_response_override:
-    #     """     GENERATE AI CHAT RESPONSE   """
-    #     if isOpenAI(current_rai_model):
-    #         archived_ai_model = mod_openai_model
-    #         MessageContext.ai_response = await openai_chat_generation(MessageContext.messages, modelIn=mod_openai_model, debug=True)
-    #     else:
-    #         archived_ai_model = mod_ollama_model
-    #         MessageContext.ai_response = await ollama_chat_generation(MessageContext.messages, modelIn=mod_ollama_model, debug=True)
+    if not immediate_response_override:
+        """     GENERATE AI CHAT RESPONSE   """
+        if isOpenAI(current_rai_model):
+            archived_ai_model = mod_openai_model
+            MessageContext.ai_response = await openai_chat_generation(MessageContext.messages, modelIn=mod_openai_model, debug=True)
+        else:
+            archived_ai_model = mod_ollama_model
+            MessageContext.ai_response = await ollama_chat_generation(MessageContext.messages, modelIn=mod_ollama_model, debug=True)
 
     """ Response Override """
-    resp = {
-            "model": "gpt-4o-mini:latest",
-            "created_at": get_current_timestamp(),
-            "message": {
-                "chat_id": 'chazzromeo',
-                "role": "assistant",
-                "content": "MessageContext.ai_response"
-            },
-            "options": {}
-        }
-    print(resp)
-    return Response(f"\n{json.dumps(resp)}\n", content_type='text/event-stream')
-
-
+    response = MessageContext.stream_response()
+    return Response(f"\n{json.dumps(response)}\n", content_type='text/event-stream')
 
 def isOpenAI(model:str) -> bool:
     if model.startswith("llama"):
@@ -484,7 +482,7 @@ class ChatSequence:
 
             },
             "options": self.options,
-            "done": True
+            "done": False
         }
 
 def setupSingleMessageForChatSequence(system_prompt, new_user_message):
