@@ -4,7 +4,7 @@ import base64
 import json
 import os.path
 from concurrent.futures import ThreadPoolExecutor
-from typing import Optional
+from typing import Optional, Union, BinaryIO
 import aiohttp
 from quart import Quart, request, jsonify, Response, send_file
 from quart_cors import cors
@@ -13,24 +13,29 @@ from F import DICT, LIST
 from F.LOG import Log
 from F.DATE import get_timestamp_str as get_current_timestamp
 from rai.RaiModels import RAI_MODs, getRaiModels
-from chdb.rag import RAGWithChroma
-from rai.agents.weather import get_weather_by_zip, get_air_quality
 from rai.assistant.context import ContextHelper
-# from rai.internal.redisdb import RaiCache
+from rai.internal.redisdb import RaiCache
+from rai.models.connectors import PostgresTables
 from rai.RAG.Q import query_chroma_by_prefix
 from rai import env
 from nlp.Categorizer import Topics
+from rai.data.extraction.intake.PDF_v1 import FPDF
+import base64
+import imghdr
 
 Log = Log("RAI API Bruno Canary")
 app = Quart(__name__)
 app = cors(app, allow_origin="*")
 
-collection_name = "documents"
 contexter = ContextHelper()
-# cache = RaiCache()
-# rag = RAGWithChroma(collection_name=collection_name)
 looper = asyncio.get_event_loop()
 executor = ThreadPoolExecutor(max_workers=1)
+
+""" DATABASES """
+collection_name = "documents"
+RAI_CACHE = RaiCache()
+RAI_MODELS = PostgresTables.AI_Models()
+CHAT_ARCHIVE = PostgresTables.ChatArchive()
 
 IMAGE_FOLDER = f"{os.path.dirname(__file__)}/files/images"
 
@@ -41,34 +46,68 @@ RAI_FOOTER_MESSAGE = lambda model, text: ""
 # | Rai Youth Sports Chat | AI Model: {model} | API Version: {RAI_VERSION} |
 # """
 
-
-def decode_and_save_image(encoded_image):
-    image_data = base64.b64decode(encoded_image)
-    # Write the binary data to a file
-    with open('/Users/chazzromeo/Desktop/chat_image.png', 'wb') as f:
-        f.write(image_data)
-    print('Image successfully saved as output_image.png')
-
 CACHE_KEY_TWO = lambda one, two: f"{one}:{two}"
 CACHE_KEY_THREE = lambda one, two, three: f"{one}:{two}:{three}"
-
 PROMPT_CACHE = {
 
 }
 
-def combine(*obj:str):
-    result = ""
-    for o in obj:
-        result = f"{result}\n{o}"
-    return result
+from F.CLASS import Thread
 
 
-from rai.data.extraction.intake.PDF_v1 import FPDF
-import base64
-import imghdr
-import io
+image_path = '/Users/chazzromeo/Desktop/chat_image.jpg'
 
 
+def file_to_base64(file: Union[str, BinaryIO] = image_path) -> bytes:
+    """
+    Convert a .jpg/.jpeg, .png, or .pdf file to a Base64-encoded string.
+
+    :param file: Path to the file as a string or a file-like object opened in binary mode.
+    :return: Base64 encoded string of the file content.
+    :raises ValueError: If the file extension is not supported.
+    :raises FileNotFoundError: If the file path does not exist.
+    :raises TypeError: If the file parameter is neither a string nor a binary file-like object.
+    """
+    allowed_extensions = {'.jpg', '.jpeg', '.png', '.pdf'}
+
+    if isinstance(file, str):
+        if not os.path.isfile(file):
+            raise FileNotFoundError(f"The file {file} does not exist.")
+
+        _, ext = os.path.splitext(file)
+        ext = ext.lower()
+        if ext not in allowed_extensions:
+            raise ValueError(f"Unsupported file extension: {ext}. Allowed extensions: {allowed_extensions}")
+
+        with open(file, 'rb') as f:
+            encoded_bytes = base64.b64encode(f.read())
+        return str(encoded_bytes)
+    elif hasattr(file, 'read'):
+        # Assuming it's a file-like object
+        # Attempt to retrieve the filename from the file-like object if possible
+        filename = getattr(file, 'name', None)
+        if filename:
+            _, ext = os.path.splitext(filename)
+            ext = ext.lower()
+            if ext not in allowed_extensions:
+                raise ValueError(f"Unsupported file extension: {ext}. Allowed extensions: {allowed_extensions}")
+        else:
+            raise ValueError("Filename is required for file-like objects to check the extension.")
+
+        encoded_bytes = base64.b64encode(file.read())
+        return str(encoded_bytes)
+    else:
+        raise TypeError("The 'file' parameter must be a file path string or a binary file-like object.")
+
+    # encoded_str = encoded_bytes.decode('utf-8')
+    # return encoded_str
+
+def decode_and_save_image(encoded_image):
+    image_data = base64.b64decode(encoded_image)
+    # Write the binary data to a file
+    with open('/Users/chazzromeo/Desktop/chat_image.jpg', 'wb') as f:
+        f.write(image_data)
+    print('Image successfully saved as output_image.jpg')
 def decode_base64_to_file(base64_string, output_file_name=None):
     """
     Decodes a base64 string and saves it as a JPEG, PNG, or PDF file.
@@ -90,27 +129,39 @@ def decode_base64_to_file(base64_string, output_file_name=None):
         file_extension = imghdr.what(None, file_data)
         if file_extension not in ['jpeg', 'png']:
             raise ValueError("Unsupported file type: the base64 string does not represent a JPEG, PNG, or PDF file.")
-
-    # Set output file name if not provided
-    # output_file_name = output_file_name or 'decoded_file'
-    # output_file_path = f"{output_file_name}.{file_extension}"
-
-    # Save the file
-    # with open(output_file_path, 'wb') as f:
-    #     f.write(file_data)
-
     return file_data
+
+class UserRequest:
+    chat_id: str = "guest"
+    user_id: str = "guest"
+    user_name: str = "guest"
+    user_email: str = "guest"
+    user_role: str = "guest"
+    def __init__(self, body:dict=None):
+        if not body: return
+        self.chat_id = DICT.get('chatId', body, 'default')
+        self.user_id = DICT.get('user_id', body, 'default')
+        self.user_name = DICT.get('username', body, 'default')
+        self.user_email = DICT.get('user_email', body, 'default')
+        self.user_role = DICT.get('user_role', body, 'default')
+        self.cache_in()
+    def cache_in(self): return RAI_CACHE.set_key(self.user_name, self.buildUser())
+    def cache_out(self): return RAI_CACHE.get_key(self.user_name, default=self.buildUser())
+    def buildUser(self):
+        return {
+            "chat_id": self.chat_id,
+            "user_id": self.user_id,
+            "user_name": self.user_name,
+            "user_email": self.user_email,
+            "user_role": self.user_role
+        }
 
 
 @app.route('/api/chat/{idx}', methods=['POST', 'OPTIONS'])
 @app.route('/api/chat', methods=['POST', 'OPTIONS'])
 async def chat_completion(idx:Optional[int]=None):
-    print(idx)
-    immediate_response_override = False
-    immediate_response_message = "Something Seems to have gone wrong."
     """     GRAB HEADERS   """
     request.headers['Content-Type'] = 'application/json'
-    # print(f"Headers received: {headers}")
 
     """     PARSE REQUEST IN    """
     data = await request.get_data(cache=True, parse_form_data=True)
@@ -120,8 +171,11 @@ async def chat_completion(idx:Optional[int]=None):
 
     """     GET CHAT DETAILS      """
     # chat_id requires new Rai Chat UI...
-    chat_id = DICT.get('chatId', jbody, 'default')
-    messages: list = jbody.get('messages', [])
+    # _user = UserRequest(jbody)
+
+    MessageContext = ChatSequence(jbody)
+    MessageContext.ai_response = "Something Seems to have gone wrong."
+    immediate_response_override = False
 
     """     GET MAPPED MODEL      """
     current_rai_model: str = DICT.get('model', jbody, 'gpt-4o-mini')
@@ -140,33 +194,19 @@ async def chat_completion(idx:Optional[int]=None):
     mod_openai_model: str = DICT.get('openai', modelIn_data, 'gpt-4o-mini')
     mod_ollama_model: str = DICT.get('ollama', modelIn_data, 'llama3:latest')
 
-    """ TODO CACHE OUT  """
-    # cache_queue = cache.get_queued_chat_data(modelIn)
-    weather_cache = None # await get_refresh_cached_weather(current_rai_model, mod_zip_code)
-
-    """     EXTRACT USER MESSAGES AND IMAGES    """
-    user_message: str = get_last_user_message(jbody)
-    pre_user_messages: list = get_previous_user_messages(jbody)
-    user_images: list = get_last_user_images(jbody)
-
     we_have_file_data = False
     try:
         # TODO: file_data needs to be a list of file_data for each image uploaded...
-        file_data = decode_base64_to_file(LIST.get(0, user_images, "Needs Clinical Review!"))
+        file_data = decode_base64_to_file(LIST.get(0, MessageContext.last_user_images, "Needs Clinical Review!"))
         if file_data: we_have_file_data = True
     except Exception as e:
         print(e)
         file_data = "Needs Clinical Review!"
 
-    """     REAL-TIME DATA INTERCEPTOR    """
-    real_time_data = None
-    # if weather_cache: # TODO: dynamic....
-    #     real_time_data = combine(weather_cache)
-
     """ System Prompt Overrider """
-    if str(user_message).lower().startswith('new prompt'):
-        current_message = str(user_message).replace('new prompt', '')
-        immediate_response_message = "The New Prompt has been added successfully. Ready to proceed."
+    if str(MessageContext.get_last_user_message).lower().startswith('new prompt'):
+        current_message = str(MessageContext.get_last_user_message).replace('new prompt', '')
+        MessageContext.ai_response = "The New Prompt has been added successfully. Ready to proceed."
         if we_have_file_data:
             # The File is the new prompt (because the message is empty)
             if is_empty_message(current_message):
@@ -175,95 +215,74 @@ async def chat_completion(idx:Optional[int]=None):
             else:
                 # The message is the prompt, the file is the referral.
                 fsp = current_message
-                user_message = file_data
+                MessageContext.modify_last_user_message(file_data)
         else:
             # No file. Message is the prompt.
             fsp = current_message
             immediate_response_override = True
         PROMPT_CACHE[current_rai_model] = fsp
-    if str(user_message).lower().startswith('reset prompt'):
+    if str(MessageContext.get_last_user_message).lower().startswith('reset prompt'):
         PROMPT_CACHE[current_rai_model] = mod_system_prompt_lambda
-        immediate_response_message = "The Prompt has been reset successfully. Ready to proceed."
+        MessageContext.ai_response = "The Prompt has been reset successfully. Ready to proceed."
         immediate_response_override = True
 
     final_system_prompt = DICT.get(current_rai_model, PROMPT_CACHE, mod_system_prompt_lambda)
     if type(final_system_prompt) not in [str]:
         final_system_prompt = final_system_prompt(mod_ai_name, mod_title, mod_org_rep_type, mod_specialty)
-
-    """     USER PROMPT INTERCEPTOR    """
-    new_user_message: dict = {
-        'role': 'user',
-        'content': f"{user_message}"
-    }
-    messages: list = setupSingleMessageForChatSequence(final_system_prompt, new_user_message)
-
+    MessageContext.set_system_prompt(final_system_prompt)
+    """
+    1. Message pass through
+        - Append AI Response
+        
+    2. Modify and Append
+        - Modify Last User Message
+        - Append AI Response
+        
+    3. Ignore and Force Single
+        - Ignore all old messages.
+        - Essentially reset. 3 final messages, [system, user, assistant]
+    
+    """
     if mod_flow == "MRA":
-        user_message = f"REFERRAL:\n {file_data}"
-        new_user_message: dict = {
-            'role': 'user',
-            'content': f"{user_message}"
-        }
-
-        """     SETUP MESSAGES FOR CHAT SEQUENCE   """
-        messages: list = setupSingleMessageForChatSequence(final_system_prompt, new_user_message)
-        print(messages)
+        MessageContext.make_single(user_content=f"REFERRAL:\n {file_data}", system_prompt=final_system_prompt)
     elif mod_flow == "MRC":
-        new_user_message: dict = {
-            'role': 'user',
-            'content': f"{user_message}"
-        }
-
-        """     SETUP MESSAGES FOR CHAT SEQUENCE   """
-        messages: list = setupSingleMessageForChatSequence(final_system_prompt, new_user_message)
-        print(messages)
+        MessageContext.make_single(system_prompt=final_system_prompt)
     elif mod_flow == "QA":
-        print("Running Query Assistant (QA) Flow.")
-        if type(mod_system_prompt_lambda) in [str]:
-            ollama_prompt: str = mod_system_prompt_lambda
-        else:
-            ollama_prompt: str = mod_system_prompt_lambda(mod_ai_name, mod_title, mod_org_rep_type, mod_specialty)
-        ollama_request: str = await ollama_quick_generation(ollama_prompt, user_message, modelIn=mod_ollama_model, debug=True)
-
-        """ CONTEXT ANALYZER """
-        # query_context_name = analyze_context(ollama_request, default="general")
-
-        user_message: str = queryModelCollection(
+        user_message = queryModelCollection(
             mod_collection_prefix, "open",
-            user_message=user_message,
-            context_message=ollama_request,
-            debug=False
+            user_message=MessageContext.get_last_user_message
         )
-        new_user_message: dict = {
-            'role': 'user',
-            'content': f"{user_message}"
-        }
-        messages: list = setupMessagesForChatSequence(final_system_prompt, messages, new_user_message)
-
-    print("\n\n -- Query+UserMessage -- \n\n")
-    print(user_message)
-    print("\n\n")
-    appended_response: str = ""
-    """ Response Override """
-    if immediate_response_override:
-        appended_response = immediate_response_message
-    else:
-        """     GENERATE AI CHAT RESPONSE   """
-        if isOpenAI(current_rai_model):
-            ai_response: str = await openai_chat_generation(messages, modelIn=mod_openai_model, debug=True)
+        if user_message:
+            MessageContext.modify_last_user_message(user_message)
         else:
-            ai_response: str = await ollama_chat_generation(messages, modelIn=mod_ollama_model, debug=True)
-        """ TODO    CACHE IN    """
-        # cache.queue_chat_data(modelIn, ai_response)
-        """     FOOTER MESSAGE     """
-        appended_message = RAI_FOOTER_MESSAGE(mod_openai_model, "")
-        """     PREPARE AND SEND FINAL RESPONSE     """
-        appended_response = appender(response_message=ai_response, message_to_append=appended_message)
+            MessageContext.ai_response = "Sorry! No Results found, please try and provide more details and I will try again!"
+            immediate_response_override = True
+
+    archived_ai_model = "none"
+    # if not immediate_response_override:
+    #     """     GENERATE AI CHAT RESPONSE   """
+    #     if isOpenAI(current_rai_model):
+    #         archived_ai_model = mod_openai_model
+    #         MessageContext.ai_response = await openai_chat_generation(MessageContext.messages, modelIn=mod_openai_model, debug=True)
+    #     else:
+    #         archived_ai_model = mod_ollama_model
+    #         MessageContext.ai_response = await ollama_chat_generation(MessageContext.messages, modelIn=mod_ollama_model, debug=True)
+
     """ Response Override """
-    final_response: dict = to_chat_response(appended_response, role="assistant", options=jbody['options'])
-    print("\n\n -- Final Response -- \n\n")
-    print(final_response)
-    print("\n\n")
-    return Response(f"\n{json.dumps(final_response)}\n", content_type='text/event-stream')
+    resp = {
+            "model": "gpt-4o-mini:latest",
+            "created_at": get_current_timestamp(),
+            "message": {
+                "chat_id": 'chazzromeo',
+                "role": "assistant",
+                "content": "MessageContext.ai_response"
+            },
+            "options": {}
+        }
+    print(resp)
+    return Response(f"\n{json.dumps(resp)}\n", content_type='text/event-stream')
+
+
 
 def isOpenAI(model:str) -> bool:
     if model.startswith("llama"):
@@ -293,21 +312,6 @@ def analyze_context(request_in: str, default:str):
         print(e)
 
     return r
-
-
-""" 
-CACHE WEATHER
-"""
-async def get_refresh_cached_weather(model, zip):
-    weather_cache = "" #cache.get_weather_data(model)
-    # if weather_cache:
-    #     return weather_cache
-    # weather_result = get_weather_by_zip(zip)
-    # air_quality = await get_air_quality(zip)
-    # weather_report = f"{weather_result}\n{air_quality}"
-    # cache.cache_weather_data(model, f"Current Weather and Air Quality Data for {zip}\n{weather_report}\n")
-    return "weather_report"
-
 """ 
 GENERATE AI CHAT RESPONSE 
 """
@@ -393,16 +397,106 @@ async def ollama_quick_generation(system_prompt, user_prompt, modelIn:str="llama
 """     
 SETUP MESSAGES FOR CHAT SEQUENCE   
 """
+
+class ChatSequence:
+    body: {} = {}
+    options: {} = {}
+    system_prompt = "You are a helpful assistant"
+    last_user_message = ""
+    messages = []
+    is_single = False
+    _user: UserRequest = UserRequest()
+    ai_response = ""
+
+    def __init__(self, body: {}, system_prompt=None):
+        self.body = body
+        self.messages = body.get('messages', [])
+        self.options = DICT.get('options', body, {})
+        self.system_prompt = system_prompt if system_prompt else "You are a helpful assistant"
+        self.last_user_message = self.get_last_user_message
+        self._user = UserRequest(body)
+
+    def set_system_prompt(self, system_prompt): self.system_prompt = system_prompt
+    def modify_last_user_message(self, new_message:str):
+        for message in self.yield_messages():
+            if message.get('role') == 'user':
+                message['content'] = new_message
+                break
+    def make_single(self, user_content:str=None, system_prompt:str=None):
+        self.messages = self.singleMessageResponse(user_content if user_content else self.last_user_message, system_prompt if system_prompt else self.system_prompt)
+
+    @staticmethod
+    def build_single_message(role='system', content=""):
+        return {'role': role, 'content': content}
+
+    def singleMessageResponse(self, user_content:str, system_prompt=None):
+        if system_prompt: self.system_prompt = system_prompt
+        return [
+            self.build_single_message('system', self.system_prompt),
+            self.build_single_message('user', user_content)
+        ]
+
+    def yield_messages(self, startWithLatestMessage=True):
+        if not self.messages: return
+        if startWithLatestMessage:
+            for message in reversed(self.messages):
+                yield message
+        else:
+            for message in self.messages:
+                yield message
+
+    @property
+    def get_last_user_message(self) -> Optional[str]:
+        last_user_message = None
+        for message in self.yield_messages():
+            if message.get('role') == 'user':
+                last_user_message = message.get('content')
+                break
+        return last_user_message
+    @property
+    def last_user_images(self) -> list:
+        last_user_message = None
+        for message in self.yield_messages():
+            if message.get('role') == 'user':
+                last_user_message = message.get('images', [])
+                break
+        return last_user_message
+    @property
+    def previous_user_messages(self) -> list:
+        last_user_messages = []
+        count = 0
+        for message in self.yield_messages():
+            if count == 0:
+                count += 1
+                continue
+            last_user_messages.append(message.get('content'))
+        return last_user_messages
+
+    """ Back To User """
+    def stream_response(self, ai_response:str=None):
+        return {
+            "model": 'gpt-4o-mini',
+            "created_at": get_current_timestamp(),
+            "message": {
+                "chat_id": self._user.chat_id,
+                "role": "assistant",
+                "content": ai_response if ai_response else self.ai_response,
+
+            },
+            "options": self.options,
+            "done": True
+        }
+
 def setupSingleMessageForChatSequence(system_prompt, new_user_message):
     return [
-            {'role': 'system', 'content': system_prompt},
+            { 'role': 'system', 'content': system_prompt },
             new_user_message
         ]
 def setupMessagesForChatSequence(system_prompt, messages, new_user_message):
     if type(new_user_message) in [list, tuple] and len(messages) <= 1:
         Log.i("Creating New Message...")
         temp = [
-            {'role': 'system', 'content': system_prompt},
+            { 'role': 'system', 'content': system_prompt },
             LIST.get(0, messages, new_user_message)
         ]
         messages = temp
@@ -410,40 +504,22 @@ def setupMessagesForChatSequence(system_prompt, messages, new_user_message):
         Log.i("Appending New Message...")
         messages.append(new_user_message)
     return messages
-"""     
-CHROMADB SEARCH     
-"""
-def search(user_message:str, *base_paths:str):
-    # embeds = await get_embeddings(user_message)
-    results = query_chroma_by_prefix(*base_paths, query=user_message, k=25)
-    Log.i("Search Result Count:", results)
-    return results
+
 """     
 USER PROMPT INTERCEPTOR   
 """
-def queryModelCollection(*base_paths, user_message:str, context_message:str, debug:bool=False):
-    documents = ""
+def queryModelCollection(*base_paths, user_message:str) -> Optional[str]:
     try:
-        # if collection == 'search':
-        #     collection_name = extract_args(user_message, 1)
-        #     results = search(f"{user_message} {context_message}", collection_name)
-        # else:
-        #
-        results = query_chroma_by_prefix(*base_paths, query=user_message, k=10)
+        results = query_chroma_by_prefix(*base_paths, query=user_message, k=3)
         if results:
             docs:[] = DICT.get("documents", results, [])
             documents = '\n'.join(LIST.flatten(docs))
             return documents
         Log.i("Returning custom SYS Prompt.")
-        if debug:
-            user_prompt = "rag.inject_into_system_prompt(user_message, specialty=specialty, docs=results, text=pre_text)"
-            print("--User Prompt--")
-            print(user_prompt)
-            return user_prompt
-        return results
+        return None
     except Exception as e:
         Log.e("Failed to query", e)
-        return documents
+        return None
 """     
 RESPONSE MESSAGE APPENDER   
 """
@@ -455,41 +531,39 @@ def appender(response_message="", metadatas:[]=None, message_to_append:str=None)
             response_message += f"\n\nSources:\n{DICT.get('url', metadata, '')}"
     return response_message
 """ HELPER """
-def get_last_user_message(json_data):
-    # Get the list of messages
-    messages = json_data.get('messages', [])
-    # Filter to find the last message with role 'user'
-    last_user_message = None
-    for message in reversed(messages):
-        if message.get('role') == 'user':
-            last_user_message = message.get('content')
-            break
-    return last_user_message
-
-def get_last_user_images(json_data):
-    # Get the list of messages
-    messages = json_data.get('messages', [])
-    # Filter to find the last message with role 'user'
-    last_user_message = None
-    for message in reversed(messages):
-        if message.get('role') == 'user':
-            last_user_message = message.get('images', [])
-            break
-    return last_user_message
-
-def get_previous_user_messages(json_data):
-    # Get the list of messages
-    messages = json_data.get('messages', [])
-    # Filter to find the last message with role 'user'
-    last_user_messages = []
-    count = 0
-    for message in reversed(messages):
-        # if message.get('role') == 'user':
-        if count == 0:
-            count += 1
-            continue
-        last_user_messages.append(message.get('content'))
-    return last_user_messages
+# def get_last_user_message(json_data):
+#     # Get the list of messages
+#     messages = json_data.get('messages', [])
+#     # Filter to find the last message with role 'user'
+#     last_user_message = None
+#     for message in reversed(messages):
+#         if message.get('role') == 'user':
+#             last_user_message = message.get('content')
+#             break
+#     return last_user_message
+# def get_last_user_images(json_data):
+#     # Get the list of messages
+#     messages = json_data.get('messages', [])
+#     # Filter to find the last message with role 'user'
+#     last_user_message = None
+#     for message in reversed(messages):
+#         if message.get('role') == 'user':
+#             last_user_message = message.get('images', [])
+#             break
+#     return last_user_message
+# def get_previous_user_messages(json_data):
+#     # Get the list of messages
+#     messages = json_data.get('messages', [])
+#     # Filter to find the last message with role 'user'
+#     last_user_messages = []
+#     count = 0
+#     for message in reversed(messages):
+#         # if message.get('role') == 'user':
+#         if count == 0:
+#             count += 1
+#             continue
+#         last_user_messages.append(message.get('content'))
+#     return last_user_messages
 """ HELPER """
 def extract_args(input_string, word_count):
     """Extract the first 'word_count' words from the input string."""
@@ -500,6 +574,9 @@ def extract_args(input_string, word_count):
     Log.i(f"Args: {args}")
     return str(LIST.get(0, args, "")).strip()
 """ HELPER """
+"""
+"files": [{ "type": "image", "url": f"data:image/png;base64,{file_to_base64()}" }]
+"""
 def to_chat_response(message:str, role:str="user", model:str="gpt-4o-mini", isDone:bool=False, options:dict={}):
     return {
         "model": model,
@@ -507,7 +584,8 @@ def to_chat_response(message:str, role:str="user", model:str="gpt-4o-mini", isDo
         "message": {
             "chat_id": 'chazzromeo',
             "role": role,
-            "content": message
+            "content": message,
+
         },
         "options": options,
         "done": isDone  # Indicate that the stream is not yet done
@@ -575,8 +653,6 @@ def help_api():
 @app.route("/heart")
 def heartbeat():
     return "beat"
-
-
 
 if __name__ == '__main__':
     port = 11434

@@ -1,10 +1,20 @@
 from typing import overload
-import redis
-import json
+import redis, json, os
 from torch.cuda.nccl import unique_id
 
+from F.LOG import Log
+Log = Log("Redis Database Client")
+
+redis_name = int(os.environ.get("REDIS_DB_NAME", 0))
+redis_user = os.environ.get("REDIS_DB_USER", "rai")
+redis_pass = os.environ.get("REDIS_DB_PASSWORD", None) # "local" -OR- os.environ.get("DEFAULT_CHROMA_SERVER_HOST", "local")
+redis_host = os.environ.get("REDIS_DB_HOST", "192.168.1.6")
+redis_port = int(os.environ.get("REDIS_DB_PORT", 6379))
+
 class RedisClient:
-    def __init__(self, host='192.168.1.6', port=6379, db=0, password=None):
+    redis_client: redis.client = None
+
+    def __init__(self):
         """
         Initialize the Redis client.
         :param host: Redis server hostname (default: 'localhost')
@@ -12,12 +22,15 @@ class RedisClient:
         :param db: Redis database index (default: 0)
         :param password: Password for Redis server (default: None)
         """
-        self.host = host
-        self.port = port
-        self.db = db
-        self.password = password
-        self.redis_client = None
-        self.connect()
+        try:
+            self.host = redis_host
+            self.port = redis_port
+            self.db = redis_name
+            self.password = redis_pass
+            self.redis_client = None
+            self.connect()
+        except Exception as e:
+            Log.e(e)
 
     def connect(self):
         """Establish a connection to the Redis server."""
@@ -29,10 +42,9 @@ class RedisClient:
                 password=self.password
             )
             self.redis_client.ping()  # Test connection
-            print("Connected to Redis server.")
+            Log.s("Successfully Connected to Remote Redis Client.")
         except redis.ConnectionError as e:
-            print(f"Failed to connect to Redis: {e}")
-            raise
+            print(f"Failed to connect to Remote Redis Client: {e}")
 
     def set_key(self, key, value, ttl=None):
         """
@@ -53,7 +65,7 @@ class RedisClient:
             print(f"Failed to set key '{key}': {e}")
             raise
 
-    def get_key(self, key):
+    def get_key(self, key, default=None):
         """
         Retrieve a value by key from Redis.
 
@@ -69,7 +81,7 @@ class RedisClient:
                 return None
         except Exception as e:
             print(f"Failed to get key '{key}': {e}")
-            raise
+            return default
 
     def delete_key(self, key):
         """
@@ -98,7 +110,6 @@ class RedisClient:
             return self.redis_client.exists(key) == 1
         except Exception as e:
             print(f"Failed to check existence of key '{key}': {e}")
-            raise
 
     def set_ttl(self, key, ttl):
         """
@@ -115,7 +126,6 @@ class RedisClient:
                 print(f"Failed to set TTL for key '{key}'. The key may not exist.")
         except Exception as e:
             print(f"Failed to set TTL for key '{key}': {e}")
-            raise
 
     def get_ttl(self, key):
         """
@@ -135,8 +145,6 @@ class RedisClient:
             return ttl
         except Exception as e:
             print(f"Failed to get TTL for key '{key}': {e}")
-            raise
-
 
     def queue_chat_data(self, queue_name, data):
         """
@@ -151,8 +159,6 @@ class RedisClient:
             print(f"Chat data added to queue '{queue_name}'.")
         except Exception as e:
             print(f"Failed to queue chat data to '{queue_name}': {e}")
-            raise
-
 
     def get_queued_chat_data(self, queue_name):
         """
@@ -170,7 +176,6 @@ class RedisClient:
                 return None
         except Exception as e:
             print(f"Failed to get chat data from queue '{queue_name}': {e}")
-            raise
 
     def add_data(self, queue_name:str, data, ttl=None):
         try:
@@ -178,13 +183,13 @@ class RedisClient:
             print(f"Chat data added with ID '{queue_name}'.")
         except Exception as e:
             print(f"Failed to add chat data with ID '{queue_name}': {e}")
-            raise
+
     def get_data(self, queue_name:str):
         try:
             return self.get_key(f"{queue_name}")
         except Exception as e:
             print(f"Failed to get chat data with ID '{queue_name}': {e}")
-            raise
+
     @overload
     def add_chat_data(self, chatId:str, messageId:str, data, ttl=None):
         try:
@@ -192,7 +197,6 @@ class RedisClient:
             print(f"Chat data added with ID '{unique_id}'.")
         except Exception as e:
             print(f"Failed to add chat data with ID '{unique_id}': {e}")
-            raise
 
     def add_chat_data_by_id(self, unique_id, data, ttl=None):
         """
@@ -207,7 +211,6 @@ class RedisClient:
             print(f"Chat data added with ID '{unique_id}'.")
         except Exception as e:
             print(f"Failed to add chat data with ID '{unique_id}': {e}")
-            raise
 
     def get_chat_data_by_id(self, chatId:str, messageId:str):
         """
@@ -220,7 +223,6 @@ class RedisClient:
             return self.get_key(f"{chatId}:{messageId}")
         except Exception as e:
             print(f"Failed to get chat data with ID '{unique_id}': {e}")
-            raise
 
     def get_chat_data_by_id(self, unique_id):
         """
@@ -233,7 +235,6 @@ class RedisClient:
             return self.get_key(unique_id)
         except Exception as e:
             print(f"Failed to get chat data with ID '{unique_id}': {e}")
-            raise
 
 class RaiCache(RedisClient):
     def cache_announcement(self, key_name, data, ttl=None):

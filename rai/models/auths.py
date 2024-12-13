@@ -2,29 +2,18 @@ import logging
 import uuid
 from typing import Optional
 
-from rai.internal.db import Base, get_db
-from rai.models.users import UserModel, Users
-from rai.env import SRC_LOG_LEVELS
 from pydantic import BaseModel
-from sqlalchemy import Boolean, Column, String, Text
+from rai.models.users import UserModel, UsersTable
+from rai.env import SRC_LOG_LEVELS
 from rai.utils.utils import verify_password
 
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["MODELS"])
 
+
 ####################
 # DB MODEL
 ####################
-
-
-class Auth(Base):
-    __tablename__ = "auth"
-
-    id = Column(String, primary_key=True)
-    email = Column(String)
-    password = Column(Text)
-    active = Column(Boolean)
-
 
 class AuthModel(BaseModel):
     id: str
@@ -36,7 +25,6 @@ class AuthModel(BaseModel):
 ####################
 # Forms
 ####################
-
 
 class Token(BaseModel):
     token: str
@@ -90,112 +78,162 @@ class AddUserForm(SignupForm):
 
 
 class AuthsTable:
+    users: UsersTable
+    def __init__(self, client):
+        self.client = client
+        self.users = UsersTable(client)
+
+    def create_auth_table(self):
+        """
+        Create the 'auth' table if it does not already exist.
+        """
+        create_table_query = """
+        CREATE TABLE IF NOT EXISTS "auth" (
+            id TEXT PRIMARY KEY,
+            email TEXT,
+            password TEXT,
+            active BOOLEAN
+        )
+        """
+        try:
+            self.client.cursor.execute(create_table_query)
+            self.client.connection.commit()
+            print("Auth table created or already exists.")
+        except Exception as e:
+            print(f"Error creating auth table: {e}")
+            self.client.connection.rollback()
+
     def insert_new_auth(
-        self,
-        email: str,
-        password: str,
-        name: str,
-        profile_image_url: str = "/user.png",
-        role: str = "pending",
-        oauth_sub: Optional[str] = None,
+            self,
+            email: str,
+            password: str,
+            name: str,
+            profile_image_url: str = "/user.png",
+            role: str = "pending",
+            oauth_sub: Optional[str] = None,
     ) -> Optional[UserModel]:
-        with get_db() as db:
-            log.info("insert_new_auth")
+        log.info("insert_new_auth")
+        id = str(uuid.uuid4())
+        auth = AuthModel(id=id, email=email, password=password, active=True)
 
-            id = str(uuid.uuid4())
-
-            auth = AuthModel(
-                **{"id": id, "email": email, "password": password, "active": True}
+        insert_auth_query = """
+        INSERT INTO "auth" (id, email, password, active)
+        VALUES (%s, %s, %s, %s)
+        RETURNING id
+        """
+        try:
+            self.client.cursor.execute(insert_auth_query, (auth.id, auth.email, auth.password, auth.active))
+            # Insert the corresponding user
+            user = self.users.insert_new_user(
+                id=auth.id,
+                name=name,
+                email=email,
+                profile_image_url=profile_image_url,
+                role=role,
+                oauth_sub=oauth_sub
             )
-            result = Auth(**auth.model_dump())
-            db.add(result)
 
-            user = Users.insert_new_user(
-                id, name, email, profile_image_url, role, oauth_sub
-            )
-
-            db.commit()
-            db.refresh(result)
-
-            if result and user:
+            self.client.connection.commit()
+            if user:
                 return user
             else:
+                # If user insertion failed, rollback auth insertion
+                self.client.connection.rollback()
                 return None
+        except Exception as e:
+            print(f"Error inserting new auth: {e}")
+            self.client.connection.rollback()
+            return None
 
     def authenticate_user(self, email: str, password: str) -> Optional[UserModel]:
         log.info(f"authenticate_user: {email}")
+        query = 'SELECT id, password FROM "auth" WHERE email = %s AND active = TRUE LIMIT 1'
         try:
-            with get_db() as db:
-                auth = db.query(Auth).filter_by(email=email, active=True).first()
-                if auth:
-                    if verify_password(password, auth.password):
-                        user = Users.get_user_by_id(auth.id)
-                        return user
-                    else:
-                        return None
-                else:
-                    return None
-        except Exception:
+            self.client.cursor.execute(query, (email,))
+            row = self.client.cursor.fetchone()
+            if not row:
+                return None
+
+            auth_id, stored_password = row
+            if verify_password(password, stored_password):
+                user = self.users.get_user_by_id(auth_id)
+                return user
+            else:
+                return None
+        except Exception as e:
+            print(f"Error authenticating user: {e}")
             return None
 
     def authenticate_user_by_api_key(self, api_key: str) -> Optional[UserModel]:
         log.info(f"authenticate_user_by_api_key: {api_key}")
-        # if no api_key, return None
         if not api_key:
             return None
-
         try:
-            user = Users.get_user_by_api_key(api_key)
+            user = self.users.get_user_by_api_key(api_key)
             return user if user else None
-        except Exception:
-            return False
+        except Exception as e:
+            print(f"Error authenticating by API key: {e}")
+            return None
 
     def authenticate_user_by_trusted_header(self, email: str) -> Optional[UserModel]:
         log.info(f"authenticate_user_by_trusted_header: {email}")
+        query = 'SELECT id FROM "auth" WHERE email = %s AND active = TRUE LIMIT 1'
         try:
-            with get_db() as db:
-                auth = db.query(Auth).filter_by(email=email, active=True).first()
-                if auth:
-                    user = Users.get_user_by_id(auth.id)
-                    return user
-        except Exception:
+            self.client.cursor.execute(query, (email,))
+            row = self.client.cursor.fetchone()
+            if not row:
+                return None
+            auth_id = row[0]
+            user = self.users.get_user_by_id(auth_id)
+            return user
+        except Exception as e:
+            print(f"Error authenticating by trusted header: {e}")
             return None
 
     def update_user_password_by_id(self, id: str, new_password: str) -> bool:
+        query = 'UPDATE "auth" SET password = %s WHERE id = %s'
         try:
-            with get_db() as db:
-                result = (
-                    db.query(Auth).filter_by(id=id).update({"password": new_password})
-                )
-                db.commit()
-                return True if result == 1 else False
-        except Exception:
+            self.client.cursor.execute(query, (new_password, id))
+            self.client.connection.commit()
+            return self.client.cursor.rowcount == 1
+        except Exception as e:
+            print(f"Error updating user password: {e}")
+            self.client.connection.rollback()
             return False
 
     def update_email_by_id(self, id: str, email: str) -> bool:
+        query = 'UPDATE "auth" SET email = %s WHERE id = %s'
         try:
-            with get_db() as db:
-                result = db.query(Auth).filter_by(id=id).update({"email": email})
-                db.commit()
-                return True if result == 1 else False
-        except Exception:
+            self.client.cursor.execute(query, (email, id))
+            self.client.connection.commit()
+            return self.client.cursor.rowcount == 1
+        except Exception as e:
+            print(f"Error updating email by id: {e}")
+            self.client.connection.rollback()
             return False
 
     def delete_auth_by_id(self, id: str) -> bool:
         try:
-            with get_db() as db:
-                # Delete User
-                result = Users.delete_user_by_id(id)
-
-                if result:
-                    db.query(Auth).filter_by(id=id).delete()
-                    db.commit()
-
-                    return True
-                else:
-                    return False
-        except Exception:
+            # First delete user
+            result = self.users.delete_user_by_id(id)
+            if result:
+                query = 'DELETE FROM "auth" WHERE id = %s'
+                self.client.cursor.execute(query, (id,))
+                self.client.connection.commit()
+                return True
+            else:
+                return False
+        except Exception as e:
+            print(f"Error deleting auth by id: {e}")
+            self.client.connection.rollback()
             return False
 
-
-Auths = AuthsTable()
+# Example usage:
+# from your_postgres_client_setup import PostgresClient
+# client = PostgresClient()
+# users = Users(client)
+# auths = AuthsTable(client, users)
+# auths.create_auth_table()
+#
+# new_user = auths.insert_new_auth("test@example.com", "hashedpassword", "Test User")
+# print(new_user)

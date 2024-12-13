@@ -6,7 +6,9 @@ from typing import Optional, Union
 import jwt
 from tqdm import tqdm
 
-from rai.models.users import Users
+from rai.internal.postgres import POSTGRES_CLIENT
+from rai.models.users import UsersTable
+
 from rai.constants import ERROR_MESSAGES
 from rai.env import WEBUI_SECRET_KEY
 from fastapi import Depends, HTTPException, Request, status
@@ -15,6 +17,7 @@ from passlib.context import CryptContext
 
 logging.getLogger("passlib").setLevel(logging.ERROR)
 
+Users = UsersTable(POSTGRES_CLIENT)
 
 SESSION_SECRET = WEBUI_SECRET_KEY
 ALGORITHM = "HS256"

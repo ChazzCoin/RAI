@@ -8,13 +8,15 @@ from tqdm import tqdm
 from rai.RAG.models import VectorItem, SearchResult, GetResult
 from F.LOG import Log
 
-Log = Log("ChromaClient")
+Log = Log("Chromadb Database Client")
+
 # Chroma
 CHROMA_DATA_PATH = f"/chroma"
 CHROMA_TENANT = os.environ.get("CHROMA_TENANT", chromadb.DEFAULT_TENANT)
 CHROMA_DATABASE = os.environ.get("CHROMA_DATABASE", chromadb.DEFAULT_DATABASE)
 CHROMA_HTTP_HOST = os.environ.get("DEFAULT_CHROMA_SERVER_HOST", "local") # "local" -OR- os.environ.get("DEFAULT_CHROMA_SERVER_HOST", "local")
 CHROMA_HTTP_PORT = int(os.environ.get("DEFAULT_CHROMA_SERVER_PORT", 8000))
+
 # Comma-separated list of header=value pairs
 CHROMA_HTTP_HEADERS = os.environ.get("CHROMA_HTTP_HEADERS", "")
 if CHROMA_HTTP_HEADERS:
@@ -34,6 +36,7 @@ class ChromaClient:
                 tenant=chromadb.DEFAULT_TENANT,
                 database=chromadb.DEFAULT_DATABASE,
             )
+            Log.s("Successfully Connected to Local Chromadb Client.")
         else:
             Log.w("\n--Chroma HttpClient--\n")
             self.client = chromadb.HttpClient(
@@ -49,6 +52,7 @@ class ChromaClient:
             Log.w("Chroma Port:", CHROMA_HTTP_PORT)
             Log.w("Chroma Database:", CHROMA_DATABASE)
             Log.w("Chroma Tenant:", CHROMA_TENANT)
+            Log.s("Successfully Connected to Remote Chromadb Client.")
 
     def has_collection(self, collection_name: str) -> bool:
         # Check if the collection exists based on the collection name.
@@ -59,9 +63,7 @@ class ChromaClient:
         # Delete the collection based on the collection name.
         return self.client.delete_collection(name=collection_name)
 
-    def search(
-        self, collection_name: str, vectors: list[list[float]], limit: int
-    ) -> Optional[SearchResult]:
+    def search(self, collection_name: str, vectors: list[list[float]], limit: int) -> Optional[SearchResult]:
         # Search for the nearest neighbor items based on the vectors and return 'limit' number of results.
         collection = self.client.get_collection(name=collection_name)
         if collection:

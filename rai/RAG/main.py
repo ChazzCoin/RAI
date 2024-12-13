@@ -191,18 +191,6 @@ class QuerySettingsForm(BaseModel):
     r: Optional[float] = None
     template: Optional[str] = None
     hybrid: Optional[bool] = None
-# class QueryCollectionsForm(BaseModel):
-#     collection_names: list[str]
-#     query: str
-#     k: Optional[int] = None
-#     r: Optional[float] = None
-#     hybrid: Optional[bool] = None
-# class QueryDocForm(BaseModel):
-#     collection_name: str
-#     query: str
-#     k: Optional[int] = None
-#     r: Optional[float] = None
-#     hybrid: Optional[bool] = None
 class FileConfig(BaseModel):
     max_size: Optional[int] = None
     max_count: Optional[int] = None

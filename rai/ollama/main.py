@@ -18,11 +18,6 @@ from pydantic import BaseModel, ConfigDict
 from rai.utils.misc import (
     calculate_sha256,
 )
-from rai.utils.payload import (
-    apply_model_params_to_body_ollama,
-    apply_model_params_to_body_openai,
-    apply_model_system_prompt_to_body,
-)
 
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["OLLAMA"])
@@ -34,24 +29,20 @@ class GenerateEmbeddingsForm(BaseModel):
     prompt: str
     options: Optional[dict] = None
     keep_alive: Optional[Union[int, str]] = None
-
 class GenerateEmbedForm(BaseModel):
     model: str
     input: str
     truncate: Optional[bool]
     options: Optional[dict] = None
     keep_alive: Optional[Union[int, str]] = None
-
 class UrlUpdateForm(BaseModel):
     urls: list[str]
-
 class ModelNameForm(BaseModel):
     name: str
 class PushModelForm(BaseModel):
     name: str
     insecure: Optional[bool] = None
     stream: Optional[bool] = None
-
 class CreateModelForm(BaseModel):
     name: str
     modelfile: Optional[str] = None
@@ -60,16 +51,12 @@ class CreateModelForm(BaseModel):
 class CopyModelForm(BaseModel):
     source: str
     destination: str
-
 class UrlForm(BaseModel):
     url: str
-
 class UploadBlobForm(BaseModel):
     filename: str
-
 class OllamaConfigForm(BaseModel):
     enable_ollama_api: Optional[bool] = None
-
 class GenerateCompletionForm(BaseModel):
     model: str
     prompt: str
@@ -82,12 +69,10 @@ class GenerateCompletionForm(BaseModel):
     stream: Optional[bool] = True
     raw: Optional[bool] = None
     keep_alive: Optional[Union[int, str]] = None
-
 class ChatMessage(BaseModel):
     role: str
     content: str
     images: Optional[list[str]] = None
-
 class GenerateChatCompletionForm(BaseModel):
     model: str
     messages: list[ChatMessage]
@@ -101,13 +86,11 @@ class GenerateChatCompletionForm(BaseModel):
 class OpenAIChatMessageContent(BaseModel):
     type: str
     model_config = ConfigDict(extra="allow")
-
 class OpenAIChatMessage(BaseModel):
     role: str
     content: Union[str, OpenAIChatMessageContent]
 
     model_config = ConfigDict(extra="allow")
-
 class OpenAIChatCompletionForm(BaseModel):
     model: str
     messages: list[OpenAIChatMessage]
@@ -126,7 +109,6 @@ async def check_url(request: Request, call_next):
 
     response = await call_next(request)
     return response
-
 async def get_status():
     return {"status": True}
 async def get_config():
@@ -403,7 +385,6 @@ async def generate_embeddings(form_data: GenerateEmbedForm, url_idx: Optional[in
             status_code=r.status_code if r else 500,
             detail=error_detail,
         )
-
 async def generate_embeddings(form_data: GenerateEmbeddingsForm, url_idx: Optional[int] = None):
     if url_idx is None:
         model = form_data.model

@@ -2,14 +2,13 @@ import json
 import logging
 import os
 import shutil
-from datetime import datetime
 from pathlib import Path
 from typing import Generic, Optional, TypeVar
 from urllib.parse import urlparse
-
+from sqlalchemy.ext.declarative import declarative_base
+Base = declarative_base()
 import chromadb
 import requests
-from rai.internal.db import Base
 from rai.env import (
     OPEN_WEBUI_DIR,
     DATA_DIR,
@@ -22,7 +21,6 @@ from rai.env import (
 )
 from pydantic import BaseModel
 from sqlalchemy import JSON, Column, DateTime, Integer, func
-
 
 class EndpointFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
@@ -73,30 +71,30 @@ def load_json_config():
         return json.load(file)
 
 
-def save_to_db(data):
-    with get_db() as db:
-        existing_config = db.query(Config).first()
-        if not existing_config:
-            new_config = Config(data=data, version=0)
-            db.add(new_config)
-        else:
-            existing_config.data = data
-            existing_config.updated_at = datetime.now()
-            db.add(existing_config)
-        db.commit()
+# def save_to_db(data):
+#     with get_db() as db:
+#         existing_config = db.query(Config).first()
+#         if not existing_config:
+#             new_config = Config(data=data, version=0)
+#             db.add(new_config)
+#         else:
+#             existing_config.data = data
+#             existing_config.updated_at = datetime.now()
+#             db.add(existing_config)
+#         db.commit()
 
 
-def reset_config():
-    with get_db() as db:
-        db.query(Config).delete()
-        db.commit()
+# def reset_config():
+#     with get_db() as db:
+#         db.query(Config).delete()
+#         db.commit()
 
 
 # When initializing, check if config.json exists and migrate it to the database
-if os.path.exists(f"{DATA_DIR}/config.json"):
-    data = load_json_config()
-    save_to_db(data)
-    os.rename(f"{DATA_DIR}/config.json", f"{DATA_DIR}/old_config.json")
+# if os.path.exists(f"{DATA_DIR}/config.json"):
+#     data = load_json_config()
+#     save_to_db(data)
+#     os.rename(f"{DATA_DIR}/config.json", f"{DATA_DIR}/old_config.json")
 
 DEFAULT_CONFIG = {
     "version": 0,
@@ -151,10 +149,10 @@ DEFAULT_CONFIG = {
 }
 
 
-def get_config():
-    with get_db() as db:
-        config_entry = db.query(Config).order_by(Config.id.desc()).first()
-        return config_entry.data if config_entry else DEFAULT_CONFIG
+# def get_config():
+#     with get_db() as db:
+#         config_entry = db.query(Config).order_by(Config.id.desc()).first()
+#         return config_entry.data if config_entry else DEFAULT_CONFIG
 
 
 CONFIG_DATA = {}
@@ -174,20 +172,20 @@ def get_config_value(config_path: str):
 PERSISTENT_CONFIG_REGISTRY = []
 
 
-def save_config(config):
-    global CONFIG_DATA
-    global PERSISTENT_CONFIG_REGISTRY
-    try:
-        save_to_db(config)
-        CONFIG_DATA = config
-
-        # Trigger updates on all registered PersistentConfig entries
-        for config_item in PERSISTENT_CONFIG_REGISTRY:
-            config_item.update()
-    except Exception as e:
-        log.exception(e)
-        return False
-    return True
+# def save_config(config):
+#     global CONFIG_DATA
+#     global PERSISTENT_CONFIG_REGISTRY
+#     try:
+#         save_to_db(config)
+#         CONFIG_DATA = config
+#
+#         # Trigger updates on all registered PersistentConfig entries
+#         for config_item in PERSISTENT_CONFIG_REGISTRY:
+#             config_item.update()
+#     except Exception as e:
+#         log.exception(e)
+#         return False
+#     return True
 
 
 T = TypeVar("T")
@@ -238,7 +236,7 @@ class PersistentConfig(Generic[T]):
                 sub_config[key] = {}
             sub_config = sub_config[key]
         sub_config[path_parts[-1]] = self.value
-        save_to_db(CONFIG_DATA)
+        # save_to_db(CONFIG_DATA)
         self.config_value = self.value
 
 
@@ -640,10 +638,8 @@ ENABLE_OPENAI_API = PersistentConfig(
     os.environ.get("ENABLE_OPENAI_API", "True").lower() == "true",
 )
 
-
 # OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 OPENAI_API_BASE_URL = os.environ.get("OPENAI_API_BASE_URL", "")
-
 
 if OPENAI_API_BASE_URL == "":
     OPENAI_API_BASE_URL = "https://api.openai.com/v1"

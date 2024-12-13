@@ -58,10 +58,18 @@ diag_prompt = lambda isChat: f"""
         4. Reason
 """
 
+ussf_special = f"""
+            Governing Body of American Soccer
+            You specialize in understanding soccer in the united states of america as the national governing body.
+            From Players to Parents and Coaches at any level or age, you understand the rules and the ussf principles.
+            SPECIAL RULE 1: When forming the response from the knowledge base, prioritize and focus on top main level principles then sub lower level principles next. 
+            SPECIAL RULE 2: Stick to copying the knowledge base directly instead of summarizing. 
+        """
 
 """ -- YOU MUST ADD THE MODEL HERE FOR IT TO 'MOLD' TO YOUR CONFIGURATION -- """
 RAI_MODs = {
     'park-city:latest': {
+            'id': 'park-city-soccer-club-84098',
             'name': 'park-city:latest',
             'model': 'park-city:latest',
             'zip':'84098',
@@ -72,8 +80,8 @@ RAI_MODs = {
             'ai_flow': 'QA',
             'org_rep_type': 'Personal Customer Representative',
             'collection': 'pcsc2024',
-            'prompt': GENERAL_PROMPT_TEMPLATE,
-            'context_prompt': context.SOCCER_CLUB_CONTEXT_EXPANDER,
+            'prompt': GENERAL_PROMPT_TEMPLATE('Bruno', 'Park City Soccer Club', 'Soccer Club', 'You specialize in understanding youth soccer clubs, organizational structure, youth soccer parents, youth soccer coaches, youth soccer players.'),
+            'context_prompt': context.SOCCER_CLUB_CONTEXT_EXPANDER(""),
             'openai': 'gpt-4o',
             'ollama': 'llama3:latest',
             'org_type': 'Soccer Club',
@@ -93,6 +101,7 @@ RAI_MODs = {
             }
          },
     'referral-assistant:latest': {
+            'id': 'medical-referral-assistant-2025',
             'name': 'referral-assistant:latest',
             'model': 'referral-assistant:latest',
             'zip':'',
@@ -104,7 +113,7 @@ RAI_MODs = {
             'org_rep_type': 'Knowledge Base',
             'collection': 'referral-assistant',
             'prompt': diag_prompt(False),
-            'context_prompt': context.MEDICAL_CONTEXT_EXPANDER,
+            'context_prompt': context.MEDICAL_CONTEXT_EXPANDER(""),
             'openai': 'gpt-4o',
             'ollama': 'llama3:latest',
             'org_type': 'Medical',
@@ -124,6 +133,7 @@ RAI_MODs = {
             }
          },
     'referral-chat:latest': {
+        'id': 'medical-referral-chat-2025',
         'name': 'referral-chat:latest',
         'model': 'referral-chat:latest',
         'zip': '',
@@ -135,7 +145,7 @@ RAI_MODs = {
         'org_rep_type': 'Knowledge Base',
         'collection': 'referral-assistant',
         'prompt': diag_prompt(True),
-        'context_prompt': context.MEDICAL_CONTEXT_EXPANDER,
+        'context_prompt': context.MEDICAL_CONTEXT_EXPANDER(""),
         'openai': 'gpt-4o',
         'ollama': 'llama3:latest',
         'org_type': 'Medical',
@@ -186,44 +196,41 @@ RAI_MODs = {
                 'quantization_level': 'Q8_0'
             }
          },
-    'ussf:latest': {
-        'name': 'ussf:latest',
-        'model': 'ussf:latest',
+    'soccer-ussf:latest': {
+        'id': 'sports-soccer-ussf-chat-2025',
+        'name': 'soccer-ussf:latest',
+        'model': 'soccer-ussf:latest',
         'zip':'',
         'address': '',
         'title': 'United States Soccer Federation',
         'initials': 'USSF',
         'ai_name': 'Kevin',
+        'ai_flow': 'QA',
         'org_rep_type': 'Personal Knowledge Base Master',
         'collection': 'ussf-internal',
-        'prompt': GENERAL_PROMPT_TEMPLATE,
-        'context_prompt': context.SOCCER_CLUB_CONTEXT_EXPANDER,
+        'prompt': GENERAL_PROMPT_TEMPLATE('Kevin', 'United States Soccer Federation', 'Personal Knowledge Base Master', ussf_special),
+        'context_prompt': context.SOCCER_CLUB_CONTEXT_EXPANDER(""),
         'openai': 'gpt-4o',
         'ollama': 'llama3:latest',
         'org_type': 'Governing Body of Soccer',
-        'org_specialty': f"""
-            Governing Body of American Soccer
-            You specialize in understanding soccer in the united states of america as the national governing body.
-            From Players to Parents and Coaches at any level or age, you understand the rules and the ussf principles.
-            SPECIAL RULE 1: When forming the response from the knowledge base, prioritize and focus on top main level principles then sub lower level principles next. 
-            SPECIAL RULE 2: Stick to copying the knowledge base directly instead of summarizing. 
-        """,
+        'org_specialty': ussf_special,
         'modified_at': '2024-07-02T06:32:47.913084094Z',
         'size': 177669289,
         'digest': 'c4ff0145029b2cdd6743434343sdfsfefb9d145527581',
         'details': {'parent_model': '', 'format': 'gguf', 'family': 'gpt2', 'families': ['gpt2'], 'parameter_size': '163.04M', 'quantization_level': 'Q8_0'}},
-    'ChromaDB:search': {
-        'name': 'ChromaDB:search',
-        'model': 'ChromaDB:search',
-        'zip': '84098',
+    'gpt-4o-mini:latest': {
+        'name': 'gpt4o:latest',
+        'model': 'gpt4o:latest',
+        'zip': '0000',
         'address': '',
-        'title': 'Park City Soccer Club',
-        'initials': 'PCSC',
-        'ai_name': 'Bruno',
-        'org_rep_type': 'Personal Customer Representative',
-        'collection': 'parkcitysc-new',
-        'prompt': GENERAL_PROMPT_TEMPLATE,
-        'context_prompt': context.SOCCER_CLUB_CONTEXT_EXPANDER,
+        'title': 'ChatGPT',
+        'initials': 'gpt',
+        'ai_name': 'ChatGPT',
+        'ai_flow': 'AI',
+        'org_rep_type': 'AI',
+        'collection': 'none',
+        'prompt': "none",
+        'context_prompt': "none",
         'openai': 'gpt-4o-mini',
         'ollama': 'llama3:latest',
         'org_type': 'Soccer Club',
@@ -232,6 +239,14 @@ RAI_MODs = {
         'digest': '365c0bd3c000a25d28dsearch1c6add414de7275464c4e4d1c3b5fcb5d8ad1',
         'details': {'parent_model': '', 'format': 'gguf', 'family': 'llama', 'families': ['llama'], 'parameter_size': '8.0B', 'quantization_level': 'Q4_0'}},
 }
+
+
+# from rai.models.connectors import PostgresTables
+#
+# ai_models = PostgresTables().AI_Models()
+# # ai_models.insert_ai_model_from_json(RAI_MODs['referral-chat:latest'])
+# # ai_models.insert_ai_model_from_json(RAI_MODs['referral-assistant:latest'])
+# ai_models.insert_ai_model_from_json(RAI_MODs['soccer-ussf:latest'])
 
 def getRaiModels() -> dict:
     mods = []

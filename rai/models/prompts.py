@@ -1,24 +1,11 @@
 import time
 from typing import Optional
 
-from rai.internal.db import Base, get_db
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import BigInteger, Column, String, Text
 
 ####################
 # Prompts DB Schema
 ####################
-
-
-class Prompt(Base):
-    __tablename__ = "prompt"
-
-    command = Column(String, primary_key=True)
-    user_id = Column(String)
-    title = Column(Text)
-    content = Column(Text)
-    timestamp = Column(BigInteger)
-
 
 class PromptModel(BaseModel):
     command: str
@@ -26,85 +13,132 @@ class PromptModel(BaseModel):
     title: str
     content: str
     timestamp: int  # timestamp in epoch
-
     model_config = ConfigDict(from_attributes=True)
-
-
-####################
-# Forms
-####################
-
 
 class PromptForm(BaseModel):
     command: str
     title: str
     content: str
 
+# Column order used when retrieving rows from the database
+PROMPT_COLUMNS = ["command", "user_id", "title", "content", "timestamp"]
+
+def row_to_promptmodel(row: tuple) -> Optional[PromptModel]:
+    if not row:
+        return None
+    data = dict(zip(PROMPT_COLUMNS, row))
+    return PromptModel(**data)
 
 class PromptsTable:
+    def __init__(self, client):
+        self.client = client
+
+    def create_prompt_table(self) -> None:
+        """
+        Create the 'prompt' table if it does not already exist.
+        """
+        create_table_query = """
+        CREATE TABLE IF NOT EXISTS "prompt" (
+            command TEXT PRIMARY KEY,
+            user_id TEXT,
+            title TEXT,
+            content TEXT,
+            timestamp BIGINT
+        )
+        """
+        try:
+            self.client.cursor.execute(create_table_query)
+            self.client.connection.commit()
+            print("Prompt table created or already exists.")
+        except Exception as e:
+            print(f"Error creating prompt table: {e}")
+            self.client.connection.rollback()
+
     def insert_new_prompt(
         self, user_id: str, form_data: PromptForm
     ) -> Optional[PromptModel]:
         prompt = PromptModel(
-            **{
-                "user_id": user_id,
-                "command": form_data.command,
-                "title": form_data.title,
-                "content": form_data.content,
-                "timestamp": int(time.time()),
-            }
+            command=form_data.command,
+            user_id=user_id,
+            title=form_data.title,
+            content=form_data.content,
+            timestamp=int(time.time())
         )
 
+        record = prompt.model_dump()
+        columns = ", ".join(record.keys())
+        placeholders = ", ".join([f"%({k})s" for k in record.keys()])
+        query = f"INSERT INTO \"prompt\" ({columns}) VALUES ({placeholders}) RETURNING *"
+
         try:
-            with get_db() as db:
-                result = Prompt(**prompt.dict())
-                db.add(result)
-                db.commit()
-                db.refresh(result)
-                if result:
-                    return PromptModel.model_validate(result)
-                else:
-                    return None
-        except Exception:
+            self.client.cursor.execute(query, record)
+            row = self.client.cursor.fetchone()
+            self.client.connection.commit()
+            return row_to_promptmodel(row)
+        except Exception as e:
+            print(f"Error inserting new prompt: {e}")
+            self.client.connection.rollback()
             return None
 
     def get_prompt_by_command(self, command: str) -> Optional[PromptModel]:
+        query = 'SELECT * FROM "prompt" WHERE command = %s'
         try:
-            with get_db() as db:
-                prompt = db.query(Prompt).filter_by(command=command).first()
-                return PromptModel.model_validate(prompt)
-        except Exception:
+            self.client.cursor.execute(query, (command,))
+            row = self.client.cursor.fetchone()
+            return row_to_promptmodel(row)
+        except Exception as e:
+            print(f"Error getting prompt by command: {e}")
             return None
 
     def get_prompts(self) -> list[PromptModel]:
-        with get_db() as db:
-            return [
-                PromptModel.model_validate(prompt) for prompt in db.query(Prompt).all()
-            ]
+        query = 'SELECT * FROM "prompt"'
+        try:
+            self.client.cursor.execute(query)
+            rows = self.client.cursor.fetchall()
+            return [pm for pm in (row_to_promptmodel(row) for row in rows) if pm]
+        except Exception as e:
+            print(f"Error getting prompts: {e}")
+            return []
 
     def update_prompt_by_command(
         self, command: str, form_data: PromptForm
     ) -> Optional[PromptModel]:
+        now = int(time.time())
+        query = """
+            UPDATE "prompt" 
+            SET title = %s, content = %s, timestamp = %s
+            WHERE command = %s
+            RETURNING *
+        """
         try:
-            with get_db() as db:
-                prompt = db.query(Prompt).filter_by(command=command).first()
-                prompt.title = form_data.title
-                prompt.content = form_data.content
-                prompt.timestamp = int(time.time())
-                db.commit()
-                return PromptModel.model_validate(prompt)
-        except Exception:
+            self.client.cursor.execute(query, (form_data.title, form_data.content, now, command))
+            row = self.client.cursor.fetchone()
+            self.client.connection.commit()
+            return row_to_promptmodel(row)
+        except Exception as e:
+            print(f"Error updating prompt by command: {e}")
+            self.client.connection.rollback()
             return None
 
     def delete_prompt_by_command(self, command: str) -> bool:
+        query = 'DELETE FROM "prompt" WHERE command = %s'
         try:
-            with get_db() as db:
-                db.query(Prompt).filter_by(command=command).delete()
-                db.commit()
-
-                return True
-        except Exception:
+            self.client.cursor.execute(query, (command,))
+            self.client.connection.commit()
+            return self.client.cursor.rowcount > 0
+        except Exception as e:
+            print(f"Error deleting prompt by command: {e}")
+            self.client.connection.rollback()
             return False
 
 
-Prompts = PromptsTable()
+# Example usage:
+# from your_postgres_client_setup import PostgresClient
+# client = PostgresClient()
+# prompts = PromptsTable(client)
+# prompts.create_prompt_table()
+#
+# form_data = PromptForm(command="test_cmd", title="Test Title", content="Test Content")
+# user_id = "user-xyz-123"
+# new_prompt = prompts.insert_new_prompt(user_id, form_data)
+# print(new_prompt)

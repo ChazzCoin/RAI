@@ -1,6 +1,9 @@
 import time
+import uuid
 from typing import Optional
 from pydantic import BaseModel, ConfigDict
+from rai.models.chats import ChatArchiveTable
+
 
 # Assuming UserModel and other classes defined as before
 class UserSettings(BaseModel):
@@ -9,7 +12,6 @@ class UserSettings(BaseModel):
     pass
 
 class UserModel(BaseModel):
-    id: str
     name: str
     email: str
     role: str = "pending"
@@ -51,8 +53,11 @@ def row_to_usermodel(row: tuple) -> Optional[UserModel]:
     return UserModel(**data)
 
 class UsersTable:
+    Chats: ChatArchiveTable
+
     def __init__(self, client):
         self.client = client
+        self.Chats = ChatArchiveTable(client)
 
     def create_user_table(self):
         """
@@ -83,31 +88,58 @@ class UsersTable:
             self.client.connection.rollback()
 
     def insert_new_user(
-        self,
-        id: str,
-        name: str,
-        email: str,
-        profile_image_url: str = "/user.png",
-        role: str = "pending",
-        oauth_sub: Optional[str] = None,
+            self,
+            name: str,
+            email: str,
+            profile_image_url: str = "/user.png",
+            role: str = "pending",
+            oauth_sub: Optional[str] = None,
     ) -> Optional[UserModel]:
-        user = UserModel(
-            id=id,
-            name=name,
-            email=email,
-            role=role,
-            profile_image_url=profile_image_url,
-            last_active_at=int(time.time()),
-            created_at=int(time.time()),
-            updated_at=int(time.time()),
-            oauth_sub=oauth_sub,
-        )
+        now = int(time.time())
+        user_id = str(uuid.uuid4())
 
-        record = user.model_dump()
+        # Prepare the values
+        oauth_value = "NULL" if oauth_sub is None else f"'{oauth_sub}'"
+
+        # Build the SQL query with all fields from the schema
+        insert_query = f"""
+            INSERT INTO "user" (
+                id, 
+                name, 
+                email, 
+                role, 
+                profile_image_url, 
+                last_active_at, 
+                updated_at, 
+                created_at, 
+                api_key, 
+                settings, 
+                info, 
+                oauth_sub
+            )
+            VALUES (
+                '{user_id}',
+                '{name}',
+                '{email}',
+                '{role}',
+                '{profile_image_url}',
+                {now},
+                {now},
+                {now},
+                NULL,
+                NULL,
+                NULL,
+                {oauth_value}
+            );
+        """
+
         try:
-            self.client.add_record("user", record)
+            self.client.cursor.execute(insert_query)
             self.client.connection.commit()
-            return user
+
+            # If you need a UserModel, you can construct it or fetch it back from DB.
+            # For now, just return None or the newly created user object if implemented.
+            return None
         except Exception as e:
             print(f"Error inserting user: {e}")
             self.client.connection.rollback()
@@ -248,10 +280,9 @@ class UsersTable:
             return None
 
     def delete_user_by_id(self, id: str) -> bool:
-        from rai.models.chats import Chats  # Assuming this is available
         try:
             # First, delete associated chats
-            result = Chats.delete_chats_by_user_id(id)
+            result = self.Chats.delete_chats_by_user_id(id)
             if result:
                 query = "DELETE FROM \"user\" WHERE id = %s"
                 self.client.cursor.execute(query, (id,))

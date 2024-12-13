@@ -1,6 +1,9 @@
 import psycopg2
 import os
 
+from F.LOG import Log
+Log = Log("Postgres Database Client")
+
 post_name = os.environ.get("POSTGRES_DB_NAME", "rai")
 post_user = os.environ.get("POSTGRES_DB_USER", "rai")
 post_pass = os.environ.get("POSTGRES_DB_PASSWORD", "rai2024") # "local" -OR- os.environ.get("DEFAULT_CHROMA_SERVER_HOST", "local")
@@ -23,8 +26,9 @@ class PostgresClient:
             )
             self.cursor = self.connection.cursor()
             print(self.connection.info.status)
+            Log.s("Successfully Connected to Remote Postgres Client.")
         except psycopg2.Error as e:
-            print(f"Error connecting to the database: {e}")
+            Log.e(f"Error Connecting to Postgres Client: {e}")
             raise
 
     def fetch_schema(self):

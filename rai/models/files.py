@@ -2,7 +2,6 @@ import logging
 import time
 from typing import Optional
 
-import psycopg
 from pydantic import BaseModel, ConfigDict
 
 log = logging.getLogger(__name__)
