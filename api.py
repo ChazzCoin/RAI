@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Optional, Union, BinaryIO
 import aiohttp
 from aiohttp.web_response import StreamResponse
+from openai.types.beta.threads import MessageContent
 from quart import Quart, request, jsonify, Response, send_file
 from quart_cors import cors
 import requests
@@ -25,6 +26,8 @@ from rai.data.extraction.intake.PDF_v1 import FPDF
 import base64
 import imghdr
 
+from rai.models.models import AIModelData
+
 Log = Log("RAI API Bruno Canary")
 app = Quart(__name__)
 app = cors(app, allow_origin="*")
@@ -39,6 +42,9 @@ RAI_CACHE = RaiCache()
 RAI_MODELS = PostgresTables.AI_Models()
 CHAT_ARCHIVE = PostgresTables.ChatArchive()
 
+STORED_RAI_MODELS: [AIModelData] = RAI_MODELS.get_all_ai_models()
+print("Stored RAI Models", STORED_RAI_MODELS)
+
 IMAGE_FOLDER = f"{os.path.dirname(__file__)}/files/images"
 
 RAI_VERSION = "0.5.0:hypercorn"
@@ -50,59 +56,9 @@ RAI_FOOTER_MESSAGE = lambda model, text: ""
 
 CACHE_KEY_TWO = lambda one, two: f"{one}:{two}"
 CACHE_KEY_THREE = lambda one, two, three: f"{one}:{two}:{three}"
-PROMPT_CACHE = {
-
-}
-
-from F.CLASS import Thread
-
 
 image_path = '/Users/chazzromeo/Desktop/chat_image.jpg'
 
-
-def file_to_base64(file: Union[str, BinaryIO] = image_path) -> bytes:
-    """
-    Convert a .jpg/.jpeg, .png, or .pdf file to a Base64-encoded string.
-
-    :param file: Path to the file as a string or a file-like object opened in binary mode.
-    :return: Base64 encoded string of the file content.
-    :raises ValueError: If the file extension is not supported.
-    :raises FileNotFoundError: If the file path does not exist.
-    :raises TypeError: If the file parameter is neither a string nor a binary file-like object.
-    """
-    allowed_extensions = {'.jpg', '.jpeg', '.png', '.pdf'}
-
-    if isinstance(file, str):
-        if not os.path.isfile(file):
-            raise FileNotFoundError(f"The file {file} does not exist.")
-
-        _, ext = os.path.splitext(file)
-        ext = ext.lower()
-        if ext not in allowed_extensions:
-            raise ValueError(f"Unsupported file extension: {ext}. Allowed extensions: {allowed_extensions}")
-
-        with open(file, 'rb') as f:
-            encoded_bytes = base64.b64encode(f.read())
-        return str(encoded_bytes)
-    elif hasattr(file, 'read'):
-        # Assuming it's a file-like object
-        # Attempt to retrieve the filename from the file-like object if possible
-        filename = getattr(file, 'name', None)
-        if filename:
-            _, ext = os.path.splitext(filename)
-            ext = ext.lower()
-            if ext not in allowed_extensions:
-                raise ValueError(f"Unsupported file extension: {ext}. Allowed extensions: {allowed_extensions}")
-        else:
-            raise ValueError("Filename is required for file-like objects to check the extension.")
-
-        encoded_bytes = base64.b64encode(file.read())
-        return str(encoded_bytes)
-    else:
-        raise TypeError("The 'file' parameter must be a file path string or a binary file-like object.")
-
-    # encoded_str = encoded_bytes.decode('utf-8')
-    # return encoded_str
 
 def decode_and_save_image(encoded_image):
     image_data = base64.b64decode(encoded_image)
@@ -110,24 +66,11 @@ def decode_and_save_image(encoded_image):
     with open('/Users/chazzromeo/Desktop/chat_image.jpg', 'wb') as f:
         f.write(image_data)
     print('Image successfully saved as output_image.jpg')
-def decode_base64_to_file(base64_string, output_file_name=None):
-    """
-    Decodes a base64 string and saves it as a JPEG, PNG, or PDF file.
-
-    :param base64_string: The base64-encoded string.
-    :param output_file_name: Optional; name of the output file without extension.
-    :return: The path of the saved file.
-    """
-    # Decode the base64 string
+def decode_base64_to_file(base64_string):
     file_data = base64.b64decode(base64_string)
-
-    # Determine file type
     if file_data.startswith(b'%PDF'):
-        file_extension = 'pdf'
-        # If it's a PDF, extract the text
         return FPDF.extract_text_from_pdf_bytes(file_data)
     else:
-        # Check if it's an image (jpeg or png)
         file_extension = imghdr.what(None, file_data)
         if file_extension not in ['jpeg', 'png']:
             raise ValueError("Unsupported file type: the base64 string does not represent a JPEG, PNG, or PDF file.")
@@ -171,68 +114,60 @@ async def chat_completion(idx:Optional[int]=None):
         data = await request.get_json(force=True, silent=False, cache=True)
     jbody: dict = json.loads(data.decode('utf-8'))
 
-    """     GET CHAT DETAILS      """
-    # chat_id requires new Rai Chat UI...
-    # _user = UserRequest(jbody)
-
+    """     GET CHAT SEQUENCE DETAILS      """
     MessageContext = ChatSequence(jbody)
     MessageContext.ai_response = "Something Seems to have gone wrong."
-    immediate_response_override = False
 
     """     GET MAPPED MODEL      """
     current_rai_model: str = DICT.get('model', jbody, 'gpt-4o-mini')
-    modelIn_data: dict = DICT.get(current_rai_model, RAI_MODs)
+    stored_model: AIModelData = RAI_MODELS.get_ai_model_by_name(current_rai_model)
+    print(stored_model)
 
+    modelIn_data: dict = DICT.get(current_rai_model, RAI_MODs)
     mod_title: str = DICT.get('title', modelIn_data)
     mod_ai_name: str = DICT.get('ai_name', modelIn_data)
-    mod_initials: str = DICT.get('initials', modelIn_data, "none")
+    # mod_initials: str = DICT.get('initials', modelIn_data, "none")
     mod_flow: str = DICT.get('ai_flow', modelIn_data, "none")
     mod_org_rep_type: str = DICT.get('org_rep_type', modelIn_data)
     mod_collection_prefix: str = DICT.get('collection', modelIn_data, 'none')
-    mod_zip_code = DICT.get('zip', modelIn_data, '00000')
+    # mod_zip_code = DICT.get('zip', modelIn_data, '00000')
     mod_specialty: str = DICT.get('org_specialty', modelIn_data)
     mod_system_prompt_lambda = DICT.get('prompt', modelIn_data) #(mod_ai_name, mod_title, mod_org_rep_type, mod_specialty)
-    mod_context_prompt_lambda = DICT.get('context_prompt', modelIn_data)
+    # mod_context_prompt_lambda = DICT.get('context_prompt', modelIn_data)
     mod_openai_model: str = DICT.get('openai', modelIn_data, 'gpt-4o-mini')
     mod_ollama_model: str = DICT.get('ollama', modelIn_data, 'llama3:latest')
 
-    we_have_file_data = False
-    try:
-        # TODO: file_data needs to be a list of file_data for each image uploaded...
-        file_data = decode_base64_to_file(LIST.get(0, MessageContext.last_user_images, "Needs Clinical Review!"))
-        if file_data: we_have_file_data = True
-    except Exception as e:
-        print(e)
-        file_data = "Needs Clinical Review!"
-
     """ System Prompt Overrider """
+    PROMPT_CACHE = RAI_CACHE.get_key(current_rai_model)
     if str(MessageContext.get_last_user_message).lower().startswith('new prompt'):
         current_message = str(MessageContext.get_last_user_message).replace('new prompt', '')
         MessageContext.ai_response = "The New Prompt has been added successfully. Ready to proceed."
-        if we_have_file_data:
+        if MessageContext.has_file:
             # The File is the new prompt (because the message is empty)
             if is_empty_message(current_message):
-                fsp = file_data
-                immediate_response_override = True
+                fsp = MessageContext.file_data
+                MessageContext.immediate_response_override = True
             else:
                 # The message is the prompt, the file is the referral.
                 fsp = current_message
-                MessageContext.modify_last_user_message(file_data)
+                MessageContext.modify_last_user_message(MessageContext.file_data)
         else:
             # No file. Message is the prompt.
             fsp = current_message
-            immediate_response_override = True
+            MessageContext.immediate_response_override = True
         PROMPT_CACHE[current_rai_model] = fsp
     if str(MessageContext.get_last_user_message).lower().startswith('reset prompt'):
         PROMPT_CACHE[current_rai_model] = mod_system_prompt_lambda
         MessageContext.ai_response = "The Prompt has been reset successfully. Ready to proceed."
-        immediate_response_override = True
+        MessageContext.immediate_response_override = True
 
+    # Set the System Prompt
     final_system_prompt = DICT.get(current_rai_model, PROMPT_CACHE, mod_system_prompt_lambda)
     if type(final_system_prompt) not in [str]:
         final_system_prompt = final_system_prompt(mod_ai_name, mod_title, mod_org_rep_type, mod_specialty)
+    # Finish Up
     MessageContext.set_system_prompt(final_system_prompt)
-
+    RAI_CACHE.set_key(current_rai_model, PROMPT_CACHE)
     """
     1. Message pass through
         - Append AI Response
@@ -256,7 +191,7 @@ async def chat_completion(idx:Optional[int]=None):
     
     """
     if mod_flow == "MRA":
-        MessageContext.make_single(user_content=f"REFERRAL:\n {file_data}", system_prompt=final_system_prompt)
+        MessageContext.make_single(user_content=f"REFERRAL:\n {MessageContext.file_data}", system_prompt=final_system_prompt)
     elif mod_flow == "MRC":
         MessageContext.make_single(system_prompt=final_system_prompt)
     elif mod_flow == "QA":
@@ -269,11 +204,10 @@ async def chat_completion(idx:Optional[int]=None):
             MessageContext.modify_last_user_message(user_message)
         else:
             MessageContext.ai_response = "Sorry! No Results found, please try and provide more details and I will try again!"
-            immediate_response_override = True
+            MessageContext.immediate_response_override = True
 
-    archived_ai_model = "none"
-    if not immediate_response_override:
-        """     GENERATE AI CHAT RESPONSE   """
+    """ GENERATE AI CHAT RESPONSE """
+    if not MessageContext.bypass_ai:
         if isOpenAI(current_rai_model):
             MessageContext.ai_response = await openai_chat_generation(MessageContext.get_messages(), modelIn=mod_openai_model, debug=True)
         else:
@@ -410,9 +344,13 @@ class ChatSequence:
     messages = []
     is_single = False
     is_first = False
+    has_file = False
+    file_data = None
+    files = []
     needs_system_prompt = False
     _user: UserRequest = UserRequest()
     ai_response = ""
+    immediate_response_override = False
 
     def __init__(self, body: {}, system_prompt=None):
         self.body = body
@@ -421,6 +359,7 @@ class ChatSequence:
         self.system_prompt = system_prompt if system_prompt else "You are a helpful assistant"
         self.last_user_message = self.get_last_user_message
         self._user = UserRequest(body)
+        self.parse_images()
         print("Messages Length", len(self.messages))
         if self.messages and len(self.messages) >= 1:
             self.is_single = True
@@ -450,6 +389,20 @@ class ChatSequence:
     def get_messages(self, is_single_message:bool = False, user_content:str=None, system_prompt:str=None):
         if is_single_message: self.make_single(f"{self.get_last_user_message}\n{user_content}", system_prompt)
         return self.messages
+
+    def parse_images(self):
+        try:
+            self.file_data = decode_base64_to_file(LIST.get(0, self.last_user_images, "Needs Clinical Review!"))
+            if self.file_data: self.has_file = True
+            for img in self.last_user_images:
+                temp = decode_base64_to_file(img)
+                self.files.append(temp)
+        except Exception as e:
+            print(e)
+            self.file_data = "Needs Clinical Review!"
+
+    @property
+    def bypass_ai(self): return self.immediate_response_override
 
     @staticmethod
     def build_single_message(role='system', content=""):

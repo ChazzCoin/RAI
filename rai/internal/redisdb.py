@@ -55,7 +55,7 @@ class RedisClient:
         :param ttl: Time to Live in seconds (optional).
         """
         try:
-            serialized_value = json.dumps(value)
+            serialized_value = json.dumps(value) if type(value) in [dict] else str(value)
             if ttl:
                 self.redis_client.setex(key, ttl, serialized_value)
             else:
@@ -75,7 +75,11 @@ class RedisClient:
         try:
             value = self.redis_client.get(key)
             if value is not None:
-                return json.loads(value)
+                try:
+                    return json.loads(value)
+                except Exception as e:
+                    Log.e(e)
+                    return str(value)
             else:
                 print(f"Key '{key}' does not exist.")
                 return None

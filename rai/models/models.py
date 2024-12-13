@@ -204,6 +204,16 @@ class ModelsTable:
             print(f"Error getting all ai_models: {e}")
             return []
 
+    def get_ai_model_by_name(self, model_name:str) -> List[AIModelData]:
+        query = f"SELECT * FROM ai_model WHERE model = '{model_name}' OR name = '{model_name}';"
+        try:
+            self.client.cursor.execute(query)
+            row = self.client.cursor.fetchone()
+            return row_to_aimodel(row)
+        except Exception as e:
+            print(f"Error getting all ai_models: {e}")
+            return []
+
     def update_ai_model(self, id: str, data: AIModelData) -> Optional[AIModelData]:
         # Convert details to JSON
         details_json = json.dumps(data.details.model_dump())
