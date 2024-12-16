@@ -1,7 +1,7 @@
 import numpy as np
 import requests, json, logging
 from requests.exceptions import HTTPError, RequestException
-from rai.assistant.ai import RaiAi as engines
+from rai.assistant.connectors import RaiAi as engines
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

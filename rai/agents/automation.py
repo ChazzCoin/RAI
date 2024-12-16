@@ -2,7 +2,7 @@ import re
 from abc import abstractproperty, abstractmethod
 
 import requests
-from rai.assistant.ai import RaiAi
+from rai.assistant.connectors import RaiAi
 from langchain import PromptTemplate
 from pydantic import BaseModel, Field
 from typing import Any, Dict, List, Tuple

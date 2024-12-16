@@ -12,10 +12,8 @@ from F import DICT, LIST
 from F.LOG import Log
 from F.DATE import get_timestamp_str as get_current_timestamp
 from rai.RaiModels import RAI_MODs, getRaiModels
-from rai.assistant.context import ContextHelper
 from rai.internal.connectors import REDIS_DB_CLIENT, PostgresTables, VECTOR_DB_CLIENT
 from rai import env
-from nlp.Categorizer import Topics
 from rai.data.extraction.parsers.PDF_v1 import FPDF
 import base64
 import imghdr
@@ -26,7 +24,6 @@ Log = Log("RAI API Bruno Canary")
 app = Quart(__name__)
 app = cors(app, allow_origin="*")
 
-contexter = ContextHelper()
 looper = asyncio.get_event_loop()
 executor = ThreadPoolExecutor(max_workers=1)
 
@@ -221,25 +218,6 @@ def is_empty_message(input_str: str) -> bool:
     if input_str is None or input_str.strip() == "":
         return True
     return False
-"""
-CONTEXT ANALYZER
-"""
-def analyze_context(request_in: str, default:str):
-    r = default
-
-    def analyzer(user_input:str):
-        results = Topics.RUN_MAIN_CATEGORIZER(user_input)
-        return results
-
-    try:
-        user_context = analyzer(request_in)
-        if user_context:
-            r = LIST.get(0, user_context, default)
-        print(r)
-    except Exception as e:
-        print(e)
-
-    return r
 """ 
 GENERATE AI CHAT RESPONSE 
 """

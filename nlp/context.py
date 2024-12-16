@@ -1,5 +1,31 @@
 
 
+
+"""
+CONTEXT ANALYZER
+"""
+from F import LIST
+
+from nlp.Categorizer import Topics
+
+
+def analyze_context(request_in: str, default:str):
+    r = default
+
+    def analyzer(user_input:str):
+        results = Topics.RUN_MAIN_CATEGORIZER(user_input)
+        return results
+
+    try:
+        user_context = analyzer(request_in)
+        if user_context:
+            r = LIST.get(0, user_context, default)
+        print(r)
+    except Exception as e:
+        print(e)
+
+    return r
+
 class ContextHelper(object):
     financial = [
         'fee', 'fees', 'cost', 'costs', 'payment', 'payments', 'money', 'dues',

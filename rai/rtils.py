@@ -2,14 +2,10 @@ import os
 import re
 import subprocess
 import sys
-from importlib import util
 import types
 import tempfile
-
 from rai.models.functions import Functions
 from rai.models.tools import Tools
-from rai.config import FUNCTIONS_DIR, TOOLS_DIR
-
 
 def extract_frontmatter(content):
     """

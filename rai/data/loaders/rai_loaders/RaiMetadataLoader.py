@@ -10,7 +10,7 @@ from F.LOG import Log
 from functools import singledispatchmethod
 
 from rai.agents.PromptMaster import PromptRegistry
-from rai.assistant.ai import RaiAi
+from rai.assistant.connectors import RaiAi
 from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiBaseLoader
 
 Log = Log("RaiMetadataLoader")

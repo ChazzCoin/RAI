@@ -11,7 +11,7 @@ from openai.types.chat import ChatCompletion
 from F import DICT
 
 from rai.app import state
-from rai.assistant.ai import RaiAi as engine, AiModels
+from rai.assistant.connectors import RaiAi as engine, AiModels
 
 default_model = os.getenv("DEFAULT_OPENAI_MODEL")
 embedding_model = os.getenv("DEFAULT_OPENAI_EMBEDDING_MODEL")

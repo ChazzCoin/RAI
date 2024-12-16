@@ -5,8 +5,7 @@ from huggingface_hub import snapshot_download
 from langchain.retrievers import ContextualCompressionRetriever, EnsembleRetriever
 from langchain_community.retrievers import BM25Retriever
 
-from rai.RAG.Q import query_collection, merge_and_sort_query_results, query_doc
-from rai.RAG.connector import VECTOR_DB_CLIENT
+from rai.internal.connectors import VECTOR_DB_CLIENT
 from rai.utils.misc import get_last_user_message
 from rai.env import SRC_LOG_LEVELS
 from typing import Any
@@ -18,7 +17,7 @@ from typing import Optional, Sequence
 
 from langchain_core.callbacks import Callbacks
 from langchain_core.documents import BaseDocumentCompressor, Document
-from rai.ollama.main import (
+from rai.assistant.ollama_deprecated import (
     GenerateEmbeddingsForm,
     generate_ollama_embeddings,
 )
@@ -57,9 +56,6 @@ class VectorSearchRetriever(BaseRetriever):
                 )
             )
         return results
-
-
-
 
 
 def query_doc_with_hybrid_search(
@@ -126,7 +122,7 @@ def query_collection_by_auth_rank(collection_names: list[str], query: str, embed
         if collection_name:
             Log.i(f"Querying [ {collection_name} ]")
             try:
-                result = query_doc(
+                result = VECTOR_DB_CLIENT.query_doc(
                     collection_name=collection_name,
                     query=query,
                     k=k,
@@ -146,9 +142,7 @@ def query_collection_by_auth_rank(collection_names: list[str], query: str, embed
         rank_count += 1
 
 
-    return merge_and_sort_query_results(final_results, k=k)
-
-
+    return VECTOR_DB_CLIENT.merge_and_sort_query_results(final_results, k=k)
 
 # def query_single_collection(collection_name: str, query: str, embedding_function, k: int) -> dict[str, list[list[Any]]]:
 #     results = []
@@ -202,13 +196,13 @@ def query_collection_with_hybrid_search(
         print(
             "Hybrid search failed for all collections. Using Non hybrid search as fallback."
         )
-        results = query_collection(
+        results = VECTOR_DB_CLIENT.query_collection(
             collection_names=collection_names,
             query=query,
             embedding_function=embedding_function,
             k=3
         )
-    return merge_and_sort_query_results(results, k=k, reverse=True)
+    return VECTOR_DB_CLIENT.merge_and_sort_query_results(results, k=k, reverse=True)
 
 
 def rag_template(template: str, context: str, query: str):
@@ -275,7 +269,6 @@ def get_embedding_function(
 
         return lambda query: generate_multiple(query, func)
 
-
 def get_rag_context(
     files,
     messages,
@@ -327,7 +320,7 @@ def get_rag_context(
                         )
 
                 if (not hybrid_search) or (context is None):
-                    context = query_collection(
+                    context = VECTOR_DB_CLIENT.query_collection(
                         collection_names=collection_names,
                         query=query,
                         embedding_function=embedding_function,
@@ -366,7 +359,6 @@ def get_rag_context(
 
     return contexts, citations
 
-
 def get_model_path(model: str, update_model: bool = False):
     # Construct huggingface_hub kwargs with local_files_only to return the snapshot path
     cache_dir = os.getenv("SENTENCE_TRANSFORMERS_HOME")
@@ -404,7 +396,6 @@ def get_model_path(model: str, update_model: bool = False):
         log.exception(f"Cannot determine model snapshot path: {e}")
         return model
 
-
 def generate_openai_embeddings(
     model: str,
     text: Union[str, list[str]],
@@ -417,7 +408,6 @@ def generate_openai_embeddings(
         embeddings = generate_openai_batch_embeddings(model, [text], key, url)
 
     return embeddings[0] if isinstance(text, str) else embeddings
-
 
 def generate_openai_batch_embeddings(
     model: str, texts: list[str], key: str, url: str = "https://api.openai.com/v1"
@@ -440,9 +430,6 @@ def generate_openai_batch_embeddings(
     except Exception as e:
         print(e)
         return None
-
-
-
 
 class RerankCompressor(BaseDocumentCompressor):
     embedding_function: Any

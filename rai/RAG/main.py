@@ -9,16 +9,12 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Iterator, Optional, Sequence, Union, Tuple
-
 import requests
 import validators
 from chromadb import Documents
-
 from fastapi import Depends, File, Form, HTTPException, UploadFile, status
-from pydantic import BaseModel
-
-from rai.RAG.Q import QueryDocForm, query_doc, QueryCollectionsForm, query_collection
-from rai.RAG.models import ConfigUpdateForm, UrlForm, TextRAGForm, ProcessDocForm
+from rai.RAG.Q import QueryCollectionsForm
+from rai.RAG.models import ConfigUpdateForm, UrlForm, TextRAGForm, ProcessDocForm, QueryDocForm
 from rai.RAG.utils import (
     get_embedding_function,
 )
@@ -27,6 +23,12 @@ from rai.internal.postgres import POSTGRES_CLIENT
 from rai.models.files import FilesTable
 
 Files = FilesTable(POSTGRES_CLIENT)
+
+"""
+
+        THIS IS A DEPRECATED FILE FOR 'ARCHIVED' FUNCTIONS
+
+"""
 
 from rai.config import (
     BRAVE_SEARCH_API_KEY,
@@ -91,7 +93,7 @@ from rai.utils.misc import (
     sanitize_filename,
 )
 from rai.utils.utils import get_admin_user, get_verified_user
-from rai.RAG.connector import VECTOR_DB_CLIENT
+from rai.internal.connectors import VECTOR_DB_CLIENT
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import (
@@ -349,7 +351,7 @@ async def get_query_settings(user=Depends(get_admin_user)):
 
 def query_doc_handler(form_data: QueryDocForm):
     try:
-        return query_doc(
+        return VECTOR_DB_CLIENT.query_doc(
             collection_name=form_data.collection_name,
             query=form_data.query,
             embedding_function=app.state.EMBEDDING_FUNCTION,
@@ -363,7 +365,7 @@ def query_doc_handler(form_data: QueryDocForm):
         )
 def query_chroma(form_data: QueryCollectionsForm, hybrid=True):
     try:
-        return query_collection(
+        return VECTOR_DB_CLIENT.query_collection(
             collection_names=form_data.collection_names,
             query=form_data.query,
             embedding_function=app.state.EMBEDDING_FUNCTION,

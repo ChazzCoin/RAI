@@ -6,9 +6,12 @@ from pathlib import Path
 from typing import Generic, Optional, TypeVar
 from urllib.parse import urlparse
 from sqlalchemy.ext.declarative import declarative_base
-Base = declarative_base()
 import chromadb
 import requests
+from pydantic import BaseModel
+from sqlalchemy import JSON, Column, DateTime, Integer, func
+
+
 from rai.env import (
     OPEN_WEBUI_DIR,
     DATA_DIR,
@@ -19,8 +22,9 @@ from rai.env import (
     WEBUI_NAME,
     log,
 )
-from pydantic import BaseModel
-from sqlalchemy import JSON, Column, DateTime, Integer, func
+
+
+Base = declarative_base()
 
 class EndpointFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
@@ -29,32 +33,6 @@ class EndpointFilter(logging.Filter):
 
 # Filter out /endpoint
 logging.getLogger("uvicorn.access").addFilter(EndpointFilter())
-
-####################################
-# Config helpers
-####################################
-
-
-# Function to run the alembic migrations
-# def run_migrations():
-#     print("Running migrations")
-#     try:
-#         from alembic import command
-#         from alembic.config import Config
-#
-#         alembic_cfg = Config(OPEN_WEBUI_DIR / "alembic.ini")
-#
-#         # Set the script location dynamically
-#         migrations_path = OPEN_WEBUI_DIR / "migrations"
-#         alembic_cfg.set_main_option("script_location", str(migrations_path))
-#
-#         command.upgrade(alembic_cfg, "head")
-#     except Exception as e:
-#         print(f"Error: {e}")
-#
-#
-# run_migrations()
-
 
 class Config(Base):
     __tablename__ = "config"
@@ -70,32 +48,8 @@ def load_json_config():
     with open(f"{DATA_DIR}/config.json", "r") as file:
         return json.load(file)
 
-
-# def save_to_db(data):
-#     with get_db() as db:
-#         existing_config = db.query(Config).first()
-#         if not existing_config:
-#             new_config = Config(data=data, version=0)
-#             db.add(new_config)
-#         else:
-#             existing_config.data = data
-#             existing_config.updated_at = datetime.now()
-#             db.add(existing_config)
-#         db.commit()
-
-
-# def reset_config():
-#     with get_db() as db:
-#         db.query(Config).delete()
-#         db.commit()
-
-
-# When initializing, check if config.json exists and migrate it to the database
-# if os.path.exists(f"{DATA_DIR}/config.json"):
-#     data = load_json_config()
-#     save_to_db(data)
-#     os.rename(f"{DATA_DIR}/config.json", f"{DATA_DIR}/old_config.json")
-
+CONFIG_DATA = {}
+PERSISTENT_CONFIG_REGISTRY = []
 DEFAULT_CONFIG = {
     "version": 0,
     "ui": {
@@ -148,16 +102,6 @@ DEFAULT_CONFIG = {
     },
 }
 
-
-# def get_config():
-#     with get_db() as db:
-#         config_entry = db.query(Config).order_by(Config.id.desc()).first()
-#         return config_entry.data if config_entry else DEFAULT_CONFIG
-
-
-CONFIG_DATA = {}
-
-
 def get_config_value(config_path: str):
     path_parts = config_path.split(".")
     cur_config = CONFIG_DATA
@@ -169,28 +113,10 @@ def get_config_value(config_path: str):
     return cur_config
 
 
-PERSISTENT_CONFIG_REGISTRY = []
-
-
-# def save_config(config):
-#     global CONFIG_DATA
-#     global PERSISTENT_CONFIG_REGISTRY
-#     try:
-#         save_to_db(config)
-#         CONFIG_DATA = config
-#
-#         # Trigger updates on all registered PersistentConfig entries
-#         for config_item in PERSISTENT_CONFIG_REGISTRY:
-#             config_item.update()
-#     except Exception as e:
-#         log.exception(e)
-#         return False
-#     return True
-
-
 T = TypeVar("T")
 
 
+# TODO: Connect Redis to Cache this config.
 class PersistentConfig(Generic[T]):
     def __init__(self, env_name: str, config_path: str, env_value: T):
         self.env_name = env_name
@@ -202,7 +128,6 @@ class PersistentConfig(Generic[T]):
             self.value = self.config_value
         else:
             self.value = env_value
-
         PERSISTENT_CONFIG_REGISTRY.append(self)
 
     def __str__(self):
@@ -494,41 +419,41 @@ else:
 
 CUSTOM_NAME = os.environ.get("CUSTOM_NAME", "")
 
-if CUSTOM_NAME:
-    try:
-        r = requests.get(f"https://api.openwebui.com/api/v1/custom/{CUSTOM_NAME}")
-        data = r.json()
-        if r.ok:
-            if "logo" in data:
-                WEBUI_FAVICON_URL = url = (
-                    f"https://api.openwebui.com{data['logo']}"
-                    if data["logo"][0] == "/"
-                    else data["logo"]
-                )
-
-                r = requests.get(url, stream=True)
-                if r.status_code == 200:
-                    with open(f"{STATIC_DIR}/favicon.png", "wb") as f:
-                        r.raw.decode_content = True
-                        shutil.copyfileobj(r.raw, f)
-
-            if "splash" in data:
-                url = (
-                    f"https://api.openwebui.com{data['splash']}"
-                    if data["splash"][0] == "/"
-                    else data["splash"]
-                )
-
-                r = requests.get(url, stream=True)
-                if r.status_code == 200:
-                    with open(f"{STATIC_DIR}/splash.png", "wb") as f:
-                        r.raw.decode_content = True
-                        shutil.copyfileobj(r.raw, f)
-
-            WEBUI_NAME = data["name"]
-    except Exception as e:
-        log.exception(e)
-        pass
+# if CUSTOM_NAME:
+#     try:
+#         r = requests.get(f"https://api.openwebui.com/api/v1/custom/{CUSTOM_NAME}")
+#         data = r.json()
+#         if r.ok:
+#             if "logo" in data:
+#                 WEBUI_FAVICON_URL = url = (
+#                     f"https://api.openwebui.com{data['logo']}"
+#                     if data["logo"][0] == "/"
+#                     else data["logo"]
+#                 )
+#
+#                 r = requests.get(url, stream=True)
+#                 if r.status_code == 200:
+#                     with open(f"{STATIC_DIR}/favicon.png", "wb") as f:
+#                         r.raw.decode_content = True
+#                         shutil.copyfileobj(r.raw, f)
+#
+#             if "splash" in data:
+#                 url = (
+#                     f"https://api.openwebui.com{data['splash']}"
+#                     if data["splash"][0] == "/"
+#                     else data["splash"]
+#                 )
+#
+#                 r = requests.get(url, stream=True)
+#                 if r.status_code == 200:
+#                     with open(f"{STATIC_DIR}/splash.png", "wb") as f:
+#                         r.raw.decode_content = True
+#                         shutil.copyfileobj(r.raw, f)
+#
+#             WEBUI_NAME = data["name"]
+#     except Exception as e:
+#         log.exception(e)
+#         pass
 
 
 ####################################
@@ -1544,4 +1469,4 @@ AUDIO_TTS_AZURE_SPEECH_OUTPUT_FORMAT = PersistentConfig(
         "AUDIO_TTS_AZURE_SPEECH_OUTPUT_FORMAT", "audio-24khz-160kbitrate-mono-mp3"
     ),
 )
-print("Config End")
+print("Config Has Been Loaded.")
