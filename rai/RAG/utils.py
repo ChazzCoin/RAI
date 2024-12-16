@@ -1,10 +1,11 @@
 import logging, uuid, os, requests
-from typing import Optional, Union
+from typing import Union
 from F import LIST
 from huggingface_hub import snapshot_download
 from langchain.retrievers import ContextualCompressionRetriever, EnsembleRetriever
 from langchain_community.retrievers import BM25Retriever
-from langchain_core.documents import Document
+
+from rai.RAG.Q import query_collection, merge_and_sort_query_results, query_doc
 from rai.RAG.connector import VECTOR_DB_CLIENT
 from rai.utils.misc import get_last_user_message
 from rai.env import SRC_LOG_LEVELS

@@ -3,7 +3,7 @@ import time
 import uuid
 from typing import Optional
 
-from rai.internal.db import Base, get_db
+from rai.internal.chromadb import Base, get_db
 from rai.env import SRC_LOG_LEVELS
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import BigInteger, Column, String, Text

@@ -80,18 +80,6 @@ def extract_spreadsheet_records(file_path):
 
     return all_records
 
-# def extract_spreadsheet_text(file_path, sheet_name):
-#     # Read the specified sheet
-#     df = pd.read_excel(file_path, sheet_name=sheet_name)
-#
-#     # Clean up and organize the data (remove NaNs, reset index, etc.)
-#     df.fillna('', inplace=True)
-#
-#     # Combine all text into a single string
-#     all_text = ' '.join(df.astype(str).values.flatten())
-#
-#     return all_text
-
 def extract_spreadsheet_text(file_path):
     # Read the entire spreadsheet
     spreadsheet = pd.ExcelFile(file_path)

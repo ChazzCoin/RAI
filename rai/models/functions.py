@@ -2,7 +2,7 @@ import logging
 import time
 from typing import Optional
 
-from rai.internal.db import Base, JSONField, get_db
+from rai.internal.chromadb import Base, JSONField, get_db
 from rai.models.users import Users
 from rai.env import SRC_LOG_LEVELS
 from pydantic import BaseModel, ConfigDict

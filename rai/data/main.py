@@ -72,7 +72,7 @@ if __name__ == '__main__':
     config.generate_ai_metadata = True
     config.overwrite = True
     config.base_path = RaiPath("/Users/chazzromeo/Desktop/pcsc2024/general/dlicense5elementsfinalassessmentfillableform.pdf")
-    config.collection_prefix = "pcsc2024.open.dlicense"
+    config.collection_prefix = "pcsc2024.open"
     run_rai_file_extraction(fig=config)
 
     # get_all("pcsc2024.general")

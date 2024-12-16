@@ -5,29 +5,31 @@ import time
 import aiohttp
 from openai import OpenAI
 import os
+
+from openai.cli._models import BaseModel
 from openai.types.chat import ChatCompletion
 from F import DICT
-from rai.app import state
-from rai.assistant.ai import RaiAi as engine
 
+from rai.app import state
+from rai.assistant.ai import RaiAi as engine, AiModels
 
 default_model = os.getenv("DEFAULT_OPENAI_MODEL")
 embedding_model = os.getenv("DEFAULT_OPENAI_EMBEDDING_MODEL")
-
+open_ai_key = os.getenv("OPENAI_API_KEY")
 
 def getClient():
-    return OpenAI(api_key=os.getenv("OPENAI_API_KEY"), timeout=10, max_retries=3)
+    return OpenAI(api_key=open_ai_key, timeout=10, max_retries=3)
 
 async def get_embeddings(text):
     """Asynchronously get embeddings from OpenAI API."""
     print("GENERATE EMBEDDINGS - OPENAI")
     headers = {
         'Content-Type': 'application/json',
-        'Authorization': f'Bearer {os.getenv("OPENAI_API_KEY")}',
+        'Authorization': f'Bearer {open_ai_key}',
     }
     data = {
         'input': text,
-        'model': engine.EMBEDDINGS.OpenAI,
+        'model': engine.MODELS.DEFAULT_OPENAI_EMBEDDING,
     }
     async with aiohttp.ClientSession() as session:
         async with session.post('https://api.openai.com/v1/embeddings', headers=headers, json=data) as resp:
@@ -37,6 +39,7 @@ async def get_embeddings(text):
             response_data = await resp.json()
             embedding = response_data['data'][0]['embedding']
             return embedding
+
 async def get_chat_completion(system_prompt, user_input, model:str=None):
     """Asynchronously get chat completion from OpenAI API."""
     headers = {
@@ -325,13 +328,87 @@ async def generate_chat_completion(system_prompt, user_prompt, appended_message=
         }
         yield f"\n{json.dumps(appended_obj)}\n"
 
+
+QA_SCHEMA = {
+                "name": "answer_question",
+                "description": "Provide a boolean answer to the given question.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "question": {"type": "string", "description": "The question being answered."},
+                        "answer": {"type": "boolean", "description": "The boolean answer to the question."}
+                    },
+                    "required": ["question", "answer"]
+                }
+            }
+async def generate_function_call(user, system, schema:dict):
+    headers = {
+        "Authorization": f"Bearer {open_ai_key}",
+        "Content-Type": "application/json"
+    }
+    data = {
+        "model": "gpt-4o-mini",  # Use the model version that supports function calling
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user}
+        ],
+        "functions": [
+            schema
+        ],
+        "function_call": {"name": "answer_question"}  # Explicitly invoke the function
+    }
+    async with aiohttp.ClientSession() as session:
+        async with session.post(engine.OPENAI.route("/chat/completions"), headers=headers, json=data) as resp:
+            if resp.status != 200:
+                error = await resp.json()
+                raise Exception(f"Error from OpenAI API: {error}")
+            response_data = await resp.json()
+            assistant_message = response_data["choices"][0]["message"]["function_call"]["arguments"]
+            structured_data = json.loads(assistant_message)
+            # Ensure the format and return the boolean answer
+            if (
+                    isinstance(structured_data, dict) and
+                    "answer" in structured_data and
+                    isinstance(structured_data["answer"], bool)
+            ):
+                print(structured_data["answer"])
+                return structured_data["answer"]
+            else:
+                print(f"Invalid response format: {structured_data}")
+                print(assistant_message)
+                return assistant_message
+
+def generate_structured_output(user_prompt:str, system_prompt:str, format:BaseModel, model_override:str=None):
+    try:
+        completion = getClient().beta.chat.completions.parse(
+            model=AiModels.DEFAULT_OPENAI if not model_override else model_override,
+            messages=[
+                {"role": "system", "content": system_prompt },
+                {"role": "user", "content": user_prompt }
+            ],
+            response_format=format,
+        )
+        response = completion.choices[0].message
+        # If the model refuses to respond, you will get a refusal message
+        if response.refusal:
+            print("Refused:", response.refusal)
+            return response.refusal
+        else:
+            print("Parsed:",response.parsed)
+            return response.parsed
+    except Exception as e:
+        print(e)
+        return "Uh oh. Something has gone wrong!"
+
 if __name__ == "__main__":
+    import asyncio
     system = "You are a knowledgeable assistant for the Park City Soccer Club, providing information about soccer programs and club activities."
-    user = "What are the upcoming events?"
+    user = "Was George Washington ever a president?"
+    # asyncio.run(generate_structured_output("how can I solve 8x + 7 = -23", MathReasoning))
     # print(chat_request(system, user))
     # Example of consuming the streaming response
     # chat_request_stream_forward(system="You are an assistant", user="Hello! How are you?", model="gpt-4o-mini")
 
     # stream_chat_completion2(system="You are an assistant", user="Hello! How are you?", model="gpt-4o-mini")
-    for chunk in stream_chat_completion2(system="You are an assistant", user="Hello! How are you?", model="gpt-4o-mini"):
-        print(f"Streamed chunk: {chunk}")
+    # for chunk in stream_chat_completion2(system="You are an assistant", user="Hello! How are you?", model="gpt-4o-mini"):
+    #     print(f"Streamed chunk: {chunk}")

@@ -234,7 +234,7 @@ class RaiPath(str):
         file_name = file_name[:max_length]
         file_name = file_name.replace(".", "_")
         file_name = file_name.replace("-", "_")
-        return file_name
+        return file_name.replace(" ", "_")
     @staticmethod
     def get_directory_chains(parent_directory):
         if not os.path.isdir(parent_directory):

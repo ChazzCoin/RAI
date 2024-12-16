@@ -54,6 +54,34 @@ class ChromaClient:
             Log.w("Chroma Tenant:", CHROMA_TENANT)
             Log.s("Successfully Connected to Remote Chromadb Client.")
 
+    def get_all_collections_by_chain(self, *collection_paths: str):
+        try:
+            def chain_collection_names(*collection_names: str):
+                collection_name = ""
+                index = 0
+                for c in collection_names:
+                    if index == 0:
+                        collection_name = c
+                    else:
+                        collection_name = f"{collection_name}.{c}"
+                    index += 1
+                return collection_name
+
+            # Assuming you have a ChromaDB client instance named 'VECTOR_DB_CLIENT'
+            collections = self.client.list_collections()
+            collection_names = [collection.name for collection in collections]
+
+            base_path = chain_collection_names(*collection_paths)
+            # Filter by prefix if provided
+            final_names = [col for col in collection_names if col.startswith(base_path)]
+
+            return final_names
+
+        except Exception as e:
+            # Log error with proper context
+            Log.e(f"Error retrieving collections from ChromaDB: {e}")
+            return []
+
     def has_collection(self, collection_name: str) -> bool:
         # Check if the collection exists based on the collection name.
         collections = self.client.list_collections()
@@ -95,6 +123,8 @@ class ChromaClient:
                 }
             )
         return None
+
+
 
     def insert(self, collection_name: str, items: list[VectorItem]):
         # Insert the items into the collection, if the collection does not exist, it will be created.

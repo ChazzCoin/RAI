@@ -1,15 +1,11 @@
 import time
 import uuid
-from distutils.command.config import config
 from F.CLASS import Flass
 from rai import app
 from F.LOG import Log
 from tqdm import tqdm
-from pathlib import Path
 from rai.data import RaiPath
-from datetime import datetime
 from rai.RAG.connector import VECTOR_DB_CLIENT
-from rai.assistant.ollama_client import generate_chroma_embeddings
 from rai.assistant.openai_client import generate_embeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
@@ -19,10 +15,10 @@ from rai.data.loaders.rai_loaders.RaiMetadataLoader import RaiMetadataLoader
 
 Log = Log("RaiFileExtractor")
 
-
 class RaiConfig(Flass):
     pipeline: str = "print"
     collection_prefix: str = None
+    file_collection_name: str = ""
     base_path: RaiPath = None
     overwrite: bool = False
     split_documents: bool = False
@@ -71,96 +67,71 @@ class RaiFileExtractor:
 
         Log.i(f"Preparing Files for Import: [ {self.config.base_path} ]")
         self.file_to_import_count = 0
-        self.file_to_import_by_collection = {}
-
+        self.file_to_import = []
         # Recursively traverse the directory tree starting from base_path
         for file_path in self.config.base_path.path.rglob('*'):
             if file_path.is_file():
-                # Construct the relative path from base_path to the file's parent directory
-                rel_path = file_path.parent.relative_to(self.config.base_path)
-                path_parts = rel_path.parts  # Get the parts of the relative path
-                # Construct the collection name by joining the collection prefix and path parts
-
-                p = ""
-                if path_parts:
-                   depth = 0
-                   for part in path_parts:
-                       if depth == 0:
-                           p += "." + str(part)[:1]
-                       else:
-                           p += "." + str(part)[:3]
-                       depth += 1
-                collection_name = self.config.collection_prefix + p
-                # Add the file to the corresponding collection
-                self.file_to_import_by_collection.setdefault(collection_name, []).append(file_path)
+                self.file_to_import.append(file_path)
                 self.file_to_import_count += 1
 
         # Proceed with the import process
         Log.s(f"Starting Import: Total [ {self.file_to_import_count} ]")
-        for collection_name, files_to_handle in self.file_to_import_by_collection.items():
-            # First, handle metadata files
-            if not str(collection_name).__contains__('.'):
+        for file in self.file_to_import:
+            # if RaiPath(file).is_metadata_file():
+            #     self.config.meta_loader = RaiMetadataLoader(meta_file=file)
+            # if RaiPath(file).is_metadata_file():
+            #     continue
+            if str(file).endswith('.DS_Store'):
                 continue
-            for file in files_to_handle:
-                if RaiPath(file).is_metadata_file():
-                    self.config.meta_loader = RaiMetadataLoader(meta_file=file)
-            # Then, handle document files
-            for file in files_to_handle:
-                if RaiPath(file).is_metadata_file():
-                    continue
-                if str(file).endswith('.DS_Store'):
-                    continue
-                """
-                    Handle Naming...
-                    csv, xlsx need to be their own collection.
-                """
-                self.current_file = RaiPath(file)
-                file_collection_name = RaiPath.sanitize_file_name_for_chromadb(self.current_file)
-                chained_collection_name = f"{collection_name}-{file_collection_name}"
-                self.import_file(collection_name)
-                print(f"Final Collection Name: [ {chained_collection_name} ] \nFile: [ {self.current_file.file_name} ]\n")
+            """
+                Handle Naming...
+                csv, xlsx need to be their own collection.
+            """
+            self.current_file = RaiPath(file)
+            self.import_file()
         Log.s(f"Finished Importing Files: Total [ {self.file_to_import_count} ]")
         return True
 
-    def import_file(self, collection_name: str, file_path:str=None):
+    def import_file(self, file_path:str=None):
         try:
             if file_path is not None:
                 self.config.base_path = RaiPath(file_path)
                 self.current_file = RaiPath(file_path)
+                self.config.file_collection_name = f"{self.config.file_collection_name}.{RaiPath.sanitize_file_name_for_chromadb(file_path)}"
             if self.current_file.is_directory: return
-            Log.i(f"Processing: [ {self.current_file.file_name} ] for Collection: [ {collection_name} ]")
+            Log.i(f"Processing: [ {self.current_file.file_name} ] for Collection: [ {self.config.file_collection_name} ]")
             loader = RaiDataLoaders.RaiDataLoader(self.current_file, meta_loader=self.config.meta_loader).loader
             try:
-                result = self.__run_pipeline(collection_name, loader=loader)
+                result = self.__run_pipeline(loader=loader)
                 if result: Log.s(f"Finished Importing: [ {self.current_file.file_name} ]")
             except Exception as e: Log.w(f"Error importing file '{self.current_file.file_name}' to Chroma DB: {e}")
         except Exception as e: Log.w(f"Error importing file '{self.current_file}': {e}")
 
-    def __run_pipeline(self, collection_name:str, docs:[]=None, loader:RaiBaseLoader=None):
+    def __run_pipeline(self, docs:[]=None, loader:RaiBaseLoader=None):
         if not docs: docs = loader.load()
         if self.config.split_documents:
             docs = self.__split_docs_into_smaller_chunks(docs)
-        if self.config.pipeline.lower() == "chroma": return self.to_chroma(docs, collection_name)
-        elif self.config.pipeline.lower() == "print": return self.to_printer(docs, collection_name)
+        if self.config.pipeline.lower() == "chroma": return self.to_chroma(docs)
+        elif self.config.pipeline.lower() == "print": return self.to_printer(docs)
 
-    def to_printer(self, docs:[], collection_name:str):
-        Log.w(f"Printing File: [ {RaiPath(self.current_file).file_name} ] Collection: [ {collection_name} ]")
+    def to_printer(self, docs:[]):
+        Log.w(f"Printing File: [ {RaiPath(self.current_file).file_name} ] Collection: [ {self.config.file_collection_name} ]")
         time.sleep(1)
         count = 0
         for d in docs:
-            print(f"Record [ {count} ] [ {collection_name} ]:\n {d.page_content}")
+            print(f"Record [ {count} ] [ {self.config.file_collection_name} ]:\n {d.page_content}")
             count += 1
             time.sleep(1)
 
-    def to_chroma(self, docs:[], collection_name:str):
-        Log.i(f"importing [ {len(docs)} ] docs in [ {collection_name} ]")
+    def to_chroma(self, docs:[]):
+        Log.i(f"importing [ {len(docs)} ] docs in [ {self.config.file_collection_name} ]")
         texts = self.get_texts(docs)
         metadatas = self.prepare_metadatas(docs)
         items = self.prepare_chroma_documents(texts, metadatas)
         try:
-            self.overwrite_collection_check(collection_name)
+            self.overwrite_collection_check(self.config.file_collection_name)
             VECTOR_DB_CLIENT.insert(
-                collection_name=collection_name,
+                collection_name=self.config.file_collection_name,
                 items=items,
             )
             return True
@@ -172,7 +143,6 @@ class RaiFileExtractor:
     def get_texts(docs: []):
         metadatas = [doc.page_content for doc in docs]
         return metadatas
-    
 
     @staticmethod
     def get_metadatas(docs: []):

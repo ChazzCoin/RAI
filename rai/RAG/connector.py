@@ -1,3 +1,3 @@
-from rai.RAG.db import ChromaClient
-
-VECTOR_DB_CLIENT = ChromaClient()
+# from rai.RAG.Q import Q
+#
+# VECTOR_QUERY_CLIENT = Q()

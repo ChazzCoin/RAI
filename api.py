@@ -1,14 +1,10 @@
 #!/bin/bash
 import asyncio
-import base64
 import json
 import os.path
-import time
 from concurrent.futures import ThreadPoolExecutor
-from typing import Optional, Union, BinaryIO
+from typing import Optional
 import aiohttp
-from aiohttp.web_response import StreamResponse
-from openai.types.beta.threads import MessageContent
 from quart import Quart, request, jsonify, Response, send_file
 from quart_cors import cors
 import requests
@@ -17,12 +13,10 @@ from F.LOG import Log
 from F.DATE import get_timestamp_str as get_current_timestamp
 from rai.RaiModels import RAI_MODs, getRaiModels
 from rai.assistant.context import ContextHelper
-from rai.internal.redisdb import RaiCache
-from rai.models.connectors import PostgresTables
-from rai.RAG.Q import query_chroma_by_prefix
+from rai.internal.connectors import REDIS_DB_CLIENT, PostgresTables, VECTOR_DB_CLIENT
 from rai import env
 from nlp.Categorizer import Topics
-from rai.data.extraction.intake.PDF_v1 import FPDF
+from rai.data.extraction.parsers.PDF_v1 import FPDF
 import base64
 import imghdr
 
@@ -38,7 +32,7 @@ executor = ThreadPoolExecutor(max_workers=1)
 
 """ DATABASES """
 collection_name = "documents"
-RAI_CACHE = RaiCache()
+RAI_CACHE = REDIS_DB_CLIENT
 RAI_MODELS = PostgresTables.AI_Models()
 CHAT_ARCHIVE = PostgresTables.ChatArchive()
 
@@ -49,10 +43,6 @@ IMAGE_FOLDER = f"{os.path.dirname(__file__)}/files/images"
 
 RAI_VERSION = "0.5.0:hypercorn"
 RAI_FOOTER_MESSAGE = lambda model, text: ""
-# RAI_FOOTER_MESSAGE = lambda model, text: f"""\n
-# {text}\n
-# | Rai Youth Sports Chat | AI Model: {model} | API Version: {RAI_VERSION} |
-# """
 
 CACHE_KEY_TWO = lambda one, two: f"{one}:{two}"
 CACHE_KEY_THREE = lambda one, two, three: f"{one}:{two}:{three}"
@@ -195,7 +185,7 @@ async def chat_completion(idx:Optional[int]=None):
     elif mod_flow == "MRC":
         MessageContext.make_single(system_prompt=final_system_prompt)
     elif mod_flow == "QA":
-        user_message = queryModelCollection(
+        user_message = VECTOR_DB_CLIENT.queryModelCollection(
             mod_collection_prefix, "open",
             user_message=MessageContext.get_last_user_message,
             k=20
@@ -487,19 +477,8 @@ def setupMessagesForChatSequence(system_prompt, messages, new_user_message):
 """     
 USER PROMPT INTERCEPTOR   
 """
-def queryModelCollection(*base_paths, user_message:str, k:int=5) -> Optional[str]:
-    try:
-        print("User Query:", user_message)
-        results = query_chroma_by_prefix(*base_paths, query=user_message, k=k)
-        if results:
-            docs:[] = DICT.get("documents", results, [])
-            documents = '\n'.join(LIST.flatten(docs))
-            return documents
-        Log.i("Returning custom SYS Prompt.")
-        return None
-    except Exception as e:
-        Log.e("Failed to query", e)
-        return None
+
+
 """     
 RESPONSE MESSAGE APPENDER   
 """
@@ -510,40 +489,7 @@ def appender(response_message="", metadatas:[]=None, message_to_append:str=None)
         for metadata in metadatas:
             response_message += f"\n\nSources:\n{DICT.get('url', metadata, '')}"
     return response_message
-""" HELPER """
-# def get_last_user_message(json_data):
-#     # Get the list of messages
-#     messages = json_data.get('messages', [])
-#     # Filter to find the last message with role 'user'
-#     last_user_message = None
-#     for message in reversed(messages):
-#         if message.get('role') == 'user':
-#             last_user_message = message.get('content')
-#             break
-#     return last_user_message
-# def get_last_user_images(json_data):
-#     # Get the list of messages
-#     messages = json_data.get('messages', [])
-#     # Filter to find the last message with role 'user'
-#     last_user_message = None
-#     for message in reversed(messages):
-#         if message.get('role') == 'user':
-#             last_user_message = message.get('images', [])
-#             break
-#     return last_user_message
-# def get_previous_user_messages(json_data):
-#     # Get the list of messages
-#     messages = json_data.get('messages', [])
-#     # Filter to find the last message with role 'user'
-#     last_user_messages = []
-#     count = 0
-#     for message in reversed(messages):
-#         # if message.get('role') == 'user':
-#         if count == 0:
-#             count += 1
-#             continue
-#         last_user_messages.append(message.get('content'))
-#     return last_user_messages
+
 """ HELPER """
 def extract_args(input_string, word_count):
     """Extract the first 'word_count' words from the input string."""
