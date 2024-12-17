@@ -2,6 +2,8 @@
 python-docx>=1.1
 openpyxl>=3.1
 requests>=2.32
+openai>=1.45.1
+ollama>=0.4.4
 quart>=0.19
 hypercorn>=0.17
 chromadb==0.5.11
@@ -19,7 +21,7 @@ datasets>=3.0
 peewee>=3.17
 peewee-migrate>=1.13.0
 quart-cors>=0.7.0
-openai>=1.45.1
+
 
 # Specific utility packages
 tiktoken>=0.7
@@ -61,12 +63,6 @@ six>=1.12
 
 pdfminer.six==20200517
 pdfplumber==0.5.28
-#textract==1.6.5
-
-
-# Commented packages (not currently needed)
-# SpeechRecognition>=3.8
-# textract>=1.6
 
 # Redis and related utilities
 redis>=5.0
