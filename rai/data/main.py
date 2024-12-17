@@ -3,7 +3,7 @@ from rai.data import RaiPath
 from rai.data.extraction.read import read_file
 from rai.data.extraction.RaiFileExtraction import RaiFileExtractor, RaiConfig, VECTOR_DB_CLIENT
 from rai.data.extraction.RaiWebExtraction import RaiWebExtractor
-from rai.RAG.Q import get_all_collections_by_chain
+from rai.internal.connectors import VECTOR_DB_CLIENT
 
 
 RAI_DBs = lambda db: (f"{db}-main", f"{db}-internal", f"{db}-development")
@@ -58,7 +58,7 @@ def find_directory(file_name): pass
 def find_file(file_name): pass
 
 def list_all_collections_by_prefix(*chained_path:str):
-    temp = get_all_collections_by_chain(*chained_path)
+    temp = VECTOR_DB_CLIENT.get_all_collections_by_chain(*chained_path)
     print("Collections:\n", temp)
     return temp
 
@@ -71,8 +71,9 @@ if __name__ == '__main__':
     config.pipeline = RaiFileExtractor.Pipelines.CHROMA
     config.generate_ai_metadata = True
     config.overwrite = True
-    config.base_path = RaiPath("/Users/chazzromeo/Desktop/pcsc2024/general/dlicense5elementsfinalassessmentfillableform.pdf")
-    config.collection_prefix = "pcsc2024.open"
-    run_rai_file_extraction(fig=config)
+    config.base_path = RaiPath("/Users/chazzromeo/Desktop/ussf2024")
+    config.collection_prefix = "ussf.dec2024"
+    RaiFileExtractor(config=config).import_directory(config.base_path)
+    # run_rai_file_extraction(fig=config)
 
     # get_all("pcsc2024.general")

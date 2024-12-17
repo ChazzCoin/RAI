@@ -45,6 +45,20 @@ class AiResponse:
             response=data.get('response', None)
         )
 
+
+class RaiMetadata(BaseModel):
+    title: Optional[str]
+    category: Optional[str]
+    sub_category: Optional[str]
+    version: Optional[str]
+    file_type: Optional[str]
+    date_created: Optional[str]
+    date_modified: Optional[str]
+    tags: List[str]
+    author: Optional[str]
+    description: Optional[str]
+    source: Optional[str]
+
 class TrueFalse(BaseModel):
     result: Optional[bool]
 

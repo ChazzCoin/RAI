@@ -10,8 +10,9 @@ from F.LOG import Log
 from functools import singledispatchmethod
 
 from rai.agents.PromptMaster import PromptRegistry
+from rai.agents.automation import MetadataDG
 from rai.assistant.connectors import RaiAi
-from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiBaseLoader
+from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiBaseLoader, RaiLoaderDocument
 
 Log = Log("RaiMetadataLoader")
 
@@ -132,40 +133,22 @@ class RaiMetadataLoader:
         Log.i("Loading Default Metadata.")
         return DataLoaderMetadata()
 
-    def generate_ai_metadata_loader(self, data_loader: RaiBaseLoader, override_file:bool=False):
-        if not override_file:
-            if self.metadata: return
-        Log.i("Generating Metadata from AI.")
-        # Step 1: Extract the subset of data
-        data_subset = data_loader.get_subset(50)
-        # Step 2: Prepare data for AI analysis
-        prepared_data = self.__gen_meta_prepare_data_for_ai(data_subset)
-        # Step 3: Send data to AI model for analysis
-        self.__gen_meta_ai(prepared_data)
-        return self.metadata
-
-    def generate_ai_metadata_docs(self, data, subset_indices:int=50):
+    def ai_genny(self, raiDocs: [RaiLoaderDocument]):
         try:
-            data_subset = data[:subset_indices]
-            # Step 2: Prepare data for AI analysis
-            prepared_data = self.__gen_meta_prepare_data_for_ai(data_subset)
-            # Step 3: Send data to AI model for analysis
-            if not self.__gen_meta_ai(prepared_data):
-                self.metadata = self.default_metadata()
+            if len(raiDocs) <= 50:
+                data_subset = raiDocs
+            else:
+                data_subset = raiDocs[:50]
+            temp = ""
+            for item in data_subset:
+                temp = f"{temp}\n{item.page_content}"
+            meta_result = MetadataDG().run(temp)
+            if meta_result:
+                return meta_result
+            return self.default_metadata()
         except Exception as e:
-            Log.e(f"Error generating Metadata from AI: {e}")
-            self.metadata = self.default_metadata()
-        return self.metadata
-
-    @staticmethod
-    def __gen_meta_prepare_data_for_ai(data_subset: List[Any]) -> List[str]:
-        prepared_data = []
-        for data in data_subset:
-            # Assuming data is text; adjust preprocessing as needed
-            text = str(data).strip()
-            # Additional preprocessing can be added here
-            prepared_data.append(text)
-        return prepared_data
+            print(e)
+            return self.default_metadata()
 
     @staticmethod
     def get_metadata_system_prompt():
@@ -175,74 +158,3 @@ class RaiMetadataLoader:
         model = str(DataLoaderMetadata().toJson())
         return PromptRegistry.get('metadata', 'extraction_prompt', (model, content))
 
-    def __gen_meta_ai(self, prepared_data: List[str], count:int=0):
-        try:
-            system = self.get_metadata_system_prompt()
-            user = self.__get_metadata_extraction_prompt(LIST.to_str(prepared_data))
-            response = self.ai.generate(
-                engine_name="openai",
-                system_prompt=system,
-                user_prompt=user
-            )
-            metadata_json = response.strip()
-            metadata = self.__gen_meta_parse_ai_response(metadata_json)
-            if not metadata:
-                if count < 3: self.__gen_meta_ai(prepared_data, count=count + 1)
-            if metadata: self.metadata = DataLoaderMetadata.from_dict(metadata)
-            return True
-        except Exception as e:
-            Log.e(f"Error generating Metadata from AI: {e}")
-            return False
-
-    def __gen_meta_parse_ai_response(self, response_text: str, count:int=0) -> Dict[str, Any]:
-        metadata = None
-        try:
-            metadata = json.loads(response_text)
-        except json.JSONDecodeError:
-            # Handle cases where the response is not valid JSON
-            if count == 2: return metadata
-            elif count == 0:
-                temp = self.extract_json_with_regex(response_text)
-                if temp: return self.__gen_meta_parse_ai_response(temp, count + 1)
-            elif count == 1:
-                temp = self.extract_json(response_text)
-                if temp: return self.__gen_meta_parse_ai_response(temp, count + 1)
-        return metadata
-
-    @staticmethod
-    def extract_json_with_regex(text:str):
-        pattern = r'\{(?:[^{}]|(?0))*\}'
-        match = regex.search(pattern, text, regex.DOTALL)
-        if match:
-            return match.group(0)
-        else:
-            return None
-    @staticmethod
-    def extract_json(text: str):
-        start = text.find('{')
-        if start == -1: return None  # No opening brace found
-        stack = []
-        for idx in range(start, len(text)):
-            char = text[idx]
-            if char == '{': stack.append('{')
-            elif char == '}':
-                if not stack: return None  # More closing braces than opening
-                stack.pop()
-                if not stack: return text[start:idx + 1]
-        return None  # No matching closing brace found
-
-    f"""
-    You will read the following content and you will extract out the following metadata details.
-    1. Look at each key name in the model and then try to determine the value for the key, based on the content.
-    2. Extract keywords and some of the most important words used or the topic/category the text is about as tags.
-    3. Only look for the model details.
-    4. Return the exact metadata model I give you. Do not change anything.
-    5. Try to guess the overall context and attempt to fill out all attributes even if you don't know.
-
-    METADATA MODEL:
-
-    CONTENT:
-
-    RESPONSE RULE:
-    ONLY RETURN THE JSON METADATA OBJECT.
-    """

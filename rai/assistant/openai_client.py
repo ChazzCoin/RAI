@@ -13,8 +13,8 @@ from F import DICT
 from rai.app import state
 from rai.assistant.connectors import RaiAi as engine, AiModels
 
-default_model = os.getenv("DEFAULT_OPENAI_MODEL")
-embedding_model = os.getenv("DEFAULT_OPENAI_EMBEDDING_MODEL")
+# default_model = os.getenv("DEFAULT_OPENAI_MODEL")
+# embedding_model = os.getenv("DEFAULT_OPENAI_EMBEDDING_MODEL")
 open_ai_key = os.getenv("OPENAI_API_KEY")
 
 def getClient():
@@ -66,18 +66,18 @@ def truncate_text(text, max_length):
     """Truncate text to a maximum number of characters."""
     return text[:max_length] if len(text) > max_length else text
 def generate_embeddings(text):
-    print('Embedding Model:', embedding_model)
+    print('Embedding Model:', AiModels.DEFAULT_OPENAI_EMBEDDING)
     try:
         response = getClient().embeddings.create(
             input=text,
-            model=embedding_model
+            model=AiModels.DEFAULT_OPENAI_EMBEDDING
         )
         return response.data[0].embedding
     except Exception as e:
         print(f"Failed to embed text with openai: {e}")
         return []
 
-def openai_generate(system_prompt: str, user_prompt: str, model: str = default_model, content_only: bool = True):
+def openai_generate(system_prompt: str, user_prompt: str, model: str = AiModels.DEFAULT_OPENAI, content_only: bool = True):
     print(f"Model: {model}")
     response = getClient().chat.completions.create(
         model=model,
@@ -95,7 +95,7 @@ def openai_generate(system_prompt: str, user_prompt: str, model: str = default_m
 {"model":"llama3:latest","created_at":"2024-09-16T02:10:32.443679033Z","message":{"role":"assistant","content":"?"},"done":false}
 {"model":"llama3:latest","created_at":"2024-09-16T02:10:32.477253839Z","message":{"role":"assistant","content":""},"done_reason":"stop","done":true,"total_duration":4659202790,"load_duration":4270615787,"prompt_eval_count":22,"prompt_eval_duration":52448000,"eval_count":7,"eval_duration":201934000}
 """
-def chat_request_stream(system: str, user: str, model: str = default_model, content_only: bool = True):
+def chat_request_stream(system: str, user: str, model: str = AiModels.DEFAULT_OPENAI, content_only: bool = True):
     print(f"Model: {model}")
 
     # Assuming getClient().chat.completions.create is compatible with streaming
@@ -124,7 +124,7 @@ def chat_request_stream(system: str, user: str, model: str = default_model, cont
     if content_only:
         return ''.join(collected_response)  # Return the full content if content_only is True
     return collected_response  # Return the full response chunks if not content_only
-def chat_request_forward(messages: [], model: str = default_model) -> ChatCompletion:
+def chat_request_forward(messages: [], model: str = AiModels.DEFAULT_OPENAI) -> ChatCompletion:
     response = getClient().chat.completions.create(
         model=model,
         response_format={"type": "text"},
@@ -330,17 +330,17 @@ async def generate_chat_completion(system_prompt, user_prompt, appended_message=
 
 
 QA_SCHEMA = {
-                "name": "answer_question",
-                "description": "Provide a boolean answer to the given question.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "question": {"type": "string", "description": "The question being answered."},
-                        "answer": {"type": "boolean", "description": "The boolean answer to the question."}
-                    },
-                    "required": ["question", "answer"]
-                }
-            }
+    "name": "answer_question",
+    "description": "Provide a boolean answer to the given question.",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "question": {"type": "string", "description": "The question being answered."},
+            "answer": {"type": "boolean", "description": "The boolean answer to the question."}
+        },
+        "required": ["question", "answer"]
+    }
+}
 async def generate_function_call(user, system, schema:dict):
     headers = {
         "Authorization": f"Bearer {open_ai_key}",

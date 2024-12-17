@@ -17,7 +17,7 @@ from rai.data.loaders.rai_loaders.PdfDataLoader import PdfDataLoader
 from rai.data.loaders.rai_loaders.PowerPointDataLoader import PowerPointDataLoader
 from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiBaseLoader
 from rai.data.loaders.rai_loaders.RaiMetadataLoader import RaiMetadataLoader
-from rai.data.loaders.rai_loaders.TableDataLoader import TableDataLoader
+from rai.data.loaders.rai_loaders.TableDataLoader import TableDataLoader, RaiTableDataLoader
 from rai.data.loaders.rai_loaders.WordDocDataLoader import WordDocDataLoader
 
 Log = Log("RaiDataLoader")
@@ -38,12 +38,6 @@ class RaiDataLoader:
         if not self.metadata and self.meta_loader:
             self.metadata = self.meta_loader.metadata.to_dict()
 
-    def check_run_metadata_generator(self) -> bool:
-        if self.meta_loader.meta_ai:
-            self.metadata = self.meta_loader.generate_ai_metadata()
-            if self.metadata: return True
-        return False
-
     @property
     def loader(self) -> RaiBaseLoader:
         file_ext = self.file.ext_type
@@ -52,7 +46,7 @@ class RaiDataLoader:
             if file_ext == "pdf":
                 loader = PdfDataLoader(self.file, metadata=self.metadata)
             elif file_ext in ["csv", "xls", "xlsx"]:
-                loader = TableDataLoader(self.file, metadata=self.metadata)
+                loader = RaiTableDataLoader(self.file, metadata=self.metadata)
             elif file_ext == "jsonl":
                 loader = JSONLDataLoader(self.file, metadata=self.metadata)
             elif file_ext == "json":

@@ -1,5 +1,6 @@
 import numpy as np
 import requests, json, logging
+from pydantic import BaseModel
 from requests.exceptions import HTTPError, RequestException
 from rai.assistant.connectors import RaiAi as engines
 # Configure logging
@@ -70,6 +71,7 @@ def ollama_generate(system_prompt:str, user_prompt:str, model:str=None, forward:
         if response:
             return response
         return {"error": f"Request failed with status code {response.status_code}"}
+
 def get_ollama_models():
     """
     Call the Ollama API to retrieve models data.

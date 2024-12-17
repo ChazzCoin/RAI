@@ -11,7 +11,7 @@ def excel_to_txt_file(excel_file):
         full_text.append(" | ".join([str(value) for value in row]))
     return full_text
 
-def csv_to_json(csv_file_path, json_file_path):
+def csv_to_json(csv_file_path, json_file_path=None):
     """
     Convert a CSV file into a JSON file where each record is a separate JSON object.
 
@@ -27,14 +27,16 @@ def csv_to_json(csv_file_path, json_file_path):
             # Read and store each row as a JSON object
             data = [str(row) for row in csv_reader]
 
-        # Write to the JSON file
-        with open(json_file_path, mode='w') as json_file:
-            json.dump(data, json_file, indent=4)
+        if json_file_path:
+            # Write to the JSON file
+            with open(json_file_path, mode='w') as json_file:
+                json.dump(data, json_file, indent=4)
 
         print(f"CSV file successfully converted to JSON. Saved to: {json_file_path}")
-
+        return json_file
     except Exception as e:
         print(f"Error occurred: {e}")
+        return None
 
 
 def convert_spreadsheet_to_json(file_path, sheet_name):

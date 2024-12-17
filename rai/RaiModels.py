@@ -59,12 +59,19 @@ diag_prompt = lambda isChat: f"""
 """
 
 ussf_special = f"""
-            Governing Body of American Soccer
-            You specialize in understanding soccer in the united states of america as the national governing body.
-            From Players to Parents and Coaches at any level or age, you understand the rules and the ussf principles.
-            SPECIAL RULE 1: When forming the response from the knowledge base, prioritize and focus on top main level principles then sub lower level principles next. 
-            SPECIAL RULE 2: Stick to copying the knowledge base directly instead of summarizing. 
-        """
+    Governing Body of American Soccer
+    You specialize in understanding soccer in the united states of america as the national governing body.
+    From Players to Parents and Coaches at any level or age, you understand the rules and the ussf principles.
+    SPECIAL RULE 1: When forming the response from the knowledge base, prioritize and focus on top main level principles then sub lower level principles next. 
+    SPECIAL RULE 2: Stick to copying the knowledge base directly instead of summarizing. 
+"""
+
+proverbs_special = f"""
+    The Great Master and Caretaker of the Single Greatest Digital Library.
+    No Matter the Question, if theres a book in the library, you know about it.
+    SPECIAL RULE 1: When forming the response from the knowledge base, prioritize and focus on top main level principles then sub lower level principles next. 
+    SPECIAL RULE 2: Stick to copying the knowledge base directly instead of summarizing. 
+"""
 
 """ -- YOU MUST ADD THE MODEL HERE FOR IT TO 'MOLD' TO YOUR CONFIGURATION -- """
 RAI_MODs = {
@@ -196,28 +203,50 @@ RAI_MODs = {
                 'quantization_level': 'Q8_0'
             }
          },
-    'soccer-ussf:latest': {
-        'id': 'sports-soccer-ussf-chat-2025',
-        'name': 'soccer-ussf:latest',
-        'model': 'soccer-ussf:latest',
+    'proverbs:2323': {
+        'id': 'proverbs-2323-chat-2025',
+        'name': 'proverbs:2323',
+        'model': 'proverbs:2323',
         'zip':'',
         'address': '',
-        'title': 'United States Soccer Federation',
-        'initials': 'USSF',
-        'ai_name': 'Kevin',
+        'title': 'Proverbs:2323',
+        'initials': 'proverbs',
+        'ai_name': 'Truth',
         'ai_flow': 'QA',
         'org_rep_type': 'Personal Knowledge Base Master',
-        'collection': 'ussf-internal',
-        'prompt': GENERAL_PROMPT_TEMPLATE,
+        'collection': 'proverbs',
+        'prompt': "You are a helpful RAG Assistant.",
         'context_prompt': context.SOCCER_CLUB_CONTEXT_EXPANDER,
-        'openai': 'gpt-4o',
-        'ollama': 'llama3:latest',
-        'org_type': 'Governing Body of Soccer',
-        'org_specialty': ussf_special,
+        'openai': 'gpt-4o-mini',
+        'ollama': 'llama3.2',
+        'org_type': 'Librarian',
+        'org_specialty': proverbs_special,
         'modified_at': '2024-07-02T06:32:47.913084094Z',
         'size': 177669289,
-        'digest': 'c4ff0145029b2cdd6743434343sdfsfefb9d145527581',
+        'digest': 'c4ff0145029bproverbs_special43sdfsfefb9d145527581',
         'details': {'parent_model': '', 'format': 'gguf', 'family': 'gpt2', 'families': ['gpt2'], 'parameter_size': '163.04M', 'quantization_level': 'Q8_0'}},
+    'soccer-ussf:latest': {
+            'id': 'sports-soccer-ussf-chat-2025',
+            'name': 'soccer-ussf:latest',
+            'model': 'soccer-ussf:latest',
+            'zip':'',
+            'address': '',
+            'title': 'United States Soccer Federation',
+            'initials': 'USSF',
+            'ai_name': 'Kevin',
+            'ai_flow': 'QA',
+            'org_rep_type': 'Personal Knowledge Base Master',
+            'collection': 'ussf',
+            'prompt': GENERAL_PROMPT_TEMPLATE,
+            'context_prompt': context.SOCCER_CLUB_CONTEXT_EXPANDER,
+            'openai': 'gpt-4o-mini',
+            'ollama': 'llama3.2',
+            'org_type': 'Governing Body of Soccer',
+            'org_specialty': ussf_special,
+            'modified_at': '2024-07-02T06:32:47.913084094Z',
+            'size': 177669289,
+            'digest': 'c4ff0145029b2cdd6743434343sdfsfefb9d145527581',
+            'details': {'parent_model': '', 'format': 'gguf', 'family': 'gpt2', 'families': ['gpt2'], 'parameter_size': '163.04M', 'quantization_level': 'Q8_0'}},
     'gpt-4o-mini:latest': {
         'name': 'gpt4o:latest',
         'model': 'gpt4o:latest',

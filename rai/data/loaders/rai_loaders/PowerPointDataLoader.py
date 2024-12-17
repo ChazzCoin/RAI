@@ -48,14 +48,10 @@ class PowerPointDataLoader(BaseLoader):
         except Exception as e:
             # Fallback to VisionDataLoader if the primary method fails
             Log.w("PowerPointLoader Failed, falling back.", e)
-            loader = VisionDataLoader(self.file_path)
-            if loader.should_fallback():
-                # Fallback to UnstructuredPowerPointLoader if VisionDataLoader is empty
-                Log.w("Vision Failed, falling back.", e)
-                loader = UnstructuredPowerPointLoader(self.file_path)
-                if not verify_loader_data(loader):
-                    # Fallback to LastResortLoader if all else fails
-                    loader = LastResortDataLoader(self.file_path, metadata=self.metadata)
+            loader = UnstructuredPowerPointLoader(self.file_path)
+            if not verify_loader_data(loader):
+                # Fallback to LastResortLoader if all else fails
+                loader = LastResortDataLoader(self.file_path, metadata=self.metadata)
             self.cache = loader.load()
             return self.cache
 

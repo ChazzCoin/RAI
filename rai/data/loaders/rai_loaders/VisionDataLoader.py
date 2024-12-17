@@ -1,5 +1,5 @@
 from F.LOG import Log
-from rai.data.extraction.intake.Vision import VisionExtractor
+from rai.data.extraction.parsers.Vision import VisionExtractor
 from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiLoaderDocument, RaiBaseLoader
 Log = Log("VisionDataLoader")
 

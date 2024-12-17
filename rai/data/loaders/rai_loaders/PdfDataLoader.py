@@ -1,7 +1,8 @@
 import os
-
 import PyPDF2
-from langchain_community.document_loaders import PyPDFLoader
+import pytesseract
+from pdf2image import convert_from_path
+from langchain_community.document_loaders import PyPDFLoader, PDFMinerLoader, PDFPlumberLoader
 
 from F.LOG import Log
 
@@ -12,6 +13,13 @@ from rai.data.loaders.rai_loaders.RaiMetadataLoader import DEFAULT_METADATA
 from rai.data.loaders.rai_loaders.VisionDataLoader import VisionDataLoader
 
 Log = Log("PdfDataLoader")
+
+def safe(func):
+    try:
+        return func()
+    except Exception as e:
+        print(e)
+        return None
 
 class PdfDataLoader(RaiBaseLoader):
 
@@ -32,29 +40,28 @@ class PdfDataLoader(RaiBaseLoader):
         useful for embeddings, querying, and AI processing.
         """
         try:
+            loader = None
             if self.cache:
                 Log.i(f"Returning Cached Loader: [ {self.file_path} ]")
                 return self.cache
-            with open(self.file_path, 'rb') as file:
-                reader = PyPDF2.PdfReader(file)
-                formatted_pages = self.format_pdf(reader)
-                if formatted_pages:
-                    Log.i(f"PyPDF2 Reader Success: [ {self.file_path} ]")
-                    self.cache = RaiLoaderDocument.generate_documents(formatted_pages, metadata=self.metadata)
-                    return self.cache
-                else:
-                    raise ValueError("PDF is empty or could not be processed.")
+            # Convert PDF pages to images
+            images = convert_from_path(self.file_path)
+            # Extract text from each image
+            loader = []
+            for image in images:
+                contents = pytesseract.image_to_string(image)
+                loader.append(RaiLoaderDocument(page_content=contents))
+            self.cache = loader
+            return self.cache
+
         except Exception as e:
             # Fallback to VisionDataLoader if the primary method fails
             Log.w("PyPDF2 Failed, falling back to Vision.", e)
-            loader = VisionDataLoader(self.file_path, metadata=self.metadata)
-            if loader.should_fallback():
-                # Fallback to PyPDFLoader if VisionDataLoader is empty
-                loader = PyPDFLoader(self.file_path, extract_images=True)
-                if not verify_loader_data(loader):
-                    # Fallback to LastResortLoader if all else fails
-                    loader = LastResortDataLoader(self.file_path, metadata=self.metadata)
-            self.cache = loader.load()
+            loader = PDFPlumberLoader(self.file_path)
+            if not loader:
+                loader = PDFMinerLoader(self.file_path)
+            if loader:
+                self.cache = loader.load()
             return self.cache
 
     @staticmethod

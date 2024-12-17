@@ -29,9 +29,19 @@ def ensure_string(data):
 
 class JSONDataLoader:
     cache: [RaiLoaderDocument] = None
+    is_file: bool = False
+    json_data: [{}] = None
 
-    def __init__(self, file_path: str, metadata=None):
-        self.file_path = file_path
+    def __init__(self, file_path: str=None, json_objects=None, metadata=None):
+        if file_path:
+            self.file_path = file_path
+            self.is_file = True
+        elif json_objects:
+            if type(json_objects) not in [list, tuple]:
+                self.json_data = [json_objects]
+            else:
+                self.json_data = json_objects
+
         self.metadata = metadata if metadata is not None else {'image': ''}
 
     def load(self):
@@ -39,15 +49,23 @@ class JSONDataLoader:
             Log.i(f"Returning Cached Loader: [ {self.file_path} ]")
             return self.cache
 
+        if not self.is_file:
+            r = []
+            for item in self.json_data:
+                cleaned_item = ensure_string(item)
+                str_content = json.dumps(cleaned_item, ensure_ascii=False)
+                # The final string might contain "null" if it was None before, which is intended
+                doc = RaiLoaderDocument(page_content=str_content, metadata=self.metadata)
+                r.append(doc)
+            self.cache = r
+            return self.cache
+
         with open(self.file_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
-
         # Sanitize metadata as well
         self.metadata = ensure_string(self.metadata)
-
         # Try to get a main text content field
         data_string = DICT.get_any(keys={"content", "text", "page", "page_content"}, dic=data)
-
         if not data_string:
             # If no direct string found, we handle the data as either a list/tuple or a single object.
             if isinstance(data, (list, tuple)):

@@ -183,7 +183,7 @@ async def chat_completion(idx:Optional[int]=None):
         MessageContext.make_single(system_prompt=final_system_prompt)
     elif mod_flow == "QA":
         user_message = VECTOR_DB_CLIENT.queryModelCollection(
-            mod_collection_prefix, "open",
+            mod_collection_prefix, "dec2024",
             user_message=MessageContext.get_last_user_message,
             k=20
         )
