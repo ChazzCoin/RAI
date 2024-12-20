@@ -1,18 +1,23 @@
-import json
-from abc import ABC, abstractmethod
+import os
+from abc import ABC, abstractmethod, abstractproperty
 from typing import Optional, Dict, Type, Any
 import ollama
-import requests
+from ollama import ChatResponse, EmbedResponse
+from openai import OpenAI, AsyncOpenAI
+from pydantic import BaseModel
+
 from rai import app
-from rai.assistant.connectors import AiModels
-from rai.assistant.models import AiResponse
+from rai.agents.Tools import RaiFunctionCategories, find_RaiFunction
+from rai.assistant.ai_models import AiModels
 
+open_ai_key = os.getenv("OPENAI_API_KEY")
 
-class AiEngine(ABC):
-    engines: Dict[str, Type['AiEngine']] = {}
-    DEFAULT_MODEL:str = AiModels.DEFAULT_OLLAMA
-    KEY:str = ""
-    TEMPERATURE:float = 0.5
+class FusedAI(ABC):
+    engines: Dict[str, Type['FusedAI']] = {}
+    DEFAULT_MODEL: str = AiModels.DEFAULT_OLLAMA
+    DEFAULT_EMBEDDING_MODEL: str = AiModels.DEFAULT_OLLAMA
+    KEY: str = ""
+    TEMPERATURE: float = 0.5
     TOP_K: int = 10
     FREQUENCY_PENALTY: float = 0.5
 
@@ -21,216 +26,336 @@ class AiEngine(ABC):
         if not engine:
             raise ValueError("Subclasses must define an 'engine' name.")
         cls.engine = engine
-        # cls.set_balanced()
-        AiEngine.engines[engine] = cls
+        FusedAI.engines[engine] = cls
 
-    def set_temperature(self, temp:float):
-        self.TEMPERATURE = temp
+    @property
+    def default_model(self) -> str:
+        if self.engine == "openai":
+            return AiModels.DEFAULT_OPENAI
+        return AiModels.DEFAULT_OLLAMA
 
-    def set_strict(self):
-        self.TEMPERATURE = 0.0
-        self.TOP_K = 10
-        self.FREQUENCY_PENALTY = 0.5
+    @property
+    def default_embedding_model(self) -> str:
+        if self.engine == "openai":
+            return AiModels.DEFAULT_OPENAI_EMBEDDING
+        return AiModels.DEFAULT_OLLAMA_EMBEDDING
 
-    def set_loose(self):
-        self.TEMPERATURE = 2.0
-        self.TOP_K = 40
-        self.FREQUENCY_PENALTY = 1.0
-
-    def set_balanced(self):
-        self.TEMPERATURE = 1.0
-        self.TOP_K = 20
-        self.FREQUENCY_PENALTY = 0.0
-
-    def set_default_model(self, model:str):
-        self.DEFAULT_MODEL = model
-
+    """ SYNC """
     @abstractmethod
-    def headers(self)-> Dict[str, str]: pass
+    def generate_chat(self, user: str, system: str): pass
     @abstractmethod
-    def payload(self, system_prompt: str, user_prompt: str, model_override: Optional[str] = None): pass
+    def generate_embeddings(self, content: str): pass
     @abstractmethod
-    def payload_embeddings(self, content: str, model_override: Optional[str] = None): pass
+    def generate_format(self, user: str, system: str, format: Type[BaseModel]): pass
     @abstractmethod
-    def route(self, route: str = "") -> str: pass
+    def generate_function(self, user: str, system: str, functions: [dict]): pass
+    """ ASYNC """
     @abstractmethod
-    def default_model(self, override: Optional[str] = None) -> str: pass
+    async def generate_chat_async(self, user: str, system: str): pass
     @abstractmethod
-    def embeddings_model(self) -> str: pass
+    async def generate_format_async(self, user: str, system: str, format: Type[BaseModel]): pass
     @abstractmethod
-    def generate(self, system_prompt: str, user_prompt: str, model_override: Optional[str] = None, response_format: Optional[Dict[str, Any]] = None): pass
+    async def generate_embeddings_async(self, content): pass
     @abstractmethod
-    def generate_embeddings(self, content: str, model_override: Optional[str] = None): pass
+    def generate_function_async(self, user: str, system: str, functions: [dict]): pass
 
 
-class OpenAI(AiEngine, engine="openai"):
-    URL = "https://api.openai.com/v1"
 
-    def __init__(self, default_model: Optional[str] = None, embedding_model: Optional[str] = None):
-        self.KEY = app.state.config.OPENAI_API_KEY
-        self._default_model = default_model or AiModels.DEFAULT_OPENAI
-        self._embedding_model = embedding_model or AiModels.DEFAULT_OPENAI_EMBEDDING
+"""
 
-    def route(self, route: str = "") -> str:
-        return f"{self.URL}{route}"
+    OPENAI ENGINE
 
-    def default_model(self, override: Optional[str] = None) -> str:
-        return override or self._default_model
+"""
+class OpenAiEngine(FusedAI, engine="openai"):
+    O: OpenAI = None
+    OAsync: AsyncOpenAI = None
 
-    def embeddings_model(self) -> str:
-        return self._embedding_model
-    def payload(self, system_prompt: str, user_prompt: str, model_override: Optional[str] = None, response_format: Optional[Dict[str, Any]] = None) -> dict:
-        payload = {
-            'model': self.default_model(override=model_override),  # Use 'gpt-4' if available
-            'messages': [
-                {'role': 'system', 'content': system_prompt},
-                {'role': 'user', 'content': user_prompt}
-            ],
-            "options": {
-                "temperature": self.TEMPERATURE,
-                "top_k": self.TOP_K,
-                "frequency_penalty": self.FREQUENCY_PENALTY,
-            },
-            "stream": False
-        }
+    def __init__(self):
+        self.O = OpenAI(api_key=open_ai_key, timeout=10, max_retries=3)
+        self.OAsync = AsyncOpenAI(api_key=open_ai_key, timeout=10, max_retries=3)
 
-        if response_format:
-            payload["format"] = response_format
+    def generate_chat(self, user: str, system: str):
+        print("Generating Chat - OpenAI")
+        try:
+            completion = self.O.beta.chat.completions.parse(
+                model=self.default_model,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user}
+                ]
+            )
+            response = completion.choices[0].message
+            # If the model refuses to respond, you will get a refusal message
+            if response.refusal:
+                print("Refused:", response.refusal)
+                return response.refusal
+            else:
+                print("Parsed:", response.parsed)
+                return response.parsed
+        except Exception as e:
+            print(e)
+            return None
+    def generate_embeddings(self, content: str):
+        try:
+            response = self.O.embeddings.create(
+                input=content,
+                model=self.default_embedding_model
+            )
+            return response.data[0].embedding
+        except Exception as e:
+            print(f"Failed to embed text with openai: {e}")
+            return []
+    def generate_format(self, user: str, system: str, format: BaseModel):
+        try:
+            completion = self.O.beta.chat.completions.parse(
+                model=self.default_model,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user}
+                ],
+                response_format=format,
+            )
+            response = completion.choices[0].message
+            # If the model refuses to respond, you will get a refusal message
+            if response.refusal:
+                print("Refused:", response.refusal)
+                return response.refusal
+            else:
+                print("Parsed:", response.parsed)
+                return response.parsed
+        except Exception as e:
+            print(e)
+            return "Uh oh. Something has gone wrong!"
+    def generate_function(self, user: str, system: str, functions: [dict]):
+        try:
+            completion = self.O.chat.completions.create(
+                model=self.default_model,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user}
+                ],
+                tools=functions,
+            )
+            response = completion.choices[0].message.tool_calls
+            if response:
+                tool_results = []
+                for tool in response or []:
+                    rai_func_def = find_RaiFunction(tool.function.name, functions)
+                    tool_results.append(rai_func_def)
+                return tool_results
+            return None
+        except Exception as e:
+            print(e)
+            return None
+    """ ASYNC FUNCTIONS"""
+    async def generate_chat_async(self, user: str, system: str):
+        print("Generating Async Chat - OpenAI")
+        try:
+            completion = await self.OAsync.beta.chat.completions.parse(
+                model=self.default_model,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user}
+                ]
+            )
+            response = completion.choices[0].message
+            # If the model refuses to respond, you will get a refusal message
+            if response.refusal:
+                print("Refused:", response.refusal)
+                return response.refusal
+            else:
+                print("Parsed:", response.parsed)
+                return response.parsed
+        except Exception as e:
+            print(e)
+            return None
+    async def generate_embeddings_async(self, content: str):
+        try:
+            response = await self.OAsync.embeddings.create(
+                input=content,
+                model=self.default_embedding_model
+            )
+            return response.data[0].embedding
+        except Exception as e:
+            print(f"Failed to embed text with openai: {e}")
+            return []
+    async def generate_format_async(self, user: str, system: str, format: Type[BaseModel]):
+        try:
+            completion = await self.OAsync.beta.chat.completions.parse(
+                model=self.default_model,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user}
+                ],
+                response_format=format,
+            )
+            response = completion.choices[0].message
+            # If the model refuses to respond, you will get a refusal message
+            if response.refusal:
+                print("Refused:", response.refusal)
+                return response.refusal
+            else:
+                print("Parsed:", response.parsed)
+                return response.parsed
+        except Exception as e:
+            print(e)
+            return None
+    async def generate_function_async(self, user: str, system: str, functions: [dict]):
+        try:
+            completion = await self.OAsync.chat.completions.create(
+                model=self.default_model,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user}
+                ],
+                tools=functions,
+            )
+            response = completion.choices[0].message.tool_calls
+            if response:
+                tool_results = []
+                for tool in response or []:
+                    rai_func_def = find_RaiFunction(tool.function.name, functions)
+                    tool_results.append(rai_func_def)
+                return tool_results
+            return None
+        except Exception as e:
+            print(e)
+            return None
+"""
 
-        return payload
+    OLLAMA ENGINE
 
-    def headers(self) -> Dict[str, str]:
-        return {
-            'Content-Type': 'application/json',
-            'Authorization': f'Bearer {self.KEY}',
-        }
-    def payload_embeddings(self, content, model_override: Optional[str] = None):
-        return {
-            'model': self.embeddings_model() if not model_override else model_override,
-            'input': content
-        }
-
-    def generate_embeddings(self, content: str, model_override: Optional[str] = None):
-        """Asynchronously get embeddings from OpenAI API."""
-        headers = self.headers()
-        payload = self.payload_embeddings(content)
-        resp = requests.post(
-            'https://api.openai.com/v1/embeddings',
-            headers=headers,
-            json=payload
-        )
-        if resp.status_code != 200:
-            error = resp.json()
-            raise Exception(f"Error from OpenAI API: {error}")
-        response_data = resp.json()
-        embedding = response_data['data'][0]['embedding']
-        return embedding
-
-    def generate(self, system_prompt: str, user_prompt: str, model_override: Optional[str] = None, response_format: Optional[Dict[str, Any]] = None):
-        """Asynchronously get chat completion from OpenAI API."""
-        payload = self.payload(system_prompt, user_prompt, model_override)
-        headers = self.headers()
-        resp = requests.post(self.route("/chat/completions"), headers=headers, json=payload)
-        if resp.status_code != 200:
-            error = resp.json()
-            raise Exception(f"Error from OpenAI API: {error}")
-        response_data = resp.json()
-        assistant_message = response_data['choices'][0]['message']['content']
-        return assistant_message
-
-class Ollama(AiEngine, engine="ollama"):
+"""
+class OllamaEngine(FusedAI, engine="ollama"):
     O: ollama.Client = None
+    OAsync: ollama.AsyncClient = None
 
-    def __init__(self, default_model: Optional[str] = None, embedding_model: Optional[str] = None):
-        self.host = app.state.config.OLLAMA_HOST
-        self.port = app.state.config.OLLAMA_PORT
-        self._default_model = default_model or AiModels.DEFAULT_OLLAMA
-        self._embedding_model = embedding_model or AiModels.DEFAULT_OLLAMA_EMBEDDING
+    def __init__(self):
         self.O = ollama.Client(host=app.state.config.OLLAMA_HOST)
+        self.OAsync = ollama.AsyncClient(host=app.state.config.OLLAMA_HOST)
 
-    def parse_to_ai_response(self, o_response) -> AiResponse:
-        return AiResponse.from_json(o_response.json())
-
-    def o_generate(self, prompt:str, model_override: Optional[str] = None):
-        data = self.O.generate(model=model_override if model_override else AiModels.Ollama.LLAMA3_LATEST, prompt=prompt)
-        return self.parse_to_ai_response(data)
-
-    def o_embed(self, text:str):
-        data = self.O.embed(model=AiModels.Ollama.Embed.DEFAULT, input=text)
-        return self.parse_to_ai_response(data)
-
-    def o_download_model(self, model_name:str):
+    def download_ollama_model(self, model_name: str):
         yield self.O.pull(model=model_name)
 
-    def route(self, route: str = "") -> str:
-        return f"http://{self.host}:{self.port}{route}"
-
-    def default_model(self, override: Optional[str] = None) -> str:
-        return override or self._default_model
-
-    def embeddings_model(self) -> str:
-        return self._embedding_model
-
-    def headers(self) -> Dict[str, str]:
-        return {'Content-Type': 'application/json'}
-
-    def payload(self, system_prompt: str, user_prompt: str, model_override: Optional[str] = None, response_format: Optional[Dict[str, Any]] = None):
-        payload = {
-            "model": self.default_model(override=model_override),
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt, "images": []},
-            ],
-            "options": {
-                "temperature": self.TEMPERATURE,
-                "top_k": self.TOP_K,
-                "frequency_penalty": self.FREQUENCY_PENALTY,
-            },
-            "stream": False
-        }
-
-        if response_format:
-            payload["format"] = response_format
-
-        return json.dumps(payload)
-
-    def payload_embeddings(self, content, model_override: Optional[str] = None):
-        return json.dumps({
-            'model': self.embeddings_model() if not model_override else model_override,
-            'input': content
-        })
-    def generate_embeddings(self, content: str, model_override: Optional[str] = None):
-        if not content:
-            print("Prompt must be provided.")
-            raise ValueError("Prompt must be provided.")
+    """ SYNC """
+    def generate_chat(self, user: str, system: str):
+        print("Generating Async Chat - Ollama")
         try:
-            response = requests.post(
-                self.route("/api/embed"),
-                headers=self.headers(),
-                data=self.payload_embeddings(content),
-                timeout=10)
-            response.raise_for_status()  # Raise HTTPError for bad responses
-            data = response.json()
-            if 'embeddings' in data:
-                return data.get('embeddings', [])
-            else:
-                print("Embedding not found in the response.")
-                raise ValueError("Embedding not found in the response.")
-        except Exception as err:
-            print(f"An unexpected error occurred: {err}")
-            raise
+            data: ChatResponse = self.O.chat(
+                model=self.default_model,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user, "images": []},
+                ]
+            )
+            return data
+        except Exception as e:
+            print(e)
+            return None
+    def generate_embeddings(self, content: str):
+        try:
+            data: EmbedResponse = self.O.embed(
+                model=self.default_embedding_model,
+                input=content
+            )
+            return data.embeddings
+        except Exception as e:
+            print(e)
+            return None
+    def generate_format(self, user:str, system:str, format: BaseModel):
+        try:
+            data: ChatResponse = self.O.chat(
+                model=self.default_model,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user, "images": []},
+                ],
+                format=format.model_json_schema()
+            )
+            answer = format.model_validate_json(data.message.content)
+            print(answer)
+            return answer
+        except Exception as e:
+            print(e)
+            return None
+    def generate_function(self, user:str, system:str, functions: [dict]):
+        try:
+            data: ChatResponse = self.O.chat(
+                model=self.default_model,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user, "images": []},
+                ],
+                tools=functions
+            )
+            tool_results = []
+            for tool in data.message.tool_calls or []:
+                rai_func_def = find_RaiFunction(tool.function.name, functions)
+                tool_results.append(rai_func_def)
+            return tool_results
+        except Exception as e:
+            print(e)
+            return None
+    """ ASYNC """
+    async def generate_chat_async(self, user:str, system:str):
+        print("Generating Async Chat - Ollama")
+        try:
+            data: ChatResponse = await self.OAsync.chat(
+                model=self.default_model,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user, "images": []},
+                ]
+            )
+            return data
+        except Exception as e:
+            print(e)
+            return None
+    async def generate_embeddings_async(self, content):
+        try:
+            data: EmbedResponse = await self.OAsync.embed(
+                model=self.default_embedding_model,
+                input=content
+            )
+            return data.embeddings
+        except Exception as e:
+            print(e)
+            return None
+    async def generate_format_async(self, user:str, system:str, format: BaseModel):
+        try:
+            data: ChatResponse = await self.OAsync.chat(
+                model=self.default_model,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user, "images": []},
+                ],
+                format=format.model_json_schema()
+            )
+            answer = format.model_validate_json(data.message.content)
+            return answer
+        except Exception as e:
+            print(e)
+            return None
+    async def generate_function_async(self, user:str, system:str, functions: [dict]):
+        try:
+            data: ChatResponse = await self.OAsync.chat(
+                model=self.default_model,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user, "images": []},
+                ],
+                tools=functions
+            )
+            tool_results = []
+            for tool in data.message.tool_calls or []:
+                rai_func_def = find_RaiFunction(tool.function.name, functions)
+                tool_results.append(rai_func_def)
+            return tool_results
+        except Exception as e:
+            print(e)
+            return None
 
-    def generate(self,
-                 system_prompt: str,
-                 user_prompt: str,
-                 model_override: Optional[str] = None,
-                 response_format: Optional[Dict[str, Any]] = None
-                 ):
-        payload = self.payload(system_prompt, user_prompt, model_override, response_format)
-        response = requests.post(self.route("/api/chat"), headers=self.headers(), data=payload)
-        if response.status_code == 200:
-            response_data = response.json()
-            return response_data['message']['content']
-        else:
-            if response: return response
-            return {"error": f"Request failed with status code {response.status_code}"}
+
+
+
+

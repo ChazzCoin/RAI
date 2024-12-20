@@ -1,5 +1,7 @@
+import os
 from typing import Optional
-
+from langchain.prompts import PromptTemplate
+from langchain.chains.llm import LLMChain
 from F import DICT, LIST
 from typing_extensions import Any
 from rai.RAG.models import QueryCollectionsForm
@@ -8,8 +10,10 @@ from rai.internal.chromadb import ChromaClient
 from F.LOG import Log
 Log = Log("Rai Data Loader")
 
+open_ai_key = os.getenv("OPENAI_API_KEY")
 
 class Q(ChromaClient):
+    llm = None
 
     def __init__(self):
         super().__init__()
@@ -140,3 +144,44 @@ class Q(ChromaClient):
         }
 
         return result
+
+    # Query Refinement Function
+    def refine_query(self, user_query: str) -> str:
+        """
+        Refines the user query for better search relevance.
+        :param user_query: Original user query.
+        :return: Refined query.
+        """
+        query_refinement_prompt = PromptTemplate(
+            input_variables=["query"],
+            template="You are a helpful assistant improving user search queries. "
+                     "Original query: {query}\n"
+                     "Refined query: Make it clearer, more specific, and suitable for retrieval."
+        )
+
+        query_chain = LLMChain(llm=self.llm, prompt=query_refinement_prompt)
+        refined_query = query_chain.run(query=user_query)
+        return refined_query.strip()
+
+    # Context Condensation Function
+    def condense_context(self, retrieved_chunks) -> str:
+        """
+        Condenses retrieved document chunks into a concise summary.
+        :param retrieved_chunks: List of retrieved document chunks.
+        :return: Condensed summary of the context.
+        """
+        combined_context = ""
+        if type(retrieved_chunks) in [list, tuple]:
+            combined_context = "\n".join(retrieved_chunks)
+        elif type(retrieved_chunks) in [str]:
+            combined_context = retrieved_chunks
+        context_summary_prompt = PromptTemplate(
+            input_variables=["context"],
+            template="You are an assistant summarizing information for relevance. "
+                     "Here is the context:\n{context}\n\n"
+                     "Summarize the key points clearly and concisely."
+        )
+
+        summarization_chain = LLMChain(llm=self.llm, prompt=context_summary_prompt)
+        condensed_summary = summarization_chain.run(context=combined_context)
+        return condensed_summary.strip()

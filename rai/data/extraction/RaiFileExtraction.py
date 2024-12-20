@@ -42,6 +42,8 @@ class RaiFileExtractor:
 
     def __init__(self, config: RaiConfig):
         self.config = config
+        Log.w("Chunk Overlap:", app.state.config.CHUNK_OVERLAP)
+        Log.w("Chunk Size:", app.state.config.CHUNK_SIZE)
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=app.state.config.CHUNK_SIZE,
             chunk_overlap=app.state.config.CHUNK_OVERLAP,

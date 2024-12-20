@@ -1,11 +1,13 @@
 import os
 import PyPDF2
 import pytesseract
+from datrie import Iterator
 from pdf2image import convert_from_path
 from langchain_community.document_loaders import PyPDFLoader, PDFMinerLoader, PDFPlumberLoader
 
 from F.LOG import Log
 
+from rai.data.extraction.parsers.PDF_v1 import FPDF
 from rai.data.loaders import verify_loader_data
 from rai.data.loaders.rai_loaders.LastResortDataLoader import LastResortDataLoader
 from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiLoaderDocument, RaiBaseLoader
@@ -22,9 +24,12 @@ def safe(func):
         return None
 
 class PdfDataLoader(RaiBaseLoader):
-
-    def __init__(self, file_path: str, metadata=DEFAULT_METADATA):
+    fpdf = None
+    ocr = None
+    def __init__(self, file_path: str, metadata=DEFAULT_METADATA, fpdf=True, ocr=True):
         super().__init__(file_path, metadata)
+        self.fpdf = fpdf
+        self.ocr = ocr
         self._validate_file_path()
 
     def _validate_file_path(self):
@@ -33,17 +38,42 @@ class PdfDataLoader(RaiBaseLoader):
         if not self.file_path.endswith('.pdf'):
             raise ValueError("Unsupported file type. Only PDF files are allowed.")
 
+    def check_length(self, item):
+        if type(item) == str:
+            return len(item)
+        if type(item) in [list, tuple]:
+            count = 0
+            for i in item:
+                count += len(i)
+            return count
+        return 0
+
+    def fallback(self):
+        loader = PDFPlumberLoader(self.file_path)
+        if not loader:
+            loader = PDFMinerLoader(self.file_path)
+        if loader:
+            self.cache = loader
+        return self.cache
+
     def load(self) -> [str]:
         """
         Loads and extracts the text from the PDF file.
         The output is a list of formatted strings representing each page,
         useful for embeddings, querying, and AI processing.
         """
-        try:
-            loader = None
-            if self.cache:
-                Log.i(f"Returning Cached Loader: [ {self.file_path} ]")
-                return self.cache
+
+        def fpdf():
+            if not self.fpdf: return []
+            loader = []
+            temp = FPDF.extract_text_from_pdf(self.file_path)
+            if temp:
+                for item in temp:
+                    loader.append(RaiLoaderDocument(page_content=item))
+                return loader
+            return []
+        def ocr():
+            if not self.ocr: return []
             # Convert PDF pages to images
             images = convert_from_path(self.file_path)
             # Extract text from each image
@@ -51,18 +81,35 @@ class PdfDataLoader(RaiBaseLoader):
             for image in images:
                 contents = pytesseract.image_to_string(image)
                 loader.append(RaiLoaderDocument(page_content=contents))
+            return loader if loader else []
+        try:
+            loader = None
+            if self.cache:
+                Log.i(f"Returning Cached Loader: [ {self.file_path} ]")
+                return self.cache
+
+            loader1 = fpdf()
+            loader2 = ocr()
+
+            if loader1 and loader2:
+                if self.check_length(loader1) >= self.check_length(loader2):
+                    loader = loader1
+                else:
+                    loader = loader2
+            elif loader1:
+                loader = loader1
+            elif loader2:
+                loader = loader2
+
+            if not loader:
+                return self.fallback()
+
             self.cache = loader
             return self.cache
 
         except Exception as e:
-            # Fallback to VisionDataLoader if the primary method fails
             Log.w("PyPDF2 Failed, falling back to Vision.", e)
-            loader = PDFPlumberLoader(self.file_path)
-            if not loader:
-                loader = PDFMinerLoader(self.file_path)
-            if loader:
-                self.cache = loader.load()
-            return self.cache
+            return self.fallback()
 
     @staticmethod
     def format_pdf(reader: PyPDF2.PdfReader) -> [str]:

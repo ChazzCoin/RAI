@@ -55,26 +55,59 @@ class FPDF:
 
     @staticmethod
     def extract_text_from_pdf(path):
-        rsrcmgr = PDFResourceManager()
-        retstr = StringIO()
-        laparams = LAParams()
-        device = TextConverter(rsrcmgr, retstr, laparams=laparams)
-        fp = open(path, 'rb')
-        interpreter = PDFPageInterpreter(rsrcmgr, device)
-        password = ""
-        maxpages = 0
-        caching = True
-        pagenos=set()
+        try:
+            # Class Setup
+            rsrcmgr = PDFResourceManager()
+            retstr = StringIO()
+            laparams = LAParams()
+            device = TextConverter(rsrcmgr, retstr, laparams=laparams)
+            interpreter = PDFPageInterpreter(rsrcmgr, device)
 
-        for page in PDFPage.get_pages(fp, pagenos, maxpages=maxpages, password=password,caching=caching, check_extractable=True):
-            interpreter.process_page(page)
+            # Configs
+            password = ""
+            maxpages = 0
+            caching = True
+            pagenos=set()
 
-        text = retstr.getvalue()
+            # Extraction
+            fp = open(path, 'rb')
+            pdf_document = PDFPage.get_pages(fp, pagenos, maxpages=maxpages, password=password,caching=caching, check_extractable=True)
+            for page in pdf_document:
+                interpreter.process_page(page)
 
-        fp.close()
-        device.close()
-        retstr.close()
-        return text
+            text = retstr.getvalue()
+
+            print("Character Count:", len(text))
+            text_paragraphs = PostProcessor.to_paragraphs(text)
+            print("Paragraphs Count:", len(text_paragraphs))
+
+            def clean_paragraphs(paras):
+                new_paragraphs = []
+                if paras:
+                    temp_p = ""
+                    building = False
+                    for paragraph in paras:
+                        if len(paragraph) < 100:
+                            if not building: building = True
+                            temp_p = f"{temp_p} {paragraph}"
+                        else:
+                            if building:
+                                if len(temp_p) > 100:
+                                    new_paragraphs.append(PostProcessor.clean_text_one(temp_p))
+                                    temp_p = ""
+                                    building = False
+                            temp_p = f"{temp_p}\n{PostProcessor.clean_text_one(paragraph)}"
+                            new_paragraphs.append(temp_p)
+                            temp_p = ""
+                return new_paragraphs
+
+            fp.close()
+            device.close()
+            retstr.close()
+            return clean_paragraphs(text_paragraphs)
+        except Exception as e:
+            print(f"Error: {e}")
+            return None
 
     @staticmethod
     def extract_text_from_pdf_bytes(file_data):
@@ -114,6 +147,8 @@ class FPDF:
 if __name__ == '__main__':
     from F import OS
     cwd = OS.get_cwd()
-    file = "/Users/chazzromeo/Desktop/projectrpg/Extract"
+    file = "/Users/chazzromeo/Desktop/ussf2024/player_dev_framework.pdf"
+    result = FPDF.extract_text_from_pdf(file)
+    # print(result)
     # file = f"{cwd}/../Utils/mlpython.pdf"
-    ps = FPDF(file).run()
+    # ps = FPDF(file).run()

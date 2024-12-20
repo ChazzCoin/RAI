@@ -11,7 +11,7 @@ from openai.types.chat import ChatCompletion
 from F import DICT
 
 from rai.app import state
-from rai.assistant.connectors import RaiAi as engine, AiModels
+from rai.assistant.connectors import AiModels
 
 # default_model = os.getenv("DEFAULT_OPENAI_MODEL")
 # embedding_model = os.getenv("DEFAULT_OPENAI_EMBEDDING_MODEL")
@@ -29,7 +29,7 @@ async def get_embeddings(text):
     }
     data = {
         'input': text,
-        'model': engine.MODELS.DEFAULT_OPENAI_EMBEDDING,
+        'model': AiModels.DEFAULT_OPENAI_EMBEDDING,
     }
     async with aiohttp.ClientSession() as session:
         async with session.post('https://api.openai.com/v1/embeddings', headers=headers, json=data) as resp:
@@ -44,10 +44,10 @@ async def get_chat_completion(system_prompt, user_input, model:str=None):
     """Asynchronously get chat completion from OpenAI API."""
     headers = {
         'Content-Type': 'application/json',
-        'Authorization': f'Bearer {engine.OPENAI.KEY}',
+        'Authorization': f'Bearer {open_ai_key}',
     }
     data = {
-        'model': engine.OPENAI.default_model(override=model),  # Use 'gpt-4' if available
+        'model': AiModels.DEFAULT_OPENAI,  # Use 'gpt-4' if available
         'messages': [
             {'role': 'system', 'content': system_prompt},
             {'role': 'user', 'content': user_input}
@@ -55,7 +55,7 @@ async def get_chat_completion(system_prompt, user_input, model:str=None):
         'temperature': 0.7,
     }
     async with aiohttp.ClientSession() as session:
-        async with session.post(engine.OPENAI.route("/chat/completions"), headers=headers, json=data) as resp:
+        async with session.post("https://api.openai.com/v1/chat/completions", headers=headers, json=data) as resp:
             if resp.status != 200:
                 error = await resp.json()
                 raise Exception(f"Error from OpenAI API: {error}")
@@ -95,238 +95,45 @@ def openai_generate(system_prompt: str, user_prompt: str, model: str = AiModels.
 {"model":"llama3:latest","created_at":"2024-09-16T02:10:32.443679033Z","message":{"role":"assistant","content":"?"},"done":false}
 {"model":"llama3:latest","created_at":"2024-09-16T02:10:32.477253839Z","message":{"role":"assistant","content":""},"done_reason":"stop","done":true,"total_duration":4659202790,"load_duration":4270615787,"prompt_eval_count":22,"prompt_eval_duration":52448000,"eval_count":7,"eval_duration":201934000}
 """
-def chat_request_stream(system: str, user: str, model: str = AiModels.DEFAULT_OPENAI, content_only: bool = True):
-    print(f"Model: {model}")
-
-    # Assuming getClient().chat.completions.create is compatible with streaming
-    response_stream = getClient().chat.completions.create(
-        model=engine.OPENAI.default_model(override=model),
-        stream=True,  # Enable streaming
-        response_format={"type": "text"},
-        messages=[
-            {"role": "system", "content": system},
-            {"role": "user", "content": user}
-        ]
-    )
-
-    collected_response = []  # To collect and return the final content if needed
-
-    for response_chunk in response_stream:
-        # Assume response_chunk is a part of the response from the stream
-        print(response_chunk)
-
-        # Extract the content of the chunk, assuming it's in response_chunk['choices'][0]['message']['content']
-        content = response_chunk.get('choices', [{}])[0].get('message', {}).get('content', "")
-        if content:
-            collected_response.append(content)
-            yield content  # Yield the content chunk to stream it
-
-    if content_only:
-        return ''.join(collected_response)  # Return the full content if content_only is True
-    return collected_response  # Return the full response chunks if not content_only
-def chat_request_forward(messages: [], model: str = AiModels.DEFAULT_OPENAI) -> ChatCompletion:
-    response = getClient().chat.completions.create(
-        model=model,
-        response_format={"type": "text"},
-        messages=messages
-    )
-    return response
+# def chat_request_stream(system: str, user: str, model: str = AiModels.DEFAULT_OPENAI, content_only: bool = True):
+#     print(f"Model: {model}")
+#
+#     # Assuming getClient().chat.completions.create is compatible with streaming
+#     response_stream = getClient().chat.completions.create(
+#         model=AiModels.DEFAULT_OPENAI,
+#         stream=True,  # Enable streaming
+#         response_format={"type": "text"},
+#         messages=[
+#             {"role": "system", "content": system},
+#             {"role": "user", "content": user}
+#         ]
+#     )
+#
+#     collected_response = []  # To collect and return the final content if needed
+#
+#     for response_chunk in response_stream:
+#         # Assume response_chunk is a part of the response from the stream
+#         print(response_chunk)
+#
+#         # Extract the content of the chunk, assuming it's in response_chunk['choices'][0]['message']['content']
+#         content = response_chunk.get('choices', [{}])[0].get('message', {}).get('content', "")
+#         if content:
+#             collected_response.append(content)
+#             yield content  # Yield the content chunk to stream it
+#
+#     if content_only:
+#         return ''.join(collected_response)  # Return the full content if content_only is True
+#     return collected_response  # Return the full response chunks if not content_only
+# def chat_request_forward(messages: [], model: str = AiModels.DEFAULT_OPENAI) -> ChatCompletion:
+#     response = getClient().chat.completions.create(
+#         model=model,
+#         response_format={"type": "text"},
+#         messages=messages
+#     )
+#     return response
 def get_current_timestamp():
     """Utility function to get the current timestamp in the required format."""
     return datetime.datetime.utcnow().isoformat() + 'Z'
-def stream_chat_completion(system: str, user: str, model: str = "llama3:latest"):
-    # Record the time before the request is sent
-    start_time = time.time()
-
-    # Send a ChatCompletion request to the OpenAI API with stream=True
-    response = getClient().chat.completions.create(
-        model=model,
-        messages=[{'role': 'system', 'content': system},
-                  {'role': 'user', 'content': user}],
-        temperature=0,
-        stream=True  # Enable streaming
-    )
-
-    # Create variables to collect the streamed chunks
-    collected_chunks = []
-    collected_messages = []
-
-    # Iterate through the stream of events (chunks)
-    for chunk in response:
-        chunk_time = time.time() - start_time  # Calculate the time delay of the chunk
-        collected_chunks.append(chunk)  # Save the chunk response
-        chunk_message = chunk.choices[0].delta.content  # Extract the message from the chunk
-
-        # Save the message if it exists
-        if chunk_message:
-            collected_messages.append(chunk_message)
-
-        # Print the message and the time it was received after the request
-        print(f"Message received {chunk_time:.2f} seconds after request: {chunk_message}")
-
-    # Calculate the total time taken to receive the full response
-    full_time = time.time() - start_time
-    print(f"Full response received {full_time:.2f} seconds after request")
-
-    # Join the collected messages into the full reply content
-    full_reply_content = ''.join(collected_messages)
-    print(f"Full conversation received: {full_reply_content}")
-
-    # Return the full response content
-    return full_reply_content
-def stream_chat_completion2(system: str, user: str, model: str = "llama3:latest"):
-    # Record the time before the request is sent
-    start_time = time.time()
-
-    # Send a ChatCompletion request to the OpenAI API with stream=True
-    response = getClient().chat.completions.create(
-        model=model,
-        messages=[{'role': 'system', 'content': system},{'role': 'user', 'content': user}],
-        temperature=0,
-        stream=True  # Enable streaming
-    )
-
-    # Variables to collect the streamed chunks
-    collected_messages = []
-    prompt_eval_count = 0
-    eval_count = 0
-    prompt_eval_duration = 0  # Simulated prompt evaluation duration
-
-    is_finished = False
-    # Iterate through the stream of events (chunks)
-    while not is_finished:
-
-        for chunk in response:
-            chunk_time = time.time() - start_time  # Calculate the time delay of the chunk
-            timestamp = get_current_timestamp()  # Get the current timestamp
-
-            # Extract the message content from the chunk
-            choice = chunk.choices[0]
-
-            finish_reason = DICT.get('finish_reason', choice, None)
-            if finish_reason:
-                if finish_reason == 'stop':
-                    is_finished = True
-            delta = choice.delta
-            chunk_message = DICT.get('content', delta, None)
-            print(chunk_message)
-            if chunk_message:
-                collected_messages.append(chunk_message)
-
-                # Construct the response object for each chunk
-                response_obj = {
-                    "model": model,
-                    "created_at": timestamp,
-                    "message": {
-                        "role": "assistant",
-                        "content": chunk_message
-                    },
-                    "done": False  # Indicate that the stream is not yet done
-                }
-
-                # Yield the response object for streaming
-                # print("Streaming:", response_obj)
-                yield response_obj
-
-            # Simulate evaluation counts and prompt evaluation (modify as per real implementation)
-            prompt_eval_count += 1
-            eval_count += 1
-
-    # Once the stream is finished, compute the total duration
-    total_duration = int((time.time() - start_time) * 1e9)  # Convert to nanoseconds
-    load_duration = total_duration - prompt_eval_duration  # Simulated load duration
-
-    # Final completion message
-    final_obj = {
-        "model": model,
-        "created_at": get_current_timestamp(),
-        "message": {
-            "role": "assistant",
-            "content": ''.join(collected_messages)  # Join collected messages as final content
-        },
-        "done_reason": "stop",
-        "done": True,  # Indicate that the stream is done
-        "total_duration": total_duration,
-        "load_duration": load_duration,
-        "prompt_eval_count": prompt_eval_count,
-        "prompt_eval_duration": prompt_eval_duration,
-        "eval_count": eval_count,
-        "eval_duration": total_duration - prompt_eval_duration  # Simulated eval duration
-    }
-
-    # Yield the final completion message
-    # print("Finished:", final_obj)
-    yield final_obj
-async def generate_chat_completion(system_prompt, user_prompt, appended_message="", messages:[]=None):
-    """Asynchronously stream chat completion from OpenAI API."""
-    headers = {
-        'Content-Type': 'application/json',
-        'Authorization': f'Bearer {state.config.OPENAI_API_KEY}',
-    }
-    if not messages:
-        messages = [
-                {'role': 'system', 'content':  system_prompt },
-                {'role': 'user', 'content': user_prompt }
-            ]
-    data = {
-        'model': "gpt-4o-mini",
-        'messages': messages,
-        'temperature': 0,
-        'stream': True
-    }
-    start_time = time.time()
-    collected_messages = []
-    prompt_eval_count = 0
-    eval_count = 0
-    prompt_eval_duration = 0  # Simulated prompt evaluation duration
-    async with aiohttp.ClientSession() as session:
-        async with session.post('https://api.openai.com/v1/chat/completions', headers=headers, json=data) as resp:
-            if resp.status != 200:
-                error = await resp.json()
-                raise Exception(f"Error from OpenAI API: {error}")
-            async for line in resp.content:
-                chunk_time = time.time() - start_time
-                timestamp = get_current_timestamp()
-                line = line.decode('utf-8').strip()
-                if not line:
-                    continue
-                if line.startswith('data: '):
-                    line = line[len('data: '):]
-                if line == '[DONE]':
-                    break
-                try:
-                    data = json.loads(line)
-                    choice = data['choices'][0]
-                    delta = choice.get('delta', {})
-                    chunk_message = delta.get('content', None)
-                    if chunk_message:
-                        collected_messages.append(chunk_message)
-                        response_obj = {
-                            "model": "gpt-4o-mini",
-                            "created_at": timestamp,
-                            "message": {
-                                "role": "assistant",
-                                "content": chunk_message
-                            },
-                            "done": False  # Indicate that the stream is not yet done
-                        }
-                        yield f"\n{json.dumps(response_obj)}\n"
-                    prompt_eval_count += 1
-                    eval_count += 1
-                except json.JSONDecodeError:
-                    continue
-    # Append any additional message at the end
-    if appended_message:
-        appended_obj = {
-            "model": "gpt-4o-mini",
-            "created_at": get_current_timestamp(),
-            "message": {
-                "role": "assistant",
-                "content": f"\n\n {appended_message}"
-            },
-            "done": False  # Indicate that the stream is not yet done
-        }
-        yield f"\n{json.dumps(appended_obj)}\n"
 
 
 QA_SCHEMA = {
@@ -341,64 +148,96 @@ QA_SCHEMA = {
         "required": ["question", "answer"]
     }
 }
-async def generate_function_call(user, system, schema:dict):
-    headers = {
-        "Authorization": f"Bearer {open_ai_key}",
-        "Content-Type": "application/json"
-    }
-    data = {
-        "model": "gpt-4o-mini",  # Use the model version that supports function calling
-        "messages": [
-            {"role": "system", "content": system},
-            {"role": "user", "content": user}
-        ],
-        "functions": [
-            schema
-        ],
-        "function_call": {"name": "answer_question"}  # Explicitly invoke the function
-    }
-    async with aiohttp.ClientSession() as session:
-        async with session.post(engine.OPENAI.route("/chat/completions"), headers=headers, json=data) as resp:
-            if resp.status != 200:
-                error = await resp.json()
-                raise Exception(f"Error from OpenAI API: {error}")
-            response_data = await resp.json()
-            assistant_message = response_data["choices"][0]["message"]["function_call"]["arguments"]
-            structured_data = json.loads(assistant_message)
-            # Ensure the format and return the boolean answer
-            if (
-                    isinstance(structured_data, dict) and
-                    "answer" in structured_data and
-                    isinstance(structured_data["answer"], bool)
-            ):
-                print(structured_data["answer"])
-                return structured_data["answer"]
-            else:
-                print(f"Invalid response format: {structured_data}")
-                print(assistant_message)
-                return assistant_message
+# async def generate_function_call(user, system, schema:dict):
+#     headers = {
+#         "Authorization": f"Bearer {open_ai_key}",
+#         "Content-Type": "application/json"
+#     }
+#     data = {
+#         "model": "gpt-4o-mini",  # Use the model version that supports function calling
+#         "messages": [
+#             {"role": "system", "content": system},
+#             {"role": "user", "content": user}
+#         ],
+#         "functions": [
+#             schema
+#         ],
+#         "function_call": {"name": "answer_question"}  # Explicitly invoke the function
+#     }
+#     async with aiohttp.ClientSession() as session:
+#         async with session.post("https://api.openai.com/v1/chat/completions/chat/completions", headers=headers, json=data) as resp:
+#             if resp.status != 200:
+#                 error = await resp.json()
+#                 raise Exception(f"Error from OpenAI API: {error}")
+#             response_data = await resp.json()
+#             assistant_message = response_data["choices"][0]["message"]["function_call"]["arguments"]
+#             structured_data = json.loads(assistant_message)
+#             # Ensure the format and return the boolean answer
+#             if (
+#                     isinstance(structured_data, dict) and
+#                     "answer" in structured_data and
+#                     isinstance(structured_data["answer"], bool)
+#             ):
+#                 print(structured_data["answer"])
+#                 return structured_data["answer"]
+#             else:
+#                 print(f"Invalid response format: {structured_data}")
+#                 print(assistant_message)
+#                 return assistant_message
 
-def generate_structured_output(user_prompt:str, system_prompt:str, format:BaseModel, model_override:str=None):
-    try:
-        completion = getClient().beta.chat.completions.parse(
-            model=AiModels.DEFAULT_OPENAI if not model_override else model_override,
-            messages=[
-                {"role": "system", "content": system_prompt },
-                {"role": "user", "content": user_prompt }
-            ],
-            response_format=format,
-        )
-        response = completion.choices[0].message
-        # If the model refuses to respond, you will get a refusal message
-        if response.refusal:
-            print("Refused:", response.refusal)
-            return response.refusal
-        else:
-            print("Parsed:",response.parsed)
-            return response.parsed
-    except Exception as e:
-        print(e)
-        return "Uh oh. Something has gone wrong!"
+# def generate_structured_output(user_prompt:str, system_prompt:str, format:BaseModel, model_override:str=None):
+#     try:
+#         completion = getClient().beta.chat.completions.parse(
+#             model=AiModels.DEFAULT_OPENAI if not model_override else model_override,
+#             messages=[
+#                 {"role": "system", "content": system_prompt },
+#                 {"role": "user", "content": user_prompt }
+#             ],
+#             response_format=format,
+#         )
+#         response = completion.choices[0].message
+#         # If the model refuses to respond, you will get a refusal message
+#         if response.refusal:
+#             print("Refused:", response.refusal)
+#             return response.refusal
+#         else:
+#             print("Parsed:",response.parsed)
+#             return response.parsed
+#     except Exception as e:
+#         print(e)
+#         return "Uh oh. Something has gone wrong!"
+
+
+"""
+[
+  {
+    "id": "call_12345xyz",
+    "type": "function",
+    "function": { "name": "get_weather", "arguments": "{'location':'Paris'}" }
+  }
+]
+"""
+# def generate_tool_output(user_prompt:str, system_prompt:str, tools:[{}], model_override:str=None):
+#     try:
+#         completion = getClient().chat.completions.create(
+#             model=AiModels.DEFAULT_OPENAI if not model_override else model_override,
+#             messages=[
+#                 {"role": "system", "content": system_prompt },
+#                 {"role": "user", "content": user_prompt }
+#             ],
+#             tools=tools
+#         )
+#         tools_response = completion.choices[0].message.tool_calls
+#         if tools_response:
+#             for tool in tools_response:
+#                 function_data = DICT.get("function", tool, None)
+#                 if function_data:
+#                     func_name = DICT.get("name", function_data, None)
+#                     func_args = DICT.get("arguments", function_data, None)
+#
+#     except Exception as e:
+#         print(e)
+#         return "Uh oh. Something has gone wrong!"
 
 if __name__ == "__main__":
     import asyncio

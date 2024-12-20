@@ -41,7 +41,7 @@ def list_prompt_categories():
     run_rai_file_extraction(fig=config)
 """
 def run_rai_file_extraction(fig:RaiConfig):
-    return RaiFileExtractor.fromConfig(fig).run(collection_prefix=fig.collection_prefix)
+    return RaiFileExtractor(fig)
 
 def run_rai_web_extraction(url:str, pages=0):
     """ pages = 0 -> entire website """
@@ -71,8 +71,12 @@ if __name__ == '__main__':
     config.pipeline = RaiFileExtractor.Pipelines.CHROMA
     config.generate_ai_metadata = True
     config.overwrite = True
-    config.base_path = RaiPath("/Users/chazzromeo/Desktop/ussf2024")
-    config.collection_prefix = "ussf.dec2024"
+    config.base_path = RaiPath("/Users/chazzromeo/Desktop/pcsc2024/general/Park City Soccer Club LTADM.pdf")
+    config.collection_prefix = "pcsc2024.ext"
+
+    # config.base_path = RaiPath("/Users/chazzromeo/Desktop/proverbs2024")
+    # config.collection_prefix = "proverbs.dec2024"
+
     RaiFileExtractor(config=config).import_directory(config.base_path)
     # run_rai_file_extraction(fig=config)
 

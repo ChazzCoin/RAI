@@ -129,11 +129,13 @@ class TextCleaner:
             'Dir\.',  # Add any additional titles as necessary
         ]) + r')\b')
 
-    def clean_text(self, text):
+    def clean_text_one(self, text):
         one = self.double_space_to_single_cleaner(text)
         two = self.unicode_cleaner(one)
         three = self.quote_cleaner(two)
         four = self.clean_sentence(three)
+        four = four.replace("+", "").replace("\u2022", "").replace("•", "")
+        four = four.replace("-", "").replace(":", "")
         return four
 
     def double_space_to_single_cleaner(self, text: str) -> str:
@@ -174,7 +176,7 @@ class TextCleaner:
         sentence = re.sub(r'\s*:\s*', ': ', sentence)
         sentence = re.sub(r' +', ' ', sentence)  # Remove multiple spaces
         sentence = sentence.strip()  # Remove leading and trailing spaces
-
+        sentence = sentence.replace("+", "")
         # Fix common misspellings and formatting issues
         sentence = re.sub(r'\bModdel\b', 'Model', sentence)
         sentence = re.sub(r'\bColorad\b', 'Colorado', sentence)
@@ -302,7 +304,8 @@ class TextCleaner:
         # Remove non-relevant sections like headers, page numbers, etc.
         text = re.sub(r'--- Page \d+ ---', '', text)  # Remove page headers
         text = re.sub(r'\s+', ' ', text)  # Remove excessive whitespace
-        text = text.strip()  # Strip leading and trailing whitespace
+        text = text.strip()
+        text = text.replace("+", "")# Strip leading and trailing whitespace
         return text
 
     @staticmethod

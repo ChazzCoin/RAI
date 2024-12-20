@@ -1,34 +1,36 @@
 import re
-from abc import abstractproperty, abstractmethod
+from abc import abstractmethod, ABC
+from typing import List, Dict, Type
 
 import requests
+from pydantic import BaseModel
+
 from rai.assistant.connectors import RaiAi
-from langchain import PromptTemplate
-from pydantic import BaseModel, Field
-from typing import Any, Dict, List, Tuple, Optional
-from enum import Enum
+# from langchain import PromptTemplate
+# from pydantic import BaseModel, Field
+# from typing import Any, Dict, List, Tuple, Optional
+# from enum import Enum
+#
+# from langchain_huggingface import HuggingFaceEmbeddings
 
-from langchain_huggingface import HuggingFaceEmbeddings
-
-from rai.assistant.models import ListOfQuestionAnswers, RaiMetadata, QuestionAnswer
-from rai.assistant.openai_client import generate_structured_output
+from rai.assistant.models import ListOfQuestionAnswers, RaiMetadata, QuestionAnswer, RaiQueryExpander, TrueOrFalse
 from rai.data.loaders.rai_loaders.JsonDataLoader import JSONDataLoader
 
-hugging_embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
+# hugging_embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
 
-from langchain_ollama import ChatOllama
-from langchain_ollama import OllamaEmbeddings
-ollama_embeddings = OllamaEmbeddings(model="llama3")
+# from langchain_ollama import ChatOllama
+# from langchain_ollama import OllamaEmbeddings
+# ollama_embeddings = OllamaEmbeddings(model="llama3")
+#
+# from langchain_openai import OpenAI
+# from langchain_openai import ChatOpenAI
+# from langchain_openai import OpenAIEmbeddings
+# openai_embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
+#
+# from langchain_chroma import Chroma
+# # vector_store = Chroma(embedding_function=embeddings)
 
-from langchain_openai import OpenAI
-from langchain_openai import ChatOpenAI
-from langchain_openai import OpenAIEmbeddings
-openai_embeddings = OpenAIEmbeddings(model="text-embedding-3-large")
 
-from langchain_chroma import Chroma
-# vector_store = Chroma(embedding_function=embeddings)
-
-ai = RaiAi().OLLAMA
 
 """
 1. A True/False model and Structured Response
@@ -96,11 +98,52 @@ def ask_openai_for_true_or_false(api_key, question):
         return None
 
 
+"""
+{
+  "type": "table",
+  "headers": ["Date", "Drill", "Focus"],
+  "rows": [
+    ["Jan 10", "Cone Dribble Warm-up", "Ball Control"],
+    ["Jan 12", "1v1 Challenge", "Defensive Skills"]
+  ]
+}
 
-class DataGenerator:
 
+{
+  "formatted_markdown": ""
+}
+
+
+
+"""
+class ResponseRow(BaseModel):
+    row: List[str]
+
+class FormatResponseMarkdown(BaseModel):
+    markdown: str
+
+class FormatResponseTable(BaseModel):
+    type: str
+    headers: List[ResponseRow]
+    rows: List[ResponseRow]
+
+class ResponseFormatPipeline(ABC):
+
+    pipelines: Dict[str, Type['ResponseFormatPipeline']] = {}
+
+    ai = RaiAi(engine_name='ollama')
     results = None
     json_obj_list:[] = None
+
+    def __init_subclass__(cls, *, pipeline: str, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if not pipeline:
+            raise ValueError("Subclasses must define an 'engine' name.")
+        cls.engine = pipeline
+        ResponseFormatPipeline.pipelines[pipeline] = cls
+
+    @classmethod
+    def pipeline(cls, name): return cls().pipelines[name]
 
     @abstractmethod
     def run(self, dataset): pass
@@ -139,13 +182,78 @@ class DataGenerator:
         return temp
 
 
+
+class DataGenerator:
+    ai = RaiAi(engine_name='ollama')
+    results = None
+    json_obj_list:[] = None
+
+    @abstractmethod
+    def run(self, dataset): pass
+    @abstractmethod
+    def system_prompt(self): pass
+    @abstractmethod
+    def to_json(self): pass
+
+    def to_dataloader(self):
+        if self.json_obj_list:
+            loader = JSONDataLoader(json_objects=self.json_obj_list)
+            if loader:
+                return loader
+            else:
+                return None
+        else:
+            self.to_json()
+            if self.json_obj_list:
+                loader = JSONDataLoader(json_objects=self.json_obj_list)
+                if loader:
+                    return loader
+                else:
+                    return None
+
+    @staticmethod
+    def format_dataset(dataset):
+        temp = "DATASET:\n"
+        if type(dataset) in [list, tuple]:
+            for item in dataset:
+                temp = f"{temp}\n{item}"
+        elif type(dataset) in [str]:
+            temp = dataset
+        elif type(dataset) in [dict]:
+            for key, value in dataset.items():
+                temp = f"{temp}\n{key}: {value}"
+        return temp
+class PromptExpander(DataGenerator):
+
+    def run(self, query, context="General"):
+        try:
+            self.results:RaiQueryExpander = self.ai.engine.generate_format(
+                user=self.format_dataset(query),
+                system=self.system_prompt(context=context),
+                format=RaiQueryExpander
+            )
+            return self.results
+        except Exception as e:
+            print(f"Error: {e}")
+            return None
+
+    def system_prompt(self, context:str="General"):
+        return f"""
+        **You will read the following User Query and add Proper context tag words to enhance vector RAG queries.**
+        **User the following Topic/Category as contextual reference for enhancement.**
+        **Only return the new query**
+        CONTEXTUAL REFERENCE [ {context} ]
+        """
+
+    def to_json(self):
+        pass
 class MetadataDG(DataGenerator):
 
     def run(self, dataset):
         try:
-            results = generate_structured_output(
-                user_prompt=self.format_dataset(dataset),
-                system_prompt=self.system_prompt(),
+            results = self.ai.engine.generate_format(
+                user=self.format_dataset(dataset),
+                system=self.system_prompt(),
                 format=RaiMetadata
             )
             results: RaiMetadata
@@ -163,13 +271,12 @@ class MetadataDG(DataGenerator):
 
     def to_json(self):
         pass
-
 class QuestionAndAnswerDG(DataGenerator):
 
     def run(self, dataset):
-        self.results = generate_structured_output(
-            user_prompt=self.format_dataset(dataset),
-            system_prompt=self.system_prompt(),
+        self.results = self.ai.engine.generate_format(
+            user=self.format_dataset(dataset),
+            system=self.system_prompt(),
             format=ListOfQuestionAnswers
         )
         print(self.results)
@@ -188,9 +295,6 @@ class QuestionAndAnswerDG(DataGenerator):
             print(f"Error: {e}")
             return None
 
-
-
-
     def system_prompt(self):
         return """
         You will take the following dataset and you will generate accurate questions and corresponding answers.
@@ -198,14 +302,95 @@ class QuestionAndAnswerDG(DataGenerator):
         2. Answers: should be detailed and as accurate as possible.
         Rule: If you do not know that answer, do not make something up. Just do not include that question and answer.
         """
+class TrueOrFalseDG(DataGenerator):
 
+    def run(self, query, question:str="Is this a question or statement?"):
+        return self.ai.engine.generate_format(query, self.system_prompt(question=question), format=TrueOrFalse)
 
+    def to_json(self):
+       pass
+
+    def system_prompt(self, question:str=""):
+        return f"""
+        **You will take the following user request/query for RAG Chat and then answer the following question based on the query.**
+        **You will only response with a True or False.**
+        -> Question: {question}
+        Rule: If you do not know that answer, default to False.
+        """
+class MarkDownFormatPipeline(ResponseFormatPipeline, pipeline="markdown"):
+    def run(self, query):
+        return self.ai.engine.generate_format(
+            user=query,
+            system=self.system_prompt(),
+            format=FormatResponseMarkdown
+        )
+    def system_prompt(self):
+        return """
+        **You are a professional, detailed and robust AI Chat Response Formatter.**
+        **You will take the following dataset and you will format it as Markdown to give a cleaner and easier format to read.**
+        **Do not alter or modify the data given, only format it.**
+        """
+    def to_json(self): pass
+
+ResponseFormatPipeline.pipeline('markdown').run(dataset="")
+
+class Categorizer(DataGenerator):
+    def run(self, query:str, categories:str):
+        self.results = self.ai.engine.generate_format(
+            user=query,
+            system=self.system_prompt(categories=categories),
+            format=FormatResponseMarkdown
+        )
+        print(self.results)
+        return self.results
+    def system_prompt(self, categories="general"):
+        return """
+        **You are a RAG Query Context To Category Matcher**
+        **Based on the following 'Topics' / 'Categories' provided, you will read the User Query and match the context of the Query with one of the given categories.**
+        **Rule: Only return the category within the formatted structured output.**
+        
+        --CATEGORIES TO MATCH:
+            Industry: Youth Sports Soccer for Players/Parents/Coaches/Office Admins
+        
+            1. ''
+            Description: 
+            
+            2. ''
+            Description: 
+            
+            3. ''
+            Description: 
+            
+            4. ''
+            Description: 
+            
+        --DEFAULT CATEGORY IF NO MATCH = 'general'
+        """
+    def to_json(self): pass
+class RaiQuestions:
+    question_or_request = "Is the user asking a question or making a request for me to give them something?"
 
 
 if __name__ == "__main__":
-    from rai.data.extraction.parsers.PDF_v1 import FPDF
-    # import asyncio
-    data = FPDF.extract_text_from_pdf("/Users/chazzromeo/Desktop/pcsc2024/general/Park City Soccer Club LTADM.pdf").strip()
-    data = data[:int(len(data)*0.5)]
+
+    TrueOrFalseDG().run(
+        "Do we have practice this week?",
+        """
+        **Is the user asking about a calendar or date based event?**
+        *A practice, game, tournament, meeting, party, anything that might have a calendar based event.*
+        """
+    )
+    TrueOrFalseDG().run(
+        "I want to create something...",
+        """
+        **Is the user asking a question or making a request for me to give them something?**
+        *Do they want me to give them back something based on the context of their words?*
+        """
+    )
+
+    # from rai.data.extraction.parsers.PDF_v1 import FPDF
+    # # import asyncio
+    # data = FPDF.extract_text_from_pdf("/Users/chazzromeo/Desktop/pcsc2024/general/Park City Soccer Club LTADM.pdf").strip()
+    # data = data[:int(len(data)*0.5)]
     # QuestionAndAnswerGenerator().run(data)
     # asyncio.run(QuestionAndAnswerGenerator().run(data))

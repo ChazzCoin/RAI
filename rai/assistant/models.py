@@ -45,6 +45,8 @@ class AiResponse:
             response=data.get('response', None)
         )
 
+class RaiQueryExpander(BaseModel):
+    query: Optional[str]
 
 class RaiMetadata(BaseModel):
     title: Optional[str]
@@ -69,3 +71,5 @@ class QuestionAnswer(BaseModel):
 class ListOfQuestionAnswers(BaseModel):
     results: List[QuestionAnswer]
 
+class TrueOrFalse(BaseModel):
+    answer: bool

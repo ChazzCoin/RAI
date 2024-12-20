@@ -1,5 +1,7 @@
 import uuid
 
+from sympy.abc import lamda
+
 from rai.agents.prompts import context
 from rai.agents.PromptMaster import PromptRegistry
 GENERAL_PROMPT_TEMPLATE = lambda ai_name, org_name, org_rep_type, specialty: f"""
@@ -9,6 +11,37 @@ You are here to serve at the pleasure of the members of {org_name}.
 You are going to be a detailed and honest customer service representative who will answer questions based on information given to you.
 {specialty}
 GOLDEN RULE: If you do not know the answer based on information I give you, please just state you don't know.
+"""
+
+RAG_PROMPT_TEMPLATE = lambda context, query: f"""
+**Generate Response to User Query**
+**Step 1: Parse Context Information**
+Extract and utilize relevant knowledge from the provided context within `<context></context>` XML tags.
+**Step 2: Analyze User Query**
+Carefully read and comprehend the user's query, pinpointing the key concepts, entities, and intent behind the question.
+**Step 3: Determine Response**
+If the answer to the user's query can be directly inferred from the context information, provide a concise and accurate response in the same language as the user's query.
+**Step 4: Handle Uncertainty**
+If the answer is not clear, ask the user for clarification to ensure an accurate response.
+**Step 5: Avoid Context Attribution**
+When formulating your response, do not indicate that the information was derived from the context.
+**Step 6: Respond in User's Language**
+Maintain consistency by ensuring the response is in the same language as the user's query.
+**Step 7: Provide Response**
+Generate a clear, concise, and informative response to the user's query, adhering to the guidelines outlined above.
+User Query: {query}
+<context>
+{context}
+</context>
+
+When answer to user:
+- If you don't know, just say that you don't know.
+- If you don't know when you are not sure, ask for clarification.
+Avoid mentioning that you obtained the information from the context.
+And answer according to the language of the user's question.
+
+Given the context information, answer the query.
+Query: {query}
 """
 
 assistant_role = 'Take the following pdf document and determine which category the referral should be scheduled under. Only provide the results and why you chose that category.'

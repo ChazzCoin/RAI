@@ -14,7 +14,7 @@ redis_port = int(os.environ.get("REDIS_DB_PORT", 6379))
 class RedisClient:
     redis_client: redis.client = None
 
-    def __init__(self):
+    def __init__(self, db:int=redis_name):
         """
         Initialize the Redis client.
         :param host: Redis server hostname (default: 'localhost')
@@ -25,7 +25,7 @@ class RedisClient:
         try:
             self.host = redis_host
             self.port = redis_port
-            self.db = redis_name
+            self.db = db
             self.password = redis_pass
             self.redis_client = None
             self.connect()
@@ -79,7 +79,7 @@ class RedisClient:
                     return json.loads(value)
                 except Exception as e:
                     Log.e(e)
-                    return str(value)
+                    return value.decode("utf-8")
             else:
                 print(f"Key '{key}' does not exist.")
                 return None
@@ -241,6 +241,10 @@ class RedisClient:
             print(f"Failed to get chat data with ID '{unique_id}': {e}")
 
 class RaiCache(RedisClient):
+
+    def __init__(self, db:int=0):
+        super().__init__(db=db)
+
     def cache_announcement(self, key_name, data, ttl=None):
         """Cache an announcement or message."""
         try:

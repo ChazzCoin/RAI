@@ -219,6 +219,7 @@ class RaiPath(str):
     @staticmethod
     def sanitize_file_name_for_chromadb(file_name: str, max_length: int = 8) -> str:
         file_name = RaiPath(file_name).file_name
+        file_name = file_name.replace(" ", "_")
         # Normalize the Unicode string to decompose combined characters
         file_name = unicodedata.normalize('NFKD', file_name)
         # Remove accents and diacritics
@@ -234,6 +235,8 @@ class RaiPath(str):
         file_name = file_name[:max_length]
         file_name = file_name.replace(".", "_")
         file_name = file_name.replace("-", "_")
+        if len(file_name) > max_length:
+            file_name = file_name[:max_length]
         return file_name.replace(" ", "_")
     @staticmethod
     def get_directory_chains(parent_directory):

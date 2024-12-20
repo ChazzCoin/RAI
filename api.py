@@ -11,8 +11,9 @@ import requests
 from F import DICT, LIST
 from F.LOG import Log
 from F.DATE import get_timestamp_str as get_current_timestamp
-from rai.RaiModels import RAI_MODs, getRaiModels
-from rai.internal.connectors import REDIS_DB_CLIENT, PostgresTables, VECTOR_DB_CLIENT
+from rai.RaiModels import RAI_MODs, getRaiModels, RAG_PROMPT_TEMPLATE
+from rai.assistant.ai_models import AiModels
+from rai.internal.connectors import REDIS_DB_CLIENT_0, REDIS_DB_CLIENT_1, PostgresTables, VECTOR_DB_CLIENT
 from rai import env
 from rai.data.extraction.parsers.PDF_v1 import FPDF
 import base64
@@ -20,16 +21,18 @@ import imghdr
 
 from rai.models.models import AIModelData
 
+
 Log = Log("RAI API Bruno Canary")
 app = Quart(__name__)
 app = cors(app, allow_origin="*")
 
 looper = asyncio.get_event_loop()
-executor = ThreadPoolExecutor(max_workers=1)
+executor = ThreadPoolExecutor(max_workers=2)
 
 """ DATABASES """
 collection_name = "documents"
-RAI_CACHE = REDIS_DB_CLIENT
+RAI_CACHE = REDIS_DB_CLIENT_0
+RAI_CACHE_SYSTEM = REDIS_DB_CLIENT_1
 RAI_MODELS = PostgresTables.AI_Models()
 CHAT_ARCHIVE = PostgresTables.ChatArchive()
 
@@ -38,14 +41,11 @@ print("Stored RAI Models", STORED_RAI_MODELS)
 
 IMAGE_FOLDER = f"{os.path.dirname(__file__)}/files/images"
 
-RAI_VERSION = "0.5.0:hypercorn"
-RAI_FOOTER_MESSAGE = lambda model, text: ""
-
-CACHE_KEY_TWO = lambda one, two: f"{one}:{two}"
-CACHE_KEY_THREE = lambda one, two, three: f"{one}:{two}:{three}"
+RAI_VERSION = "0.7.1:raiko"
+RAI_CACHE_SYSTEM.set_key("version", RAI_VERSION)
+RAI_CACHE_SYSTEM.set_key("collection_subfix", "dec2024")
 
 image_path = '/Users/chazzromeo/Desktop/chat_image.jpg'
-
 
 def decode_and_save_image(encoded_image):
     image_data = base64.b64decode(encoded_image)
@@ -94,6 +94,9 @@ class UserRequest:
 async def chat_completion(idx:Optional[int]=None):
     """     GRAB HEADERS   """
     request.headers['Content-Type'] = 'application/json'
+    collection_subfix = RAI_CACHE_SYSTEM.get_key('collection_subfix', 'dec2024')
+    if not collection_subfix:
+        collection_subfix = 'dec2024'
 
     """     PARSE REQUEST IN    """
     data = await request.get_data(cache=True, parse_form_data=True)
@@ -182,32 +185,47 @@ async def chat_completion(idx:Optional[int]=None):
     elif mod_flow == "MRC":
         MessageContext.make_single(system_prompt=final_system_prompt)
     elif mod_flow == "QA":
-        user_message = VECTOR_DB_CLIENT.queryModelCollection(
-            mod_collection_prefix, "dec2024",
+        query_results = VECTOR_DB_CLIENT.queryModelCollection(
+            mod_collection_prefix, collection_subfix,
             user_message=MessageContext.get_last_user_message,
-            k=20
+            k=15
         )
-        if user_message:
-            MessageContext.modify_last_user_message(user_message)
+        if query_results:
+            ai_message = RAG_PROMPT_TEMPLATE(query_results, MessageContext.get_last_user_message)
+            MessageContext.modify_last_user_message(ai_message)
         else:
             MessageContext.ai_response = "Sorry! No Results found, please try and provide more details and I will try again!"
             MessageContext.immediate_response_override = True
 
     """ GENERATE AI CHAT RESPONSE """
+    archived_ai_model = ""
+
     if not MessageContext.bypass_ai:
         if isOpenAI(current_rai_model):
+            archived_ai_model = mod_openai_model
             MessageContext.ai_response = await openai_chat_generation(MessageContext.get_messages(), modelIn=mod_openai_model, debug=True)
         else:
+            archived_ai_model = mod_ollama_model
             MessageContext.ai_response = await ollama_chat_generation(MessageContext.get_messages(), modelIn=mod_ollama_model, debug=True)
+    executor.submit(
+        MessageContext.save_to_chat_archive,
+        response=MessageContext.ai_response,
+        rai_model=current_rai_model,
+        ai_model=archived_ai_model
+    )
+
+    async def streamer(data):
+        return Response(f"\n{json.dumps(response)}\n", content_type='text/event-stream')
 
     """ Response Override """
     response = MessageContext.stream_response()
+    print("sending streamer")
+    await streamer(response)
+    print("sent streamer")
+    await asyncio.sleep(5)
+
+    print("sending final response")
     return Response(f"\n{json.dumps(response)}\n", content_type='text/event-stream')
-
-
-async def stream_json_payload(json_payload):
-    # Use payload to send the response or make an HTTP call
-    return Response(f"\n{json.dumps(json_payload)}\n")
 
 def isOpenAI(model:str) -> bool:
     if model.startswith("llama"):
@@ -230,7 +248,7 @@ async def openai_chat_generation(messages:[], modelIn:str="gpt-4o-mini", debug:b
     data = {
         'model': modelIn,
         'messages': messages,
-        'temperature': 0,
+        'temperature': 0.1,
         'stream': False,
         'store': True,
         'metadata': {
@@ -251,7 +269,7 @@ async def openai_chat_generation(messages:[], modelIn:str="gpt-4o-mini", debug:b
                 print("--AI Response--")
                 print(assistant_message)
             return assistant_message
-async def ollama_chat_generation(messages:[], modelIn:str="llama3:latest", debug:bool=False):
+async def ollama_chat_generation(messages:[], modelIn:str=AiModels.DEFAULT_OLLAMA, debug:bool=False):
     """Asynchronously get chat completion from OpenAI API."""
     headers = {
         'Content-Type': 'application/json',
@@ -274,7 +292,7 @@ async def ollama_chat_generation(messages:[], modelIn:str="llama3:latest", debug
                 print("--AI Response--")
                 print(assistant_message)
             return assistant_message
-async def ollama_quick_generation(system_prompt, user_prompt, modelIn:str="llama3:latest", debug:bool=False):
+async def ollama_quick_generation(system_prompt, user_prompt, modelIn:str=AiModels.DEFAULT_OLLAMA, debug:bool=False):
     """Asynchronously get chat completion from OpenAI API."""
     headers = {
         'Content-Type': 'application/json',
@@ -308,6 +326,7 @@ class ChatSequence:
     body: {} = {}
     options: {} = {}
     system_prompt = "You are a helpful assistant"
+    current_user_message = ""
     last_user_message = ""
     messages = []
     is_single = False
@@ -326,6 +345,7 @@ class ChatSequence:
         self.options = DICT.get('options', body, {})
         self.system_prompt = system_prompt if system_prompt else "You are a helpful assistant"
         self.last_user_message = self.get_last_user_message
+        self.current_user_message = self.get_last_user_message
         self._user = UserRequest(body)
         self.parse_images()
         print("Messages Length", len(self.messages))
@@ -419,6 +439,16 @@ class ChatSequence:
             last_user_messages.append(message.get('content'))
         return last_user_messages
 
+    def save_to_chat_archive(self, response:str, rai_model:str, ai_model:str):
+        return CHAT_ARCHIVE.insert_new_chat(
+            user_id=self._user.user_id,
+            chat_id=self._user.chat_id,
+            request=self.last_user_message,
+            response=response,
+            rai_model=rai_model,
+            ai_model=ai_model
+        )
+
     """ Back To User """
     def stream_response(self, ai_response:str=None):
         return {
@@ -428,7 +458,6 @@ class ChatSequence:
                 "chat_id": self._user.chat_id,
                 "role": "assistant",
                 "content": ai_response if ai_response else self.ai_response,
-
             },
             "options": self.options,
             "done": False
