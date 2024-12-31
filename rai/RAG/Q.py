@@ -29,7 +29,7 @@ class Q(ChromaClient):
     def queryModelCollection(self, *base_paths, user_message: str, k: int = 5) -> Optional[str]:
         try:
             print("User Query:", user_message)
-            results: [{str: []}] = self.query_chroma_by_prefix(*base_paths, query=user_message, k=k)
+            results: [{str: []}] = self.query_chroma_by_prefix2(*base_paths, query=user_message, k=k)
             if results:
                 docs: [] = DICT.get("documents", results, [])
                 documents = '\n'.join(LIST.flatten(docs))
@@ -40,6 +40,24 @@ class Q(ChromaClient):
             Log.e("Failed to query", e)
             return None
 
+    """ 2 """
+    def query_chroma_by_prefix2(self, *base_chain: str, query: str, k: int = 10):
+        try:
+            collects = LIST.flatten(base_chain)
+            Log.i(f"Collections: {collects}")
+            return self.query_chroma_form(
+                form_data=QueryCollectionsForm(
+                    collection_names=collects,
+                    query=query,
+                    k=k
+                )
+            )
+        except ValueError as e:
+            Log.e(f"Validation error: {e}")
+            return None
+        except Exception as e:
+            Log.e("An unexpected error occurred", e)
+            return None
     """ MAIN QUERY FUNCTION!! """
     def query_chroma_by_prefix(self, *base_chain:str, query: str, k: int = 10):
         try:

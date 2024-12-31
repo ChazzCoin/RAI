@@ -21,6 +21,9 @@ class FusedAI(ABC):
     TOP_K: int = 10
     FREQUENCY_PENALTY: float = 0.5
 
+    O = None
+    OAsync = None
+
     def __init_subclass__(cls, *, engine: str, **kwargs):
         super().__init_subclass__(**kwargs)
         if not engine:
@@ -57,7 +60,7 @@ class FusedAI(ABC):
     @abstractmethod
     async def generate_embeddings_async(self, content): pass
     @abstractmethod
-    def generate_function_async(self, user: str, system: str, functions: [dict]): pass
+    async def generate_function_async(self, user: str, system: str, functions: [dict]): pass
 
 
 
@@ -77,21 +80,16 @@ class OpenAiEngine(FusedAI, engine="openai"):
     def generate_chat(self, user: str, system: str):
         print("Generating Chat - OpenAI")
         try:
-            completion = self.O.beta.chat.completions.parse(
+            response = self.O.chat.completions.create(
                 model=self.default_model,
                 messages=[
                     {"role": "system", "content": system},
                     {"role": "user", "content": user}
                 ]
             )
-            response = completion.choices[0].message
+            response = response.choices[0].message.content
             # If the model refuses to respond, you will get a refusal message
-            if response.refusal:
-                print("Refused:", response.refusal)
-                return response.refusal
-            else:
-                print("Parsed:", response.parsed)
-                return response.parsed
+            return response
         except Exception as e:
             print(e)
             return None
@@ -131,7 +129,7 @@ class OpenAiEngine(FusedAI, engine="openai"):
             completion = self.O.chat.completions.create(
                 model=self.default_model,
                 messages=[
-                    {"role": "system", "content": system},
+                    {"role": "system", "content": "Which functions should I call based on the Context (Youth Soccer Club) or Topic of the Users Prompt?"},
                     {"role": "user", "content": user}
                 ],
                 tools=functions,

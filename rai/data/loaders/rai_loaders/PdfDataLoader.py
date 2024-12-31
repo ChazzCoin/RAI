@@ -39,14 +39,21 @@ class PdfDataLoader(RaiBaseLoader):
             raise ValueError("Unsupported file type. Only PDF files are allowed.")
 
     def check_length(self, item):
-        if type(item) == str:
-            return len(item)
-        if type(item) in [list, tuple]:
-            count = 0
-            for i in item:
-                count += len(i)
-            return count
-        return 0
+        try:
+            if type(item) == str:
+                return len(item)
+            if type(item) in [list, tuple]:
+                count = 0
+                for i in item:
+                    count += len(i.page_content)
+                return count
+            return 0
+        except Exception as e:
+            print(e)
+            try:
+                return len(item)
+            except:
+                return 0
 
     def fallback(self):
         loader = PDFPlumberLoader(self.file_path)
@@ -66,22 +73,30 @@ class PdfDataLoader(RaiBaseLoader):
         def fpdf():
             if not self.fpdf: return []
             loader = []
-            temp = FPDF.extract_text_from_pdf(self.file_path)
-            if temp:
-                for item in temp:
-                    loader.append(RaiLoaderDocument(page_content=item))
-                return loader
-            return []
+            try:
+                temp = FPDF.extract_text_from_pdf(self.file_path)
+                if temp:
+                    for item in temp:
+                        loader.append(RaiLoaderDocument(page_content=item))
+                    return loader
+                return None
+            except Exception as e:
+                print(e)
+                return None
         def ocr():
             if not self.ocr: return []
-            # Convert PDF pages to images
-            images = convert_from_path(self.file_path)
-            # Extract text from each image
-            loader = []
-            for image in images:
-                contents = pytesseract.image_to_string(image)
-                loader.append(RaiLoaderDocument(page_content=contents))
-            return loader if loader else []
+            try:
+                # Convert PDF pages to images
+                images = convert_from_path(self.file_path)
+                # Extract text from each image
+                loader = []
+                for image in images:
+                    contents = pytesseract.image_to_string(image)
+                    loader.append(RaiLoaderDocument(page_content=contents))
+                return loader if loader else None
+            except Exception as e:
+                print(e)
+                return None
         try:
             loader = None
             if self.cache:

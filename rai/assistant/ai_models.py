@@ -1,27 +1,25 @@
 
 
 
-
-
 class AiModels:
     DEFAULT_OPENAI_EMBEDDING = "text-embedding-3-large"
     DEFAULT_OLLAMA_EMBEDDING = "nomic-embed-text"
-    DEFAULT_OPENAI = "gpt-4o-mini"
+    DEFAULT_OPENAI = "gpt-4o"
     DEFAULT_OLLAMA = "llama3.2"
 
     class OpenAi:
         # GPT-4 Series
         GPT4o = "gpt-4o"
         GPT4oMini = "gpt-4o-mini"
-        GPT4_TURBO = "gpt-4-turbo"  # More capable with a 128k context window and cost efficiency :contentReference[oaicite:0]{index=0}
-        GPT4_8K = "gpt-4-8k"        # Supports up to 8,192 tokens
-        GPT4_32K = "gpt-4-32k"      # Supports up to 32,768 tokens :contentReference[oaicite:1]{index=1}
+        GPT4_TURBO = "gpt-4-turbo"
+        GPT4_8K = "gpt-4-8k"
+        GPT4_32K = "gpt-4-32k"
         # GPT-3.5 Series
         GPT3_5_TURBO = "gpt-3.5-turbo"
-        GPT3_5_TURBO_16K = "gpt-3.5-turbo-16k"  # Extended context window
+        GPT3_5_TURBO_16K = "gpt-3.5-turbo-16k"
         # o1 Series
-        O1_PREVIEW = "o1-preview"   # Enhanced reasoning abilities :contentReference[oaicite:2]{index=2}
-        O1_MINI = "o1-mini"         # Lightweight version of o1
+        O1_PREVIEW = "o1-preview"
+        O1_MINI = "o1-mini"
 
         class Embed:
             DEFAULT = "text-embedding-ada-002"

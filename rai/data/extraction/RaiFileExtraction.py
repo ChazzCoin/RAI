@@ -2,11 +2,15 @@ import json
 import time
 import uuid
 
-from F import LIST
+from F import LIST, DICT
 from F.CLASS import Flass
 from rai import app
 from F.LOG import Log
 from tqdm import tqdm
+
+from rai.agents.RaiAgents import AgentRegistry, AgentCategorizer
+from rai.agents.Tools import RaiFunctionCategories
+from rai.assistant.connectors import RaiAi
 from rai.data import RaiPath
 from rai.internal.connectors import VECTOR_DB_CLIENT
 from rai.assistant.openai_client import generate_embeddings
@@ -17,6 +21,8 @@ from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiBaseLoader
 from rai.data.loaders.rai_loaders.RaiMetadataLoader import RaiMetadataLoader
 
 Log = Log("RaiFileExtractor")
+
+ai = RaiAi()
 
 class RaiConfig(Flass):
     pipeline: str = "print"
@@ -35,6 +41,8 @@ class RaiFileExtractor:
     file_to_import_by_collection: {str:list} = {}
     file_to_import_count = 0
     cached_metadata = None
+
+    pending = {}
 
     class Pipelines:
         PRINT = "print"
@@ -74,19 +82,17 @@ class RaiFileExtractor:
             """
             self.import_file(file_path=file)
         Log.s(f"Finished Importing Files: Total [ {self.file_to_import_count} ]")
-        return True
+        return self.to_chroma()
 
     def import_file(self, file_path:str):
         try:
             if file_path is not None:
                 file_path = RaiPath(file_path)
-                self.config.file_collection_name = f"{self.config.collection_prefix}.{RaiPath.sanitize_file_name_for_chromadb(file_path)}"
             Log.i(f"Processing: [ {file_path} ] for Collection: [ {self.config.file_collection_name} ]")
             self.cached_metadata = None
             loader = RaiDataLoaders.RaiDataLoader(file_path, meta_loader=self.config.meta_loader).loader
             try:
-                result = self.__run_pipeline(loader=loader)
-                if result: Log.s(f"Finished Importing: [ {file_path} ]")
+                return self.__run_pipeline(loader=loader)
             except Exception as e: Log.w(f"Error importing file '{file_path}' to Chroma DB: {e}")
         except Exception as e: Log.w(f"Error importing file '{file_path}': {e}")
 
@@ -94,7 +100,7 @@ class RaiFileExtractor:
         if not docs: docs = loader.load()
         if self.config.split_documents:
             docs = self.__split_docs_into_smaller_chunks(docs)
-        if self.config.pipeline.lower() == "chroma": return self.to_chroma(docs)
+        if self.config.pipeline.lower() == "chroma": return self.sort_for_chroma(docs)
         elif self.config.pipeline.lower() == "print": return self.to_printer(docs)
 
     def to_printer(self, docs:[]):
@@ -106,21 +112,37 @@ class RaiFileExtractor:
             count += 1
             time.sleep(1)
 
-    def to_chroma(self, docs:[]):
-        Log.i(f"importing [ {len(docs)} ] docs in [ {self.config.file_collection_name} ]")
+    def sort_for_chroma(self, docs:[]):
         texts = self.get_texts(docs)
         metadata = self.prepare_metadatas(docs)
         items = self.prepare_chroma_documents(texts, metadata)
-        try:
-            self.overwrite_collection_check(self.config.file_collection_name)
-            VECTOR_DB_CLIENT.insert(
-                collection_name=self.config.file_collection_name,
-                items=items,
-            )
-            return True
-        except Exception as e:
-            Log.e(e)
-            return False
+        cnames = self.get_collection_category_name(' '.join(texts))
+        for c in cnames:
+            temp = []
+            pending_items = DICT.get(c, self.pending, {})
+            temp.extend(pending_items)
+            temp.append(items)
+            self.pending[c] = LIST.flatten(temp)
+
+    def to_chroma(self):
+        for collection,items in self.pending.items():
+            current_name = f"{self.config.collection_prefix}.{collection}"
+            Log.i(f"importing [ {len(items)} ] docs in [ {current_name} ]")
+            try:
+                self.overwrite_collection_check(current_name)
+                VECTOR_DB_CLIENT.insert(
+                    collection_name=current_name,
+                    items=items,
+                )
+                continue
+            except Exception as e:
+                Log.e(e)
+
+
+    def get_collection_category_name(self, data):
+        categorizer = AgentCategorizer()
+        return categorizer.run(data, "Youth Soccer Club", RaiFunctionCategories)
+
 
     @staticmethod
     def get_texts(docs: []):
@@ -155,7 +177,7 @@ class RaiFileExtractor:
         items = []
         for idx, txt in enumerate(tqdm(texts, desc="Preparing Documents for chromadb...", colour="yellow")):
             temp = {
-                "id": str(idx),
+                "id": f"{str(uuid.uuid4())}:{str(idx)}",
                 "text": txt,
                 "vector": generate_embeddings(text=txt),
                 "metadata": metadata,

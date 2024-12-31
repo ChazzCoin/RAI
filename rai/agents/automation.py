@@ -332,7 +332,7 @@ class MarkDownFormatPipeline(ResponseFormatPipeline, pipeline="markdown"):
         """
     def to_json(self): pass
 
-ResponseFormatPipeline.pipeline('markdown').run(dataset="")
+# ResponseFormatPipeline.pipeline('markdown').run(dataset="")
 
 class Categorizer(DataGenerator):
     def run(self, query:str, categories:str):

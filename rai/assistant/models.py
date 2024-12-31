@@ -61,6 +61,8 @@ class RaiMetadata(BaseModel):
     description: Optional[str]
     source: Optional[str]
 
+
+
 class TrueFalse(BaseModel):
     result: Optional[bool]
 

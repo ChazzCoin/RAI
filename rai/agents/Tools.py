@@ -1,6 +1,6 @@
 from F import DICT
 
-PreFix = "Whenever a user is asking about"
+PreFix = "User Context Involves"
 YSC_Context = "Youth Soccer Club"
 def getFuncProperty(type, desc):
     return {
@@ -94,6 +94,10 @@ RaiFunctionCategories = [
     getFunctionJsonNoArgs(
         "contact_information",
         f"{PreFix} a persons/coach/admin/parent contact information, email, phone number, social tag. {YSC_Context}"
+    ),
+    getFunctionJsonNoArgs(
+        "roster_teams",
+        f"{PreFix} a team, teams, players, roster information. {YSC_Context}"
     ),
     getFunctionJsonNoArgs(
         "events_schedules",

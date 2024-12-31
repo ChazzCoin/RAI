@@ -12,7 +12,9 @@ from F import DICT, LIST
 from F.LOG import Log
 from F.DATE import get_timestamp_str as get_current_timestamp
 from rai.RaiModels import RAI_MODs, getRaiModels, RAG_PROMPT_TEMPLATE
+from rai.agents.Tools import RaiFunctionCategories
 from rai.assistant.ai_models import AiModels
+from rai.assistant.connectors import RaiAi
 from rai.internal.connectors import REDIS_DB_CLIENT_0, REDIS_DB_CLIENT_1, PostgresTables, VECTOR_DB_CLIENT
 from rai import env
 from rai.data.extraction.parsers.PDF_v1 import FPDF
@@ -41,6 +43,7 @@ print("Stored RAI Models", STORED_RAI_MODELS)
 
 IMAGE_FOLDER = f"{os.path.dirname(__file__)}/files/images"
 
+RAI_AI = RaiAi()
 RAI_VERSION = "0.7.1:raiko"
 RAI_CACHE_SYSTEM.set_key("version", RAI_VERSION)
 RAI_CACHE_SYSTEM.set_key("collection_subfix", "dec2024")
@@ -179,23 +182,54 @@ async def chat_completion(idx:Optional[int]=None):
     6. Make Sure all setup is in a script or built in.
     7. Adding chat archiving back.
     
+    - build in agent demo
+    
     """
     if mod_flow == "MRA":
         MessageContext.make_single(user_content=f"REFERRAL:\n {MessageContext.file_data}", system_prompt=final_system_prompt)
     elif mod_flow == "MRC":
         MessageContext.make_single(system_prompt=final_system_prompt)
     elif mod_flow == "QA":
+        sys_prompe = """
+        **OVERALL CONTEXT**
+        Youth Soccer Club
+        **STEPS**
+        1. Take each function name given and make them Topics/Categories.
+        2. Read the user prompt thoroughly and match 1 or more Function Topics.
+        3. Return only the function calls.
+        """
+        RAI_ENGINE = RAI_AI.get_engine("openai")
+        # AGENT: Context Decider...
+        col_names = await RAI_ENGINE.generate_function_async(
+            user=MessageContext.get_last_user_message,
+            system=sys_prompe,
+            functions=RaiFunctionCategories
+        )
+
+        cs = RAI_AI.parse_function_names(col_names)
+        firstcs = LIST.get(0, cs, "general")
+        print("Categorized Collection Name:", firstcs)
+        # AGENT: Chroma Query
         query_results = VECTOR_DB_CLIENT.queryModelCollection(
-            mod_collection_prefix, collection_subfix,
+            f"{mod_collection_prefix}.{firstcs}",
             user_message=MessageContext.get_last_user_message,
-            k=15
+            k=6
         )
         if query_results:
             ai_message = RAG_PROMPT_TEMPLATE(query_results, MessageContext.get_last_user_message)
             MessageContext.modify_last_user_message(ai_message)
         else:
-            MessageContext.ai_response = "Sorry! No Results found, please try and provide more details and I will try again!"
-            MessageContext.immediate_response_override = True
+            query_results_backup = VECTOR_DB_CLIENT.queryModelCollection(
+                f"{mod_collection_prefix}.general",
+                user_message=MessageContext.get_last_user_message,
+                k=6
+            )
+            if query_results_backup:
+                ai_message = RAG_PROMPT_TEMPLATE(query_results, MessageContext.get_last_user_message)
+                MessageContext.modify_last_user_message(ai_message)
+            else:
+                MessageContext.ai_response = "Sorry! No Results found, please try and provide more details and I will try again!"
+                MessageContext.immediate_response_override = True
 
     """ GENERATE AI CHAT RESPONSE """
     archived_ai_model = ""

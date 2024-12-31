@@ -63,7 +63,6 @@ class RedisClient:
             print(f"Key '{key}' set successfully.")
         except Exception as e:
             print(f"Failed to set key '{key}': {e}")
-            raise
 
     def get_key(self, key, default=None):
         """
@@ -73,7 +72,7 @@ class RedisClient:
         :return: The value associated with the key (deserialized from JSON).
         """
         try:
-            value = self.redis_client.get(key)
+            value = self.redis_client.get(key, timeout=2)
             if value is not None:
                 try:
                     return json.loads(value)
@@ -101,7 +100,6 @@ class RedisClient:
                 print(f"Key '{key}' does not exist.")
         except Exception as e:
             print(f"Failed to delete key '{key}': {e}")
-            raise
 
     def key_exists(self, key):
         """

@@ -1,4 +1,7 @@
 from typing import Dict
+
+from F import DICT
+
 from rai.agents.Tools import RaiFunctionCategories
 from rai.assistant.engines import OllamaEngine, OpenAiEngine, AiModels, FusedAI
 
@@ -37,6 +40,22 @@ class RaiAi:
         else:
             return f"Engine [ {engine_name} ] Not Supported."
 
+    def generate_function(self, user: str, system: str, functions: [dict]):
+        result = self.engine.generate_function(user, system, functions)
+        return self.parse_function_names(result)
+
+    @staticmethod
+    def parse_function_names(function_response, default="general"):
+        try:
+            names = [default]
+            for item in function_response:
+                n = DICT.get("name", item, "general")
+                names.append(n)
+            return names
+        except Exception as e:
+            print(e)
+            return [default]
+
     def set_temperature(self, temp: float):
         self.TEMPERATURE = temp
 
@@ -61,5 +80,9 @@ class RaiAi:
 
 if __name__ == '__main__':
     rai = RaiAi()
-    ai = rai.get_engine('openai')
-    print(ai.generate_function("How do I sign my child up to play and then order their uniforms?", "You are a youth soccer club assistant and RAG Master.", RaiFunctionCategories))
+    ai = rai.get_engine()
+    print(ai.generate_function_as("Who is joel person?", """
+    **You are a youth soccer club assistant and RAG Master.**
+    GOAL:
+    Read the context of the users prompt and decide which categorized function to call.
+    """, RaiFunctionCategories))
