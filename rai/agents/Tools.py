@@ -1,6 +1,6 @@
 from F import DICT
 
-PreFix = "User Context Involves"
+PreFix = "Prompt Context Involves"
 YSC_Context = "Youth Soccer Club"
 def getFuncProperty(type, desc):
     return {
@@ -53,57 +53,33 @@ def find_RaiFunction(name:str, rai_functions:[]):
             if func_name == name:
                 return func
     return None
+# Step 1: Define the dictionary dynamically
+def build_function_dict(ysc_context, pre_fix=PreFix, ):
+    function_dict = {
+        "tryout_registration": f"{pre_fix} tryouts, placements, registration or how to signup and get involved in the club. {ysc_context}",
+        "uniforms_attire": f"{pre_fix} how to order or get their uniforms and other attire {ysc_context}",
+        "tournaments": f"{pre_fix} tournament information {ysc_context}",
+        "development_curriculum": f"{pre_fix} long term player and parent development models {ysc_context}",
+        "policy_procedures": f"{pre_fix} police and the procedures the club adheres to {ysc_context}",
+        "finance_payments": f"{pre_fix} payments finance cost {ysc_context}",
+        "scholarship_programs": f"{pre_fix} scholarship programs that are available {ysc_context}",
+        "facilities_locations": f"{pre_fix} fields, locations, office, facilities, directions {ysc_context}",
+        "volunteers": f"{pre_fix} volunteer work, helping or getting involved as a parent {ysc_context}",
+        "contact_information": f"{pre_fix} a persons/coach/admin/parent contact information, email, phone number, social tag. {ysc_context}",
+        "roster_teams": f"{pre_fix} a team, teams, players, roster information. {ysc_context}",
+        "events_schedules": f"{pre_fix} schedules and events around practices, games, tournaments, meetings, parties {ysc_context}",
+    }
+    return function_dict
 
-RaiFunctionCategories = [
-    getFunctionJsonNoArgs(
-        "tryout_registration",
-        f"{PreFix} tryouts, placements, registration or how to signup and get involved in the club. {YSC_Context}"
-    ),
-    getFunctionJsonNoArgs(
-    "uniforms_attire",
-    f"{PreFix} how to order or get their uniforms and other attire {YSC_Context}"
-    ),
-    getFunctionJsonNoArgs(
-        "tournaments",
-        f"{PreFix} tournament information {YSC_Context}"
-    ),
-    getFunctionJsonNoArgs(
-        "development_curriculum",
-        f"{PreFix} long term player and parent development models {YSC_Context}"
-    ),
-    getFunctionJsonNoArgs(
-        "policy_procedures",
-        f"{PreFix} police and the procedures the club adheres to {YSC_Context}"
-    ),
-    getFunctionJsonNoArgs(
-        "finance_payments",
-        f"{PreFix} payments finance cost {YSC_Context}"
-    ),
-    getFunctionJsonNoArgs(
-        "scholarship_programs",
-        f"{PreFix} scholarship programs that are available {YSC_Context}"
-    ),
-    getFunctionJsonNoArgs(
-        "facilities_locations",
-        f"{PreFix} fields, locations, office, facilities, directions {YSC_Context}"
-    ),
-    getFunctionJsonNoArgs(
-        "volunteers",
-        f"{PreFix} volunteer work, helping or getting involved as a parent {YSC_Context}"
-    ),
-    getFunctionJsonNoArgs(
-        "contact_information",
-        f"{PreFix} a persons/coach/admin/parent contact information, email, phone number, social tag. {YSC_Context}"
-    ),
-    getFunctionJsonNoArgs(
-        "roster_teams",
-        f"{PreFix} a team, teams, players, roster information. {YSC_Context}"
-    ),
-    getFunctionJsonNoArgs(
-        "events_schedules",
-        f"{PreFix} schedules and events around practices, games, tournaments, meetings, parties {YSC_Context}"
-    )
-]
+# Step 2: Define a function to dynamically build the list
+def build_rai_function_categories(ysc_context, pre_fix=PreFix):
+    function_dict = build_function_dict(ysc_context, pre_fix)
+    rai_function_categories = [
+        getFunctionJsonNoArgs(key, value) for key, value in function_dict.items()
+    ]
+    return rai_function_categories
+
+RaiFunctionCategories = build_rai_function_categories(YSC_Context)
 
 
 

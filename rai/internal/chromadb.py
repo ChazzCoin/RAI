@@ -91,7 +91,24 @@ class ChromaClient:
         # Delete the collection based on the collection name.
         return self.client.delete_collection(name=collection_name)
 
-    def search(self, collection_name: str, vectors: list[list[float]], limit: int) -> Optional[SearchResult]:
+    def search_text(self, collection_name: str, texts: list[str], limit: int) -> Optional[SearchResult]:
+        collection = self.client.get_collection(name=collection_name)
+        if collection:
+            result = collection.query(
+                query_texts=texts,
+                n_results=limit,
+            )
+
+            return SearchResult(
+                **{
+                    "ids": result["ids"],
+                    "distances": result["distances"],
+                    "documents": result["documents"],
+                    "metadatas": result["metadatas"],
+                }
+            )
+        return None
+    def search_vector(self, collection_name: str, vectors: list[list[float]], limit: int) -> Optional[SearchResult]:
         # Search for the nearest neighbor items based on the vectors and return 'limit' number of results.
         collection = self.client.get_collection(name=collection_name)
         if collection:

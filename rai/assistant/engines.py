@@ -30,13 +30,11 @@ class FusedAI(ABC):
             raise ValueError("Subclasses must define an 'engine' name.")
         cls.engine = engine
         FusedAI.engines[engine] = cls
-
     @property
     def default_model(self) -> str:
         if self.engine == "openai":
             return AiModels.DEFAULT_OPENAI
         return AiModels.DEFAULT_OLLAMA
-
     @property
     def default_embedding_model(self) -> str:
         if self.engine == "openai":
@@ -45,7 +43,9 @@ class FusedAI(ABC):
 
     """ SYNC """
     @abstractmethod
-    def generate_chat(self, user: str, system: str): pass
+    def generate(self, user: str, system: str):pass
+    @abstractmethod
+    def generate_chat(self, messages:[{}]): pass
     @abstractmethod
     def generate_embeddings(self, content: str): pass
     @abstractmethod
@@ -54,15 +54,15 @@ class FusedAI(ABC):
     def generate_function(self, user: str, system: str, functions: [dict]): pass
     """ ASYNC """
     @abstractmethod
-    async def generate_chat_async(self, user: str, system: str): pass
+    async def generate_async(self, user: str, system: str): pass
     @abstractmethod
-    async def generate_format_async(self, user: str, system: str, format: Type[BaseModel]): pass
+    async def generate_chat_async(self, messages: [{}]): pass
     @abstractmethod
     async def generate_embeddings_async(self, content): pass
     @abstractmethod
+    async def generate_format_async(self, user: str, system: str, format: Type[BaseModel]): pass
+    @abstractmethod
     async def generate_function_async(self, user: str, system: str, functions: [dict]): pass
-
-
 
 """
 
@@ -77,15 +77,26 @@ class OpenAiEngine(FusedAI, engine="openai"):
         self.O = OpenAI(api_key=open_ai_key, timeout=10, max_retries=3)
         self.OAsync = AsyncOpenAI(api_key=open_ai_key, timeout=10, max_retries=3)
 
-    def generate_chat(self, user: str, system: str):
-        print("Generating Chat - OpenAI")
+    def generate(self, user:str, system:str):
         try:
             response = self.O.chat.completions.create(
                 model=self.default_model,
                 messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user}
+                    { "role": "developer", "content": system },
+                    { "role": "user", "content": user },
                 ]
+            )
+            response = response.choices[0].message.content
+            return response
+        except Exception as e:
+            print(e)
+            return None
+    def generate_chat(self, messages:[{}]):
+        print("Generating Chat - OpenAI")
+        try:
+            response = self.O.chat.completions.create(
+                model=self.default_model,
+                messages=messages
             )
             response = response.choices[0].message.content
             # If the model refuses to respond, you will get a refusal message
@@ -108,7 +119,7 @@ class OpenAiEngine(FusedAI, engine="openai"):
             completion = self.O.beta.chat.completions.parse(
                 model=self.default_model,
                 messages=[
-                    {"role": "system", "content": system},
+                    {"role": "developer", "content": system},
                     {"role": "user", "content": user}
                 ],
                 response_format=format,
@@ -129,7 +140,7 @@ class OpenAiEngine(FusedAI, engine="openai"):
             completion = self.O.chat.completions.create(
                 model=self.default_model,
                 messages=[
-                    {"role": "system", "content": "Which functions should I call based on the Context (Youth Soccer Club) or Topic of the Users Prompt?"},
+                    {"role": "developer", "content": "Which functions should I call based on the Context (Youth Soccer Club) or Topic of the Users Prompt?"},
                     {"role": "user", "content": user}
                 ],
                 tools=functions,
@@ -146,24 +157,28 @@ class OpenAiEngine(FusedAI, engine="openai"):
             print(e)
             return None
     """ ASYNC FUNCTIONS"""
-    async def generate_chat_async(self, user: str, system: str):
-        print("Generating Async Chat - OpenAI")
+    async def generate_async(self, user: str, system: str):
         try:
-            completion = await self.OAsync.beta.chat.completions.parse(
+            completion = await self.OAsync.chat.completions.create(
                 model=self.default_model,
                 messages=[
-                    {"role": "system", "content": system},
+                    {"role": "developer", "content": system},
                     {"role": "user", "content": user}
                 ]
             )
-            response = completion.choices[0].message
-            # If the model refuses to respond, you will get a refusal message
-            if response.refusal:
-                print("Refused:", response.refusal)
-                return response.refusal
-            else:
-                print("Parsed:", response.parsed)
-                return response.parsed
+            response = completion.choices[0].message.content
+            return response
+        except Exception as e:
+            print(e)
+            return None
+    async def generate_chat_async(self, messages: [{}]):
+        try:
+            completion = await self.OAsync.chat.completions.create(
+                model=self.default_model,
+                messages=messages
+            )
+            response = completion.choices[0].message.content
+            return response
         except Exception as e:
             print(e)
             return None
@@ -182,7 +197,7 @@ class OpenAiEngine(FusedAI, engine="openai"):
             completion = await self.OAsync.beta.chat.completions.parse(
                 model=self.default_model,
                 messages=[
-                    {"role": "system", "content": system},
+                    {"role": "developer", "content": system},
                     {"role": "user", "content": user}
                 ],
                 response_format=format,
@@ -203,7 +218,7 @@ class OpenAiEngine(FusedAI, engine="openai"):
             completion = await self.OAsync.chat.completions.create(
                 model=self.default_model,
                 messages=[
-                    {"role": "system", "content": system},
+                    {"role": "developer", "content": system},
                     {"role": "user", "content": user}
                 ],
                 tools=functions,
@@ -236,17 +251,26 @@ class OllamaEngine(FusedAI, engine="ollama"):
         yield self.O.pull(model=model_name)
 
     """ SYNC """
-    def generate_chat(self, user: str, system: str):
+    def generate(self, user: str, system: str):
+        print("Generating Async Chat - Ollama")
+        try:
+            data: ChatResponse = self.O.generate(
+                model=self.default_model,
+                prompt=user,
+                system=system
+            )
+            return data.message.content
+        except Exception as e:
+            print(e)
+            return None
+    def generate_chat(self, messages:[{}]):
         print("Generating Async Chat - Ollama")
         try:
             data: ChatResponse = self.O.chat(
                 model=self.default_model,
-                messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user, "images": []},
-                ]
+                messages=messages
             )
-            return data
+            return data.message.content
         except Exception as e:
             print(e)
             return None
@@ -271,7 +295,6 @@ class OllamaEngine(FusedAI, engine="ollama"):
                 format=format.model_json_schema()
             )
             answer = format.model_validate_json(data.message.content)
-            print(answer)
             return answer
         except Exception as e:
             print(e)
@@ -295,8 +318,17 @@ class OllamaEngine(FusedAI, engine="ollama"):
             print(e)
             return None
     """ ASYNC """
-    async def generate_chat_async(self, user:str, system:str):
-        print("Generating Async Chat - Ollama")
+    async def generate_chat_async(self, messages: [{}]):
+        try:
+            data: ChatResponse = await self.OAsync.chat(
+                model=self.default_model,
+                messages=messages
+            )
+            return data.message.content
+        except Exception as e:
+            print(e)
+            return None
+    async def generate_async(self, user:str, system:str):
         try:
             data: ChatResponse = await self.OAsync.chat(
                 model=self.default_model,
@@ -305,7 +337,7 @@ class OllamaEngine(FusedAI, engine="ollama"):
                     {"role": "user", "content": user, "images": []},
                 ]
             )
-            return data
+            return data.message.content
         except Exception as e:
             print(e)
             return None
@@ -339,8 +371,8 @@ class OllamaEngine(FusedAI, engine="ollama"):
             data: ChatResponse = await self.OAsync.chat(
                 model=self.default_model,
                 messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user, "images": []},
+                    { "role": "system", "content": system },
+                    { "role": "user", "content": user, "images": [] },
                 ],
                 tools=functions
             )

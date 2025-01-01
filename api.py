@@ -11,7 +11,10 @@ import requests
 from F import DICT, LIST
 from F.LOG import Log
 from F.DATE import get_timestamp_str as get_current_timestamp
+from sqlalchemy import True_
+
 from rai.RaiModels import RAI_MODs, getRaiModels, RAG_PROMPT_TEMPLATE
+from rai.agents.RaiAgents import AgentCategorizer
 from rai.agents.Tools import RaiFunctionCategories
 from rai.assistant.ai_models import AiModels
 from rai.assistant.connectors import RaiAi
@@ -38,12 +41,15 @@ RAI_CACHE_SYSTEM = REDIS_DB_CLIENT_1
 RAI_MODELS = PostgresTables.AI_Models()
 CHAT_ARCHIVE = PostgresTables.ChatArchive()
 
+RAI_AI = RaiAi()
+RAI_ENGINE = RAI_AI.get_engine("openai")
+
 STORED_RAI_MODELS: [AIModelData] = RAI_MODELS.get_all_ai_models()
 print("Stored RAI Models", STORED_RAI_MODELS)
 
 IMAGE_FOLDER = f"{os.path.dirname(__file__)}/files/images"
 
-RAI_AI = RaiAi()
+
 RAI_VERSION = "0.7.1:raiko"
 RAI_CACHE_SYSTEM.set_key("version", RAI_VERSION)
 RAI_CACHE_SYSTEM.set_key("collection_subfix", "dec2024")
@@ -190,46 +196,65 @@ async def chat_completion(idx:Optional[int]=None):
     elif mod_flow == "MRC":
         MessageContext.make_single(system_prompt=final_system_prompt)
     elif mod_flow == "QA":
-        sys_prompe = """
-        **OVERALL CONTEXT**
-        Youth Soccer Club
-        **STEPS**
-        1. Take each function name given and make them Topics/Categories.
-        2. Read the user prompt thoroughly and match 1 or more Function Topics.
-        3. Return only the function calls.
+        # categorizer = AgentCategorizer()
+
+        sys_prompe = f"""
+        You are Park City Soccer Clubs Personal Assistant.
+        
+        **OVERALL PURPOSE**:
+        Your goal is to identify relevant function calls from the provided function definitions ("functions") based on the user's prompt.
+    
+        **OBJECTIVE**:
+        - Treat each function name in the "functions" list as a Topic/Category.
+        - Thoroughly analyze the user's prompt to decide which function(s) apply (there may be more than one).
+        - Return the function calls (in a specific format) that match the user's needs.
         """
-        RAI_ENGINE = RAI_AI.get_engine("openai")
+
+        context_expansion = await RAI_ENGINE.generate_async(
+            user=MessageContext.get_last_user_message,
+            system="""
+                You are Park City Soccer Clubs personal AI assistant.
+                Based on the context of youth soccer clubs and park city soccer club specifically,
+                Read the user prompt carefully and add context and keywords to the prompt for a better chromadb vector search. 
+                
+                EXAMPLE PROMPT INPUT:
+                Who is John Smith?
+                
+                EXAMPLE PROMPT OUTPUT:
+                Who is John Smith? 
+                What role does John Smith play at the club? 
+                What is John Smiths contact information, email, phone number? 
+                Is john smith part of any teams?
+                Coach, Player, Parent, Director, Admin, contact information. 
+            """
+        )
+
         # AGENT: Context Decider...
         col_names = await RAI_ENGINE.generate_function_async(
-            user=MessageContext.get_last_user_message,
+            user=context_expansion,
             system=sys_prompe,
             functions=RaiFunctionCategories
         )
 
         cs = RAI_AI.parse_function_names(col_names)
         firstcs = LIST.get(0, cs, "general")
+        collections = [f"{mod_collection_prefix}.{firstcs}"]
+        if str(firstcs) not in ["general"]:
+            collections.append(f"{mod_collection_prefix}.general")
+
         print("Categorized Collection Name:", firstcs)
         # AGENT: Chroma Query
         query_results = VECTOR_DB_CLIENT.queryModelCollection(
-            f"{mod_collection_prefix}.{firstcs}",
-            user_message=MessageContext.get_last_user_message,
-            k=6
+            collections,
+            user_message=context_expansion,
+            k=15
         )
         if query_results:
             ai_message = RAG_PROMPT_TEMPLATE(query_results, MessageContext.get_last_user_message)
             MessageContext.modify_last_user_message(ai_message)
         else:
-            query_results_backup = VECTOR_DB_CLIENT.queryModelCollection(
-                f"{mod_collection_prefix}.general",
-                user_message=MessageContext.get_last_user_message,
-                k=6
-            )
-            if query_results_backup:
-                ai_message = RAG_PROMPT_TEMPLATE(query_results, MessageContext.get_last_user_message)
-                MessageContext.modify_last_user_message(ai_message)
-            else:
-                MessageContext.ai_response = "Sorry! No Results found, please try and provide more details and I will try again!"
-                MessageContext.immediate_response_override = True
+            MessageContext.ai_response = "Sorry! No Results found, please try and provide more details and I will try again!"
+            MessageContext.immediate_response_override = True
 
     """ GENERATE AI CHAT RESPONSE """
     archived_ai_model = ""
@@ -248,16 +273,8 @@ async def chat_completion(idx:Optional[int]=None):
         ai_model=archived_ai_model
     )
 
-    async def streamer(data):
-        return Response(f"\n{json.dumps(response)}\n", content_type='text/event-stream')
-
     """ Response Override """
     response = MessageContext.stream_response()
-    print("sending streamer")
-    await streamer(response)
-    print("sent streamer")
-    await asyncio.sleep(5)
-
     print("sending final response")
     return Response(f"\n{json.dumps(response)}\n", content_type='text/event-stream')
 
@@ -427,13 +444,13 @@ class ChatSequence:
     def bypass_ai(self): return self.immediate_response_override
 
     @staticmethod
-    def build_single_message(role='system', content=""):
+    def build_single_message(role='developer', content=""):
         return {'role': role, 'content': content}
 
     def singleMessageResponse(self, user_content:str, system_prompt=None):
         if system_prompt: self.system_prompt = system_prompt
         return [
-            self.build_single_message('system', self.system_prompt),
+            self.build_single_message('developer', self.system_prompt),
             self.build_single_message('user', user_content)
         ]
 
@@ -484,7 +501,7 @@ class ChatSequence:
         )
 
     """ Back To User """
-    def stream_response(self, ai_response:str=None):
+    def stream_response(self, ai_response:str=None, done=False):
         return {
             "model": 'gpt-4o-mini',
             "created_at": get_current_timestamp(),
@@ -494,19 +511,19 @@ class ChatSequence:
                 "content": ai_response if ai_response else self.ai_response,
             },
             "options": self.options,
-            "done": False
+            "done": done
         }
 
 def setupSingleMessageForChatSequence(system_prompt, new_user_message):
     return [
-            { 'role': 'system', 'content': system_prompt },
+            { 'role': 'developer', 'content': system_prompt },
             new_user_message
         ]
 def setupMessagesForChatSequence(system_prompt, messages, new_user_message):
     if type(new_user_message) in [list, tuple] and len(messages) <= 1:
         Log.i("Creating New Message...")
         temp = [
-            { 'role': 'system', 'content': system_prompt },
+            { 'role': 'developer', 'content': system_prompt },
             LIST.get(0, messages, new_user_message)
         ]
         messages = temp

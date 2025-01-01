@@ -37,7 +37,7 @@ class VectorSearchRetriever(BaseRetriever):
         *,
         run_manager: CallbackManagerForRetrieverRun,
     ) -> list[Document]:
-        result = VECTOR_DB_CLIENT.search(
+        result = VECTOR_DB_CLIENT.search_vector(
             collection_name=self.collection_name,
             vectors=[self.embedding_function(query)],
             limit=self.top_k,
@@ -122,7 +122,7 @@ def query_collection_by_auth_rank(collection_names: list[str], query: str, embed
         if collection_name:
             Log.i(f"Querying [ {collection_name} ]")
             try:
-                result = VECTOR_DB_CLIENT.query_doc(
+                result = VECTOR_DB_CLIENT.base_query_doc_vector(
                     collection_name=collection_name,
                     query=query,
                     k=k,
@@ -196,7 +196,7 @@ def query_collection_with_hybrid_search(
         print(
             "Hybrid search failed for all collections. Using Non hybrid search as fallback."
         )
-        results = VECTOR_DB_CLIENT.query_collection(
+        results = VECTOR_DB_CLIENT.query_collection_vector(
             collection_names=collection_names,
             query=query,
             embedding_function=embedding_function,
@@ -320,7 +320,7 @@ def get_rag_context(
                         )
 
                 if (not hybrid_search) or (context is None):
-                    context = VECTOR_DB_CLIENT.query_collection(
+                    context = VECTOR_DB_CLIENT.query_collection_vector(
                         collection_names=collection_names,
                         query=query,
                         embedding_function=embedding_function,

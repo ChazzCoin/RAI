@@ -43,6 +43,8 @@ class RaiFileExtractor:
     cached_metadata = None
 
     pending = {}
+    success = {}
+    failed = {}
 
     class Pipelines:
         PRINT = "print"
@@ -64,27 +66,27 @@ class RaiFileExtractor:
 
         Log.i(f"Preparing Files for Import: [ {self.config.base_path} ]")
         self.file_to_import_count = 0
-        self.file_to_import = []
+        file_to_import = []
         # Recursively traverse the directory tree starting from base_path
         for file_path in self.config.base_path.path.rglob('*'):
             if file_path.is_file():
-                self.file_to_import.append(file_path)
+                file_to_import.append(file_path)
                 self.file_to_import_count += 1
 
         # Proceed with the import process
         Log.s(f"Starting Import: Total [ {self.file_to_import_count} ]")
-        for file in self.file_to_import:
+        for file in file_to_import:
             if str(file).endswith('.DS_Store'):
                 continue
             """
                 Handle Naming...
                 csv, xlsx need to be their own collection.
             """
-            self.import_file(file_path=file)
+            self.import_file(file_path=file, single_run=False)
         Log.s(f"Finished Importing Files: Total [ {self.file_to_import_count} ]")
         return self.to_chroma()
 
-    def import_file(self, file_path:str):
+    def import_file(self, file_path:str, single_run: bool = True):
         try:
             if file_path is not None:
                 file_path = RaiPath(file_path)
@@ -92,7 +94,8 @@ class RaiFileExtractor:
             self.cached_metadata = None
             loader = RaiDataLoaders.RaiDataLoader(file_path, meta_loader=self.config.meta_loader).loader
             try:
-                return self.__run_pipeline(loader=loader)
+                self.__run_pipeline(loader=loader)
+                if single_run: return self.to_chroma()
             except Exception as e: Log.w(f"Error importing file '{file_path}' to Chroma DB: {e}")
         except Exception as e: Log.w(f"Error importing file '{file_path}': {e}")
 
@@ -117,12 +120,7 @@ class RaiFileExtractor:
         metadata = self.prepare_metadatas(docs)
         items = self.prepare_chroma_documents(texts, metadata)
         cnames = self.get_collection_category_name(' '.join(texts))
-        for c in cnames:
-            temp = []
-            pending_items = DICT.get(c, self.pending, {})
-            temp.extend(pending_items)
-            temp.append(items)
-            self.pending[c] = LIST.flatten(temp)
+        for c in cnames: self.add_to_pending(c, items)
 
     def to_chroma(self):
         for collection,items in self.pending.items():
@@ -134,26 +132,45 @@ class RaiFileExtractor:
                     collection_name=current_name,
                     items=items,
                 )
-                continue
+                self.add_to_success(collection, items)
             except Exception as e:
                 Log.e(e)
+                self.add_to_failed(collection, [e])
+        return self.post_analysis()
 
+    def post_analysis(self):
+        print("--SUCCESS--")
+        print(self.success.keys())
+        print("----------")
+        print("--FAILED--")
+        print(self.failed.keys())
+        print("----------")
 
-    def get_collection_category_name(self, data):
+    def add_to_pending(self, collection, items):
+        value_old = DICT.get(collection, self.pending, [])
+        value_new = LIST.merge_lists(value_old, items)
+        self.pending[collection] = LIST.flatten(value_new)
+    def add_to_success(self, collection, items):
+        value_old = DICT.get(collection, self.pending, [])
+        value_new = LIST.merge_lists(value_old, items)
+        self.success[collection] = LIST.flatten(value_new)
+    def add_to_failed(self, collection, items):
+        value_old = DICT.get(collection, self.pending, [])
+        value_new = LIST.merge_lists(value_old, items)
+        self.failed[collection] = LIST.flatten(value_new)
+
+    @staticmethod
+    def get_collection_category_name(data):
         categorizer = AgentCategorizer()
         return categorizer.run(data, "Youth Soccer Club", RaiFunctionCategories)
-
-
     @staticmethod
     def get_texts(docs: []):
         metadatas = [doc.page_content for doc in docs]
         return metadatas
-
     @staticmethod
     def get_metadatas(docs: []):
         metadatas = [{**doc.metadata, **({})} for doc in docs]
         return metadatas
-
     def prepare_metadatas(self, docs: []):
         final_meta = {}
         try:
@@ -171,7 +188,6 @@ class RaiFileExtractor:
         except Exception as e:
             Log.w(e)
             return {}
-
     @staticmethod
     def prepare_chroma_documents(texts: [str], metadata: dict):
         items = []
@@ -184,17 +200,13 @@ class RaiFileExtractor:
             }
             items.append(temp)
         return items
-
     def overwrite_collection_check(self, collection_name: str):
         if self.config.overwrite and VECTOR_DB_CLIENT.has_collection(collection_name=collection_name):
             Log.w(f"Deleting existing collection {collection_name}")
             VECTOR_DB_CLIENT.delete_collection(collection_name=collection_name)
-
     """ HELPER to split data into smaller chunks for vector database """
     def __split_docs_into_smaller_chunks(self, docs:[]):
         return self.text_splitter.split_documents(docs)
-
-
     @staticmethod
     def delete_collections(*collections:str):
         for collection in collections:
@@ -202,7 +214,6 @@ class RaiFileExtractor:
                 VECTOR_DB_CLIENT.delete_collection(collection_name=collection)
             except Exception as e:
                 Log.e(e)
-
     @staticmethod
     def get_all_from_collection(collection: str):
         try:

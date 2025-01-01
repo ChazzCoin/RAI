@@ -29,19 +29,39 @@ class Q(ChromaClient):
     def queryModelCollection(self, *base_paths, user_message: str, k: int = 5) -> Optional[str]:
         try:
             print("User Query:", user_message)
-            results: [{str: []}] = self.query_chroma_by_prefix2(*base_paths, query=user_message, k=k)
+            results: [{str: []}] = self.query_vector_by_chain_name(*base_paths, query=user_message, k=k)
             if results:
                 docs: [] = DICT.get("documents", results, [])
                 documents = '\n'.join(LIST.flatten(docs))
                 return documents
-            Log.i("Returning custom SYS Prompt.")
+            Log.w("No Vectors Found, Reverting to Text Based.")
+            results_text = self.query_texts_by_chain_name(*base_paths, query=user_message, k=k)
+            if results_text:
+                docs: [] = DICT.get("documents", results_text, [])
+                documents = '\n'.join(LIST.flatten(docs))
+                return documents
             return None
         except Exception as e:
             Log.e("Failed to query", e)
             return None
 
+    def query_texts_by_chain_name(self, *base_chain: str, query: str, k: int = 10):
+        try:
+            collects = LIST.flatten(base_chain)
+            Log.i(f"Collections: {collects}")
+            return self.query_collection_text(
+                collection_names=collects,
+                query=query,
+                k=k
+            )
+        except ValueError as e:
+            Log.e(f"Validation error: {e}")
+            return None
+        except Exception as e:
+            Log.e("An unexpected error occurred", e)
+            return None
     """ 2 """
-    def query_chroma_by_prefix2(self, *base_chain: str, query: str, k: int = 10):
+    def query_vector_by_chain_name(self, *base_chain: str, query: str, k: int = 10):
         try:
             collects = LIST.flatten(base_chain)
             Log.i(f"Collections: {collects}")
@@ -58,28 +78,10 @@ class Q(ChromaClient):
         except Exception as e:
             Log.e("An unexpected error occurred", e)
             return None
-    """ MAIN QUERY FUNCTION!! """
-    def query_chroma_by_prefix(self, *base_chain:str, query: str, k: int = 10):
-        try:
-            user_collections = self.get_all_collections_by_chain(*base_chain)
-            Log.i(f"Collections: {user_collections}")
-            return self.query_chroma_form(
-                form_data=QueryCollectionsForm(
-                    collection_names=user_collections,
-                    query=query,
-                    k=k
-                )
-            )
-        except ValueError as e:
-            Log.e(f"Validation error: {e}")
-            return None
-        except Exception as e:
-            Log.e("An unexpected error occurred", e)
-            return None
 
     def query_chroma_form(self, form_data: QueryCollectionsForm):
         try:
-            return self.query_collection(
+            return self.query_collection_vector(
                 collection_names=form_data.collection_names,
                 query=form_data.query,
                 embedding_function=generate_embeddings,
@@ -89,13 +91,13 @@ class Q(ChromaClient):
             print(e)
             return {}
 
-    def query_collection(self, collection_names: list[str], query: str, embedding_function, k: int) -> dict[str, list[list[Any]]]:
+    def query_collection_vector(self, collection_names: list[str], query: str, embedding_function, k: int) -> dict[str, list[list[Any]]]:
         results = []
         for collection_name in collection_names:
             if collection_name:
                 Log.i(f"Querying [ {collection_name} ]")
                 try:
-                    result = self.query_doc(
+                    result = self.base_query_doc_vector(
                         collection_name=collection_name,
                         query=query,
                         k=k,
@@ -107,12 +109,42 @@ class Q(ChromaClient):
             else:
                 pass
         return self.merge_and_sort_query_results(results, k=k)
+    def query_collection_text(self, collection_names: list[str], query: str, k: int) -> dict[str, list[list[Any]]]:
+        results = []
+        for collection_name in collection_names:
+            if collection_name:
+                Log.i(f"Querying [ {collection_name} ]")
+                try:
+                    result = self.base_query_doc_texts(
+                        collection_name=collection_name,
+                        query=query,
+                        k=k,
+                    )
+                    results.append(result.model_dump())
+                except Exception as e:
+                    Log.e(f"Error when querying the collection: {e}")
+            else:
+                pass
+        return self.merge_and_sort_query_results(results, k=k)
 
-    def query_doc(self, collection_name: str, query: str, embedding_function, k: int):
+    def base_query_doc_vector(self, collection_name: str, query: str, embedding_function, k: int):
         try:
-            result = self.search(
+            result = self.search_vector(
                 collection_name=collection_name,
                 vectors=[embedding_function(query)],
+                limit=k,
+            )
+            print("result", result)
+            print(f"query_doc:result {result}")
+            return result
+        except Exception as e:
+            print(e)
+            raise e
+    def base_query_doc_texts(self, collection_name: str, query: str, k: int):
+        try:
+            result = self.search_text(
+                collection_name=collection_name,
+                texts=[query],
                 limit=k,
             )
             print("result", result)

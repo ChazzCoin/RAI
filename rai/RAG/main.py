@@ -351,7 +351,7 @@ async def get_query_settings(user=Depends(get_admin_user)):
 
 def query_doc_handler(form_data: QueryDocForm):
     try:
-        return VECTOR_DB_CLIENT.query_doc(
+        return VECTOR_DB_CLIENT.base_query_doc_vector(
             collection_name=form_data.collection_name,
             query=form_data.query,
             embedding_function=app.state.EMBEDDING_FUNCTION,
@@ -365,7 +365,7 @@ def query_doc_handler(form_data: QueryDocForm):
         )
 def query_chroma(form_data: QueryCollectionsForm, hybrid=True):
     try:
-        return VECTOR_DB_CLIENT.query_collection(
+        return VECTOR_DB_CLIENT.query_collection_vector(
             collection_names=form_data.collection_names,
             query=form_data.query,
             embedding_function=app.state.EMBEDDING_FUNCTION,

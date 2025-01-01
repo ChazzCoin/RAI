@@ -72,7 +72,7 @@ if __name__ == '__main__':
     config.generate_ai_metadata = True
     config.overwrite = True
     config.base_path = RaiPath("/Users/chazzromeo/Desktop/pcsc2024/general")
-    config.collection_prefix = "pcsc2024"
+    config.collection_prefix = "pcsc2025"
 
     # config.base_path = RaiPath("/Users/chazzromeo/Desktop/proverbs2024")
     # config.collection_prefix = "proverbs.dec2024"
