@@ -1,4 +1,5 @@
-import requests, json
+import requests
+import json
 
 
 def ollama_request_chat(prompt:str, content:str, model:str="llama3", forward:bool=False):

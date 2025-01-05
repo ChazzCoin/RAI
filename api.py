@@ -1,7 +1,7 @@
 #!/bin/bash
 import json
 import time
-from quart import Quart, request, jsonify, Response
+from quart import Quart, request, jsonify, Response 
 import requests
 from F import DICT
 from F.LOG import Log
@@ -13,6 +13,7 @@ Log = Log("RAI API Bruno Canary")
 
 
 app = Quart(__name__)
+app.config["PROVIDE_AUTOMATIC_OPTIONS"] = True  # Added this line to fix the KeyError
 
 # Configure OpenAI API key
 default_model = "gpt-4o"
