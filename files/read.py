@@ -4,7 +4,7 @@ from dataset.intake.Pdf import pdf_to_txt
 from docx import Document as DocxDocument
 from openpyxl import load_workbook
 from pptx import Presentation
-from F.LOG import Log
+from f.LOG import Log
 # Configure logging
 Log = Log("Files.Read")
 

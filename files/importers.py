@@ -130,5 +130,5 @@ def convert_files_to_txt(import_dir, output_dir):
 
 
 if __name__ == "__main__":
-    directory_to_process = "/Users/chazzromeo/Desktop/parkcitysoccer"
+    directory_to_process = "/Users/inusa/Desktop/parkcitysoccer"
     # process_files_in_directory(directory_to_process)

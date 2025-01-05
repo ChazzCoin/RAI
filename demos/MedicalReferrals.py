@@ -13,12 +13,12 @@ Branch: stabilize/ai
 """
 
 FILES = [
-    "/Users/chazzromeo/ChazzCoin/MedRefs/files/raw/refers/Alan_Reed_Referral.pdf",
-    "/Users/chazzromeo/ChazzCoin/MedRefs/files/raw/refers/Brenda_King_Referral.pdf",
-    "/Users/chazzromeo/ChazzCoin/MedRefs/files/raw/refers/Emily_Carter_Referral.pdf",
-    "/Users/chazzromeo/ChazzCoin/MedRefs/files/raw/refers/Henry_Clark_Referral.pdf",
-    "/Users/chazzromeo/ChazzCoin/MedRefs/files/raw/refers/Joseph_Martin_Referral.pdf",
-    "/Users/chazzromeo/ChazzCoin/MedRefs/files/raw/refers/Karen_Thompson_Referral-2.pdf"
+    "/Users/inusa/ChazzCoin/MedRefs/files/raw/refers/Alan_Reed_Referral.pdf",
+    "/Users/inusa/ChazzCoin/MedRefs/files/raw/refers/Brenda_King_Referral.pdf",
+    "/Users/inusa/ChazzCoin/MedRefs/files/raw/refers/Emily_Carter_Referral.pdf",
+    "/Users/inusa/ChazzCoin/MedRefs/files/raw/refers/Henry_Clark_Referral.pdf",
+    "/Users/inusa/ChazzCoin/MedRefs/files/raw/refers/Joseph_Martin_Referral.pdf",
+    "/Users/inusa/ChazzCoin/MedRefs/files/raw/refers/Karen_Thompson_Referral-2.pdf"
 ]
 SUCCESSFUL_FILES = []
 FAILED_FILES = []

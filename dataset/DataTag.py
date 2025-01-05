@@ -1,5 +1,5 @@
 from enum import Enum
-from F.LOG import Log
+from f.LOG import Log
 import re
 Log = Log("DataTag")
 

@@ -22,6 +22,6 @@ def pptx_to_txt_file(pptx_file, output_text_file:FilePath):
 
 if __name__ == "__main__":
     # Example usage
-    pptx_file_path = "/Users/chazzromeo/Desktop/parkcitysoccer/PCSC Pre-Placement May 5, 2024.pptx"
+    pptx_file_path = "/Users/inusa/Desktop/parkcitysoccer/PCSC Pre-Placement May 5, 2024.pptx"
     output_text_file_path = f"{default_file_path()}/pptx-test.txt"
     pptx_to_txt_file(pptx_file_path, output_text_file_path)

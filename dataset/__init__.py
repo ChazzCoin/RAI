@@ -1,5 +1,5 @@
 from files.open import DataLoader
-from F import OS
+from f import OS
 path = f"{OS.get_path(__file__)}/data"
 dataloader = DataLoader(path)
 

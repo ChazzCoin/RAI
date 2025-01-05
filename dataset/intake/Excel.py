@@ -16,6 +16,6 @@ def excel_to_txt_file(excel_file, output_text_file:FilePath):
 
 if __name__ == "__main__":
     # Example usage
-    excel_file_path = "/Users/chazzromeo/Desktop/parkcitysoccer/PCSC 2024 Kickoff Camp.xlsx"
+    excel_file_path = "/Users/inusa/Desktop/parkcitysoccer/PCSC 2024 Kickoff Camp.xlsx"
     output_text_file_path = f"{default_file_path()}/PCSC 2024 Kickoff Camp.txt"
     excel_to_txt_file(excel_file_path, output_text_file_path)

@@ -1,7 +1,7 @@
 import pdfplumber
 from config import default_file_path
 from files.save import DataSaver
-from F import LIST
+from f import LIST
 
 def pdf_to_txt_file(pdf_file, output_text_file:str):
     """
@@ -50,6 +50,6 @@ def pdf_to_txt(pdf_file):
 
 if __name__ == "__main__":
     # Example usage
-    pdf_file_path = "/Users/chazzromeo/Desktop/parkcitysoccer/PCSC Player Handbook - Update - 10.13.21-6669a982.pdf"
+    pdf_file_path = "/Users/inusa/Desktop/parkcitysoccer/PCSC Player Handbook - Update - 10.13.21-6669a982.pdf"
     output_text_file_path = f"{default_file_path()}/PCSC Player Handbook.txt"
     pdf_to_txt_file(pdf_file_path, output_text_file_path)

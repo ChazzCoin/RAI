@@ -1,7 +1,7 @@
 from assistant import openai_client
 from bs4 import BeautifulSoup
 import requests, re
-from F.LOG import Log
+from f.LOG import Log
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait

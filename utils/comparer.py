@@ -82,8 +82,8 @@ def compare_directories(dir1, dir2):
 
 sub_directory = "helpers"
 
-dir1 = f'/Users/chazzromeo/OneCall/relayhealthcare-webapp-newest/{sub_directory}'
-dir2 = f'/Users/chazzromeo/OneCall/relayhealthcare-webapp-newest-copy/{sub_directory}'
+dir1 = f'/Users/inusa/OneCall/relayhealthcare-webapp-newest/{sub_directory}'
+dir2 = f'/Users/inusa/OneCall/relayhealthcare-webapp-newest-copy/{sub_directory}'
 
 # Validater
 # failed_files = check_require_in_files(dir1)

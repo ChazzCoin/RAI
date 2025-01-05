@@ -258,6 +258,6 @@ def is_matching_format(obj):
 if __name__ == '__main__':
     # ImportProcessor.process_raw_files()
     ToTrainingData(
-        "/Users/chazzromeo/ChazzCoin/MedRefs/extractors/output/www_parkcitysoccer_org.json",
-        "/Users/chazzromeo/ChazzCoin/MedRefs/extractors/output/parkcitysoccer.jsonl"
+        "/Users/inusa/ChazzCoin/MedRefs/extractors/output/www_parkcitysoccer_org.json",
+        "/Users/inusa/ChazzCoin/MedRefs/extractors/output/parkcitysoccer.jsonl"
     ).start()

@@ -1,5 +1,5 @@
 import json, os
-from F.LOG import Log
+from f.LOG import Log
 PATH = lambda base, file, ext: f"{base}/{file}.{ext}"
 Log = Log("DataSaver")
 

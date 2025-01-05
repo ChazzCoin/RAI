@@ -1,5 +1,5 @@
 import chromadb
-from F import DICT, DATE
+from f import DICT, DATE
 from chromadb.config import Settings
 from dotenv import load_dotenv
 import os
@@ -10,7 +10,7 @@ from typing import List, Dict
 import asyncio
 # Load environment variables from a .env file
 load_dotenv()
-from F.LOG import Log
+from f.LOG import Log
 LOG = Log("ChromaDB")
 # Setup basic logging
 logging.basicConfig(level=logging.INFO)

@@ -211,9 +211,9 @@ def test_regex(file):
 
 
 files = [
-    "/Users/chazzromeo/OneCall/relayhealthcare-webapp-newest/model_functions/ride_details_functions.js",
+    "/Users/inusa/OneCall/relayhealthcare-webapp-newest/model_functions/ride_details_functions.js",
 ]
-file = "/Users/chazzromeo/OneCall/relayhealthcare-webapp-newest/model_functions/ride_details_functions.js"
+file = "/Users/inusa/OneCall/relayhealthcare-webapp-newest/model_functions/ride_details_functions.js"
 # print(test_regex(file))
 # run_globals(file)
 run_sequelizer(file)

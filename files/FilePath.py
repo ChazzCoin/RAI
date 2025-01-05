@@ -1,6 +1,6 @@
 from config import env
 from files.read import read_file
-from F import OS
+from f import OS
 import os
 
 class FilePath:

@@ -4,8 +4,8 @@ from openai import OpenAI
 import os
 from dotenv import load_dotenv
 from openai.types.chat import ChatCompletion
-from F.LOG import Log
-from F import DICT
+from f.LOG import Log
+from f import DICT
 load_dotenv()
 
 default_model = os.getenv("DEFAULT_OPENAI_MODEL")

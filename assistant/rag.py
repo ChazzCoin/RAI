@@ -1,6 +1,6 @@
 import os
 import uuid
-from F import DATE
+from f import DATE
 from assistant import openai_client as openai
 from config.chroma import ChromaInstance
 from dataset.TextCleaner import TextCleaner

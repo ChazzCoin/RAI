@@ -3,8 +3,8 @@ import json
 import time
 from quart import Quart, request, jsonify, Response 
 import requests
-from F import DICT
-from F.LOG import Log
+from f import DICT
+from f.LOG import Log
 from assistant.openai_client import get_current_timestamp, getClient
 from config.RaiModels import RAI_MODELS, MODEL_MAP
 from assistant.rag import RAGWithChroma
@@ -13,7 +13,6 @@ Log = Log("RAI API Bruno Canary")
 
 
 app = Quart(__name__)
-app.config["PROVIDE_AUTOMATIC_OPTIONS"] = True  # Added this line to fix the KeyError
 
 # Configure OpenAI API key
 default_model = "gpt-4o"

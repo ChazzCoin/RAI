@@ -16,4 +16,4 @@
 #
 #
 # if __name__ == "__main__":
-#     csv_to_json("/Users/chazzromeo/Desktop/radiology_detail.csv", "/Users/chazzromeo/Desktop/radiology_detail.json")
+#     csv_to_json("/Users/inusa/Desktop/radiology_detail.csv", "/Users/inusa/Desktop/radiology_detail.json")

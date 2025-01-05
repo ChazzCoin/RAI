@@ -1,4 +1,4 @@
-from F.LOG import Log
+from f.LOG import Log
 from files.FilePath import FilePath
 from dataset.TextCleaner import TextCleaner
 Log = Log("DataCleaner")

@@ -117,6 +117,6 @@ class FPDF:
 if __name__ == '__main__':
     from F import OS
     cwd = OS.get_cwd()
-    file = "/Users/chazzromeo/Desktop/projectrpg/Extract"
+    file = "/Users/inusa/Desktop/projectrpg/Extract"
     # file = f"{cwd}/../Utils/mlpython.pdf"
     ps = FPDF(file).run()

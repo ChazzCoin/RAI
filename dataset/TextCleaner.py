@@ -1,8 +1,8 @@
 import re
 import numpy as np
 import unicodedata
-from F import MATH, LIST, DICT
-from F.LOG import Log
+from f import MATH, LIST, DICT
+from f.LOG import Log
 
 from files.FilePath import FilePath
 
