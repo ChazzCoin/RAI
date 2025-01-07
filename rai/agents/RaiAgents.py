@@ -41,7 +41,8 @@ class AgentCategorizer:
             f"""
             **OVERALL PURPOSE**:
             Your goal is to identify relevant function calls from the provided function definitions ("functions") based on the user's prompt.
-        
+            **OVERALL CONTEXT**:
+            {category_context}
             **OBJECTIVE**:
             - Treat each function name in the "functions" list as a Topic/Category.
             - Thoroughly analyze the user's prompt to decide which function(s) apply (there may be more than one).

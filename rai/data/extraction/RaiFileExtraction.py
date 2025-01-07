@@ -9,7 +9,7 @@ from F.LOG import Log
 from tqdm import tqdm
 
 from rai.agents.RaiAgents import AgentRegistry, AgentCategorizer
-from rai.agents.Tools import RaiFunctionCategories
+from rai.agents.Tools import RaiFunctionCategories, YouthSoccerWebsiteCategories
 from rai.assistant.connectors import RaiAi
 from rai.data import RaiPath
 from rai.internal.connectors import VECTOR_DB_CLIENT
@@ -35,6 +35,10 @@ class RaiConfig(Flass):
     generate_ai_metadata: bool = False
     meta_loader: RaiMetadataLoader = RaiMetadataLoader()
     text_splitter: RecursiveCharacterTextSplitter = None
+    single_run: bool = False
+    category_context: str = "Youth Soccer Club"
+    primary_functions = RaiFunctionCategories
+    secondary_functions = YouthSoccerWebsiteCategories
 
 class RaiFileExtractor:
     config = RaiConfig()
@@ -45,6 +49,8 @@ class RaiFileExtractor:
     pending = {}
     success = {}
     failed = {}
+
+    current_file = ""
 
     class Pipelines:
         PRINT = "print"
@@ -82,20 +88,21 @@ class RaiFileExtractor:
                 Handle Naming...
                 csv, xlsx need to be their own collection.
             """
-            self.import_file(file_path=file, single_run=False)
+            self.import_file(file_path=file)
         Log.s(f"Finished Importing Files: Total [ {self.file_to_import_count} ]")
         return self.to_chroma()
 
-    def import_file(self, file_path:str, single_run: bool = True):
+    def import_file(self, file_path:str):
         try:
             if file_path is not None:
                 file_path = RaiPath(file_path)
             Log.i(f"Processing: [ {file_path} ] for Collection: [ {self.config.file_collection_name} ]")
             self.cached_metadata = None
+            self.current_file = file_path
             loader = RaiDataLoaders.RaiDataLoader(file_path, meta_loader=self.config.meta_loader).loader
             try:
                 self.__run_pipeline(loader=loader)
-                if single_run: return self.to_chroma()
+                if self.config.single_run: return self.to_chroma()
             except Exception as e: Log.w(f"Error importing file '{file_path}' to Chroma DB: {e}")
         except Exception as e: Log.w(f"Error importing file '{file_path}': {e}")
 
@@ -132,18 +139,19 @@ class RaiFileExtractor:
                     collection_name=current_name,
                     items=items,
                 )
-                self.add_to_success(collection, items)
+                self.add_to_success(collection, [self.current_file])
             except Exception as e:
                 Log.e(e)
-                self.add_to_failed(collection, [e])
+                self.add_to_failed(collection, [self.current_file])
+        self.pending = {}
         return self.post_analysis()
 
     def post_analysis(self):
         print("--SUCCESS--")
-        print(self.success.keys())
+        print(self.success.items())
         print("----------")
         print("--FAILED--")
-        print(self.failed.keys())
+        print(self.failed.items())
         print("----------")
 
     def add_to_pending(self, collection, items):
@@ -159,10 +167,13 @@ class RaiFileExtractor:
         value_new = LIST.merge_lists(value_old, items)
         self.failed[collection] = LIST.flatten(value_new)
 
-    @staticmethod
-    def get_collection_category_name(data):
+
+    def get_collection_category_name(self, data):
         categorizer = AgentCategorizer()
-        return categorizer.run(data, "Youth Soccer Club", RaiFunctionCategories)
+        results1 = categorizer.run(data, self.config.category_context, self.config.primary_functions)
+        results2 = categorizer.run(data, self.config.category_context, self.config.secondary_functions)
+        return LIST.remove_duplicates(LIST.merge_lists(results1, results2))
+
     @staticmethod
     def get_texts(docs: []):
         metadatas = [doc.page_content for doc in docs]
@@ -176,14 +187,19 @@ class RaiFileExtractor:
         try:
             if self.config.generate_ai_metadata:
                 meta = RaiMetadataLoader().ai_genny(raiDocs=docs)
-                meta_dict = json.loads(meta)
+                if type(meta) in [str]:
+                    meta_dict = json.loads(meta)
+                else:
+                    meta_dict = meta
                 for key,value in meta_dict.items():
                     final_meta[str(key)] = str(value)
+                final_meta["file"] = str(self.current_file)
                 return final_meta
             else:
                 metadatas = RaiFileExtractor.get_metadatas(docs)
             for key,value in LIST.get(0, metadatas, {}).items():
                 final_meta[str(key)] = str(value)
+            final_meta["file"] = str(self.current_file)
             return final_meta
         except Exception as e:
             Log.w(e)
@@ -222,15 +238,86 @@ class RaiFileExtractor:
             Log.e(e)
 
 
-"""
-Raw Text Pipeline...
+class RaiFileManager:
+    """
+    Responsible for:
+      - Importing a directory (recursively) for file paths.
+      - Loading files and extracting documents from them.
+      - Splitting documents into smaller chunks if configured.
+      - Returning those prepared docs so that another class
+        (RaiChromaDBDocumentManager) can handle the storage into Chroma.
+    """
 
-def store_text_in_vector_db(self, text, metadata, collection_name) -> bool:
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=app.state.config.CHUNK_SIZE,
-        chunk_overlap=app.state.config.CHUNK_OVERLAP,
-        add_start_index=True,
-    )
-    docs = text_splitter.create_documents([text], metadatas=[metadata])
-    return self.run_pipeline(docs=docs, collection_name=collection_name)
-"""
+    def __init__(self, config: RaiConfig):
+        self.config = config
+        self.file_to_import_count = 0
+        self.text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=app.state.config.CHUNK_SIZE,
+            chunk_overlap=app.state.config.CHUNK_OVERLAP,
+            add_start_index=True,
+        )
+        Log.w("Chunk Overlap:", app.state.config.CHUNK_OVERLAP)
+        Log.w("Chunk Size:", app.state.config.CHUNK_SIZE)
+
+    def import_directory(self, directory_path: str = None):
+        """
+        Recursively traverses a directory to gather file paths.
+        Returns a list of all extracted documents from all files.
+        """
+        if directory_path is not None:
+            self.config.base_path = RaiPath(directory_path)
+
+        Log.i(f"Preparing Files for Import: [ {self.config.base_path} ]")
+        self.file_to_import_count = 0
+        file_to_import = []
+
+        # Recursively traverse the directory tree starting from base_path
+        for file_path in self.config.base_path.path.rglob('*'):
+            if file_path.is_file():
+                # Skip system files (like .DS_Store)
+                if str(file_path).endswith('.DS_Store'):
+                    continue
+                file_to_import.append(file_path)
+                self.file_to_import_count += 1
+
+        Log.s(f"Starting Import: Total [ {self.file_to_import_count} ]")
+        all_docs = []
+        for file_path in file_to_import:
+            docs = self.import_file(file_path)
+            if docs:
+                all_docs.extend(docs)
+
+        Log.s(f"Finished Importing Files: Total [ {self.file_to_import_count} ]")
+        return all_docs
+
+    def import_file(self, file_path: str):
+        """
+        Imports/loads a single file and (optionally) splits it into smaller documents.
+        Returns a list of documents for the given file.
+        """
+        loaded_docs = []
+        try:
+            rai_path = RaiPath(file_path)
+            Log.i(f"Processing: [ {rai_path} ] for Collection: [ {self.config.file_collection_name} ]")
+
+            loader = RaiDataLoaders.RaiDataLoader(rai_path, meta_loader=self.config.meta_loader).loader
+            # Actually load the documents
+            docs = loader.load()
+            if not docs:
+                return []
+
+            # Split docs if needed
+            if self.config.split_documents:
+                docs = self.__split_docs_into_smaller_chunks(docs)
+
+            loaded_docs.extend(docs)
+
+        except Exception as e:
+            Log.w(f"Error importing file '{file_path}': {e}")
+        return loaded_docs
+
+    def __split_docs_into_smaller_chunks(self, docs: []):
+        """
+        Helper to split data into smaller chunks for vector database.
+        """
+        return self.text_splitter.split_documents(docs)

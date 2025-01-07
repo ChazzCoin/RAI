@@ -1,12 +1,18 @@
-import os
-import json
-import threading
-from typing import Set
-from urllib.parse import urlparse
 from F import DICT
 from bs4 import BeautifulSoup
 import re
 from F.LOG import Log
+
+import threading
+from typing import Set, List, Optional, Dict, Any
+from urllib.parse import urlparse
+
+from pydantic import BaseModel, Field
+from selenium.webdriver.remote.webelement import WebElement
+
+# from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiLoaderDocument
+# from rai.data.loaders.rai_loaders.RaiMetadataLoader import RaiMetadataLoader
+
 Log = Log("RaiWebExtraction")
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -25,6 +31,12 @@ from selenium.common.exceptions import (
 
 from rai.data.loaders.rai_loaders.JsonlDataLoader import JSONLDataLoader
 
+
+def remove_non_printable_ascii(text):
+    """
+    Remove non-printable characters from text.
+    """
+    return ''.join([c for c in text if ord(c) < 128])
 
 class RaiUrl(str):
     url: str = ""
@@ -49,11 +61,48 @@ class RaiUrl(str):
     @property
     def scheme(self):
         return self.url_obj.scheme  # https
+    def join_to_base(self, ext):
+        return f"{self.url_obj.scheme}://{self.url_obj.netloc}/{ext}"
+
+class WebLoginDetails(BaseModel):
+    success: bool = True
+    username: Optional[str] = None
+    password: Optional[str] = None
+
+    # If you want to store Selenium's WebElement in the model, mark them as Any
+    # and allow arbitrary types via the Config class.
+    user_input: Optional[Any] = None
+    pass_input: Optional[Any] = None
+    login_btn: Optional[Any] = None
+
+    class Config:
+        arbitrary_types_allowed = True  # Allows storing non-JSON-serializable objects
+
+
+class WebPageDetails(BaseModel):
+    url: Optional[str] = None
+    title: Optional[str] = None
+    author: Optional[str] = None
+    date: Optional[str] = None
+    content: Optional[str] = None
+
+    # Use default_factory to get empty lists if not provided
+    urls: List[str] = Field(default_factory=list)
+    tags: List[str] = Field(default_factory=list)
+    images: List[str] = Field(default_factory=list)
+    tables: List[Dict[str, Any]] = Field(default_factory=list)
+    events: List[Dict[str, Any]] = Field(default_factory=list)
+    # For metadata, we can store arbitrary key/value pairs
+    metadata: Optional[Dict[str, Any]] = None
 
 """ Master Web Driver """
 class RaiWebDriver:
     driver: webdriver.Chrome
     options: webdriver.ChromeOptions = webdriver.ChromeOptions()
+    base_url: str = ""
+    do_login: bool = False
+    login_details: WebLoginDetails = None
+    url_details: {str:WebPageDetails} = None
     visited_urls: set[str] = set()
     all_extracted_urls: set[str] = set()
     page_urls: set[str] = set()
@@ -67,7 +116,8 @@ class RaiWebDriver:
     }
     irrelevant_domains = [
         'facebook.com', 'twitter.com', 'instagram.com', 'linkedin.com', 'youtube.com',
-        'ads', 'adservice', 'doubleclick.net', 'tracking', 'google-analytics'
+        'ads', 'adservice', 'doubleclick.net', 'tracking', 'google-analytics', 'privacy',
+        'help', 'account', 'terms'
     ]
 
     def __init__(self, open_url: str = None):
@@ -78,10 +128,28 @@ class RaiWebDriver:
         self.options.add_argument("--disable-dev-shm-usage")
         self.options.add_argument("--log-level=3")
         self.driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=self.options)
+        self.url_details = {}
         if open_url:
+
             self.open(open_url)
 
-    def open(self, url, wait_time=10, max_scrolls=3) -> { str:str }:
+    def get_url_details(self, url) -> Optional[WebPageDetails]:
+        return DICT.get(url, self.url_details, None)
+
+    def create_url_details(self, url) -> Optional[WebPageDetails]:
+        if not url and not DICT.get(url, self.url_details, None): return
+        self.url_details[url] = WebPageDetails(
+            url = url
+        )
+        return DICT.get(url, self.url_details, None)
+
+    def open(self, url, wait_time=10, max_scrolls=3, username=None, password=None) -> { str:str }:
+        Log.i("Opening URL:", url)
+        self.create_url_details(url)
+        self.base_url = RaiUrl(url)
+        self.setup_login(username, password)
+        login_url = RaiUrl(url).join_to_base('login')
+        self.login(login_url)
         self.driver.get(url)
         self.visited_urls.add(url)
         WebDriverWait(self.driver, wait_time).until(EC.presence_of_element_located((By.TAG_NAME, 'body')))
@@ -89,11 +157,11 @@ class RaiWebDriver:
         for _ in range(max_scrolls):
             self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
             time.sleep(2)  # Delay to ensure dynamic content is loaded
-        self.extract_urls()
-        self.extract_metadata()
-        self.extract_images()
-        self.extract_content()
-        return self.get_page_details()
+
+    def setup_login(self, username, password):
+        if username and password:
+            self.do_login = True
+            self.login_details = WebLoginDetails(username=username, password=password)
 
     @property
     def page_title(self):
@@ -149,6 +217,100 @@ class RaiWebDriver:
         self.page_images = []
         self.page_images.extend(image_urls)
         return self.page_images
+
+    def perform_login(self):
+        Log.i("Logging In...")
+        if not self.login_details or not self.login_details.success:
+            return
+        time.sleep(1)
+        if self.login_details.user_input and self.login_details.pass_input and self.login_details.login_btn:
+            # Type the username and password
+            self.login_details.user_input.clear()  # Clear any existing text (optional)
+            self.login_details.user_input.send_keys(self.login_details.username)
+            time.sleep(1)
+            self.login_details.pass_input.clear()
+            self.login_details.pass_input.send_keys(self.login_details.password)
+            time.sleep(1)
+            # Click the login/sign-in button
+            self.login_details.login_btn.click()
+            time.sleep(2)
+            Log.s("Logged In!")
+        else:
+            print("Error: One or more login elements were not found or are invalid.")
+            Log.e("FAILED to Log In!")
+
+    def login(self, url: str):
+        if not self.do_login: return
+        self.driver.get(url)
+        time.sleep(3)
+        # Initialize placeholders
+        username_element = None
+        password_element = None
+        login_button_element = None
+
+        try:
+            # 1. Find candidate for username
+            #    Common practices: type="text" or type="email", name/id that contains "user"/"email"/"login"
+            all_inputs = self.driver.find_elements(By.TAG_NAME, "input")
+            for inp in all_inputs:
+                input_type = inp.get_attribute("type") or ""
+                name_attr = (inp.get_attribute("name") or "").lower()
+                id_attr = (inp.get_attribute("id") or "").lower()
+                placeholder_attr = (inp.get_attribute("placeholder") or "").lower()
+
+                # Try to detect a username or email field:
+                # If type is text or email, and if the name/id/placeholder suggests "user" or "email"
+                if (
+                        (input_type in ["text", "email"]) and
+                        ("user" in name_attr or "user" in id_attr or "email" in name_attr or "email" in id_attr or
+                         "user" in placeholder_attr or "email" in placeholder_attr)
+                ):
+                    username_element = inp
+                    break
+            time.sleep(2)
+            # 2. Find candidate for password
+            for inp in all_inputs:
+                input_type = inp.get_attribute("type") or ""
+                if input_type == "password":
+                    password_element = inp
+                    break
+
+            # 3. Find candidate for Login/Sign-In button
+            #    We look for <button> or <input type="submit"> or <input type="button">
+            #    containing "Login" or "Sign In" in text/value attributes
+            all_buttons = self.driver.find_elements(By.TAG_NAME, "button")
+            all_inputs += self.driver.find_elements(By.XPATH, "//input[@type='submit' or @type='button']")
+            time.sleep(2)
+            # Combine both sets of possible button candidates
+            for btn in all_buttons + all_inputs:
+                btn_text = (btn.text or "").strip().lower()
+                btn_value = (btn.get_attribute("value") or "").strip().lower()
+
+                if any(keyword in btn_text for keyword in ["login", "log in", "sign in", "signin"]):
+                    login_button_element = btn
+                    break
+                if any(keyword in btn_value for keyword in ["login", "log in", "sign in", "signin"]):
+                    login_button_element = btn
+                    break
+        except NoSuchElementException:
+            Log.e("Some element(s) could not be found on the page.")
+
+        if self.login_details:
+            self.login_details.user_input = username_element
+            self.login_details.pass_input = password_element
+            self.login_details.login_btn = login_button_element
+        else:
+            self.login_details = WebLoginDetails(
+                user_input=username_element,
+                pass_input=password_element,
+                login_btn=login_button_element,
+            )
+
+        if username_element and password_element and login_button_element:
+            self.login_details.success = True
+            self.perform_login()
+
+
     def extract_content(self):
         content = ''
         try:
@@ -332,12 +494,8 @@ class RaiWebExtractor(RaiWebDriver):
         crawl_thread.start()
         crawl_thread.join()
 
-def remove_non_printable_ascii(text):
-    """
-    Remove non-printable characters from text.
-    """
-    return ''.join([c for c in text if ord(c) < 128])
+
 
 if __name__ == '__main__':
-    RaiWebExtractor.save('https://textract.readthedocs.io/en/stable/', page_limit=2)
+    RaiWebExtractor.save('https://playmetrics.com/teams/194129/calendar', page_limit=1)
     # RaiWebCrawler(base_url='https://academy.veo.co', output_dir='output').start()

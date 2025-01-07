@@ -13,9 +13,10 @@ from F.LOG import Log
 from F.DATE import get_timestamp_str as get_current_timestamp
 from sqlalchemy import True_
 
+from rai.Async import AsyncTaskManager
 from rai.RaiModels import RAI_MODs, getRaiModels, RAG_PROMPT_TEMPLATE
 from rai.agents.RaiAgents import AgentCategorizer
-from rai.agents.Tools import RaiFunctionCategories
+from rai.agents.Tools import RaiFunctionCategories, YouthSoccerWebsiteCategories
 from rai.assistant.ai_models import AiModels
 from rai.assistant.connectors import RaiAi
 from rai.internal.connectors import REDIS_DB_CLIENT_0, REDIS_DB_CLIENT_1, PostgresTables, VECTOR_DB_CLIENT
@@ -50,7 +51,7 @@ print("Stored RAI Models", STORED_RAI_MODELS)
 IMAGE_FOLDER = f"{os.path.dirname(__file__)}/files/images"
 
 
-RAI_VERSION = "0.7.1:raiko"
+RAI_VERSION = "0.7.2:raiko"
 RAI_CACHE_SYSTEM.set_key("version", RAI_VERSION)
 RAI_CACHE_SYSTEM.set_key("collection_subfix", "dec2024")
 
@@ -228,26 +229,30 @@ async def chat_completion(idx:Optional[int]=None):
                 Coach, Player, Parent, Director, Admin, contact information. 
             """
         )
-
+        fsync = AsyncTaskManager()
         # AGENT: Context Decider...
-        col_names = await RAI_ENGINE.generate_function_async(
+        primary_task = asyncio.create_task(RAI_ENGINE.generate_function_async(
             user=context_expansion,
             system=sys_prompe,
             functions=RaiFunctionCategories
-        )
-
-        cs = RAI_AI.parse_function_names(col_names)
-        firstcs = LIST.get(0, cs, "general")
-        collections = [f"{mod_collection_prefix}.{firstcs}"]
-        if str(firstcs) not in ["general"]:
-            collections.append(f"{mod_collection_prefix}.general")
-
-        print("Categorized Collection Name:", firstcs)
+        ), name="primary_categories")
+        secondary_task = asyncio.create_task(RAI_ENGINE.generate_function_async(
+            user=context_expansion,
+            system=sys_prompe,
+            functions=YouthSoccerWebsiteCategories
+        ), name="secondary_categories")
+        fsync.add_task(primary_task)
+        fsync.add_task(secondary_task)
+        col_names = await fsync.await_results()
+        one = RAI_AI.parse_function_names(LIST.flatten(col_names))
+        cs = LIST.remove_duplicates(one)
+        collections = [f"{mod_collection_prefix}.{c}" for c in cs]
+        Log.w("Categorized Collection Names:", collections)
         # AGENT: Chroma Query
         query_results = VECTOR_DB_CLIENT.queryModelCollection(
             collections,
             user_message=context_expansion,
-            k=15
+            k=30
         )
         if query_results:
             ai_message = RAG_PROMPT_TEMPLATE(query_results, MessageContext.get_last_user_message)

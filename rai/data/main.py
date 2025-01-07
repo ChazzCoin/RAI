@@ -70,14 +70,16 @@ if __name__ == '__main__':
     config = RaiConfig()
     config.pipeline = RaiFileExtractor.Pipelines.CHROMA
     config.generate_ai_metadata = True
-    config.overwrite = True
+    config.overwrite = False
+    config.single_run = True
     config.base_path = RaiPath("/Users/chazzromeo/Desktop/pcsc2024/general")
     config.collection_prefix = "pcsc2025"
-
+    RaiFileExtractor(config=config).import_directory(config.base_path)
     # config.base_path = RaiPath("/Users/chazzromeo/Desktop/proverbs2024")
     # config.collection_prefix = "proverbs.dec2024"
 
-    RaiFileExtractor(config=config).import_directory(config.base_path)
+    # RaiWebExtractor.save("www.playmetrics.com/login", page_limit=1)
+
     # run_rai_file_extraction(fig=config)
 
     # get_all("pcsc2024.general")

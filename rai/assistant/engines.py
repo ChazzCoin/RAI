@@ -141,7 +141,7 @@ class OpenAiEngine(FusedAI, engine="openai"):
                 model=self.default_model,
                 messages=[
                     {"role": "developer", "content": "Which functions should I call based on the Context (Youth Soccer Club) or Topic of the Users Prompt?"},
-                    {"role": "user", "content": user}
+                    {"role": "user", "content": str(user)}
                 ],
                 tools=functions,
             )

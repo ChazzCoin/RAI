@@ -75,3 +75,20 @@ class ListOfQuestionAnswers(BaseModel):
 
 class TrueOrFalse(BaseModel):
     answer: bool
+
+class BaseEvent(BaseModel):
+    # Fields from the "table" style event
+    attendance: Optional[str] = None
+    date_time: Optional[str] = None
+    location: Optional[str] = None
+    opponent: Optional[str] = None
+    score: Optional[str] = None
+
+    # Fields from the "calendar" style event
+    attendance_count: Optional[str] = None
+    day_number: Optional[str] = None
+    description: Optional[str] = None
+    end_time: Optional[str] = None
+    event_name: Optional[str] = None
+    start_time: Optional[str] = None
+    weekday: Optional[str] = None

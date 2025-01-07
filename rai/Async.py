@@ -14,7 +14,16 @@ class AsyncTaskManager:
         """
         self._tasks = []
 
-    def add_task(self, coro: Any, name: str) -> None:
+    def add_task(self, task) -> None:
+        """
+        Add a new coroutine as a named task to the manager.
+
+        :param coro: The coroutine to schedule.
+        :param name: The name you want to assign to this task.
+        """
+        self._tasks.append(task)
+
+    def add_function(self, coro: Any, name: str) -> None:
         """
         Add a new coroutine as a named task to the manager.
 
@@ -36,15 +45,15 @@ class AsyncTaskManager:
             try:
                 result = await completed_task
                 if callback:
-                    callback(completed_task.get_name(), result)
+                    callback(result)
             except Exception as exc:
                 if callback:
-                    callback(completed_task.get_name(), exc)
+                    callback(exc)
 
         # Clear tasks if you don’t plan to reuse them.
         self._tasks.clear()
 
-    async def run_yield(self):
+    async def await_results(self):
         """
         Start all tasks and yield (task_name, result) as each finishes.
         If a task raises an exception, yield (task_name, exception) instead.
@@ -53,15 +62,18 @@ class AsyncTaskManager:
             async for task_name, result in manager.run_yielding():
                 ...
         """
+        results = []
         for completed_task in asyncio.as_completed(self._tasks):
             try:
                 result = await completed_task
-                yield (completed_task.get_name(), result)
+                results.append(result)
             except Exception as exc:
-                yield (completed_task.get_name(), exc)
+                print(exc)
+                continue
 
         # Clear tasks if you don’t plan to reuse them.
         self._tasks.clear()
+        return results
 
 
 # -----------------------

@@ -71,7 +71,7 @@ class FPDF:
 
             # Extraction
             fp = open(path, 'rb')
-            pdf_document = PDFPage.get_pages(fp, pagenos, maxpages=maxpages, password=password,caching=caching, check_extractable=True)
+            pdf_document = PDFPage.get_pages(fp, pagenos, maxpages=maxpages, password=password, caching=caching, check_extractable=True)
             for page in pdf_document:
                 interpreter.process_page(page)
 

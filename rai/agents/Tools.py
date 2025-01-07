@@ -81,7 +81,28 @@ def build_rai_function_categories(ysc_context, pre_fix=PreFix):
 
 RaiFunctionCategories = build_rai_function_categories(YSC_Context)
 
+def build_youth_soccer_website_categories(ysc_context, pre_fix=PreFix, ):
+    function_dict = {
+        "admin": f"{pre_fix} general information about a team involving staff, coaches, players, events {ysc_context}",
+        "summary": f"{pre_fix} general information about a team involving staff, coaches, players, events {ysc_context}",
+        "events": f"{pre_fix} Calendar based events like practices, games, festivals, meetings, parties {ysc_context}",
+        "practices": f"{pre_fix} Calendar or general information about team practices {ysc_context}",
+        "games": f"{pre_fix} Calendar or general information about based team games {ysc_context}",
+        "roster": f"{pre_fix} Players, Coaches, Parents, Managers, Staff involving a team or teams {ysc_context}",
+        "teams": f"{pre_fix} List of teams or overview of club teams {ysc_context}",
+        "staff": f"{pre_fix} List or General Information about Coaches, Admins and Staff. {ysc_context}",
+        "notifications": f"{pre_fix} Updates or Real-Time updates and information. {ysc_context}",
+    }
+    return function_dict
+# Step 2: Define a function to dynamically build the list
+def build_youth_soccer_website_function_categories(ysc_context, pre_fix=PreFix):
+    function_dict = build_youth_soccer_website_categories(ysc_context, pre_fix)
+    rai_function_categories = [
+        getFunctionJsonNoArgs(key, value) for key, value in function_dict.items()
+    ]
+    return rai_function_categories
 
+YouthSoccerWebsiteCategories = build_youth_soccer_website_function_categories(YSC_Context)
 
 RaiFunctions = [
 

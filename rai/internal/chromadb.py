@@ -141,8 +141,6 @@ class ChromaClient:
             )
         return None
 
-
-
     def insert(self, collection_name: str, items: list[VectorItem]):
         # Insert the items into the collection, if the collection does not exist, it will be created.
         collection = self.client.get_or_create_collection(name=collection_name)
@@ -185,9 +183,3 @@ class ChromaClient:
     def reset(self):
         # Resets the database. This will delete all collections and item entries.
         return self.client.reset()
-
-if __name__ == "__main__":
-    client = ChromaClient()
-    print(client.has_collection("pcsc-main"))
-    results = client.get("pcsc-main")
-    print(results)

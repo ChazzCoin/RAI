@@ -133,18 +133,28 @@ class RaiMetadataLoader:
         Log.i("Loading Default Metadata.")
         return DataLoaderMetadata()
 
-    def ai_genny(self, raiDocs: [RaiLoaderDocument]):
+
+    def ai_genny(self, raiDocs: [RaiLoaderDocument]=None, text:str=None):
         try:
-            if len(raiDocs) <= 50:
-                data_subset = raiDocs
+            if raiDocs:
+                if len(raiDocs) <= 50:
+                    data_subset = raiDocs
+                else:
+                    data_subset = raiDocs[:50]
+                temp = ""
+                for item in data_subset:
+                    temp = f"{temp}\n{item.page_content}"
+            elif text:
+                temp = text
             else:
-                data_subset = raiDocs[:50]
-            temp = ""
-            for item in data_subset:
-                temp = f"{temp}\n{item.page_content}"
+                return self.default_metadata()
             meta_result = MetadataDG().run(temp)
             if meta_result:
-                return meta_result
+                meta_dict = json.loads(meta_result)
+                final_meta = {}
+                for key, value in meta_dict.items():
+                    final_meta[str(key)] = str(value)
+                return final_meta
             return self.default_metadata()
         except Exception as e:
             print(e)
