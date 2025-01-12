@@ -3,19 +3,18 @@ import uuid
 
 from F import DICT, LIST
 from F.LOG import Log
-from numpy.distutils.command.config import config
 from tqdm import tqdm
 
 from rai.agents.RaiAgents import AgentCategorizer
-from rai.agents.Tools import RaiFunctionCategories
+from rai.agents.Tools import YscSecondaryFunctions, YscPrimaryFunction
 from rai.assistant.openai_client import generate_embeddings
-from rai.data.extraction.RaiFileExtraction import RaiConfig, RaiFileExtractor
+from rai.data.RaiFileExtraction import RaiConfig, RaiFileExtractor
 from rai.data.loaders.rai_loaders.RaiMetadataLoader import RaiMetadataLoader
 from rai.internal.connectors import VECTOR_DB_CLIENT
 
 Log = Log("RaiChromaDBDocumentManager")
 
-class RaiChromaDBDocumentManager:
+class RaiRAG:
     """
     Responsible for:
       - Accepting already-loaded (and possibly chunked) documents.
@@ -26,7 +25,7 @@ class RaiChromaDBDocumentManager:
     """
     config: RaiConfig = None
     @classmethod
-    def web(cls, prefix, functions):
+    def web(cls, prefix):
         config = RaiConfig()
         config.pipeline = RaiFileExtractor.Pipelines.CHROMA
         config.generate_ai_metadata = True
@@ -34,7 +33,8 @@ class RaiChromaDBDocumentManager:
         config.single_run = True
         config.base_path = None
         config.collection_prefix = prefix
-        config.primary_functions = functions
+        config.primary_functions = YscPrimaryFunction
+        config.secondary_functions = YscSecondaryFunctions
         return cls(config)
 
     def __init__(self, config: RaiConfig):
@@ -148,6 +148,31 @@ class RaiChromaDBDocumentManager:
         except Exception as e:
             Log.w(e)
             return {}
+
+    @staticmethod
+    def generate_metadatas(docs: []):
+        """
+        Optionally uses AI to generate advanced metadata, or just reuses doc metadata.
+        """
+        final_meta = {}
+        try:
+            meta_loader = RaiMetadataLoader()
+            meta = meta_loader.ai_genny(raiDocs=docs)
+            # Could be string or dict
+            meta_dict = json.loads(meta) if isinstance(meta, str) else meta
+            for k, v in meta_dict.items():
+                final_meta[str(k)] = str(v)
+            return final_meta
+        except Exception as e:
+            Log.w(e)
+            return {}
+
+    @staticmethod
+    def get_categories(data, context, primary_functions, secondary_functions):
+        categorizer = AgentCategorizer()
+        results1 = categorizer.run(data, context, primary_functions)
+        results2 = categorizer.run(data, context, secondary_functions)
+        return LIST.remove_duplicates(LIST.merge_lists(results1, results2))
 
     @staticmethod
     def prepare_chroma_documents(texts: [str], metadata: dict):

@@ -19,11 +19,13 @@ from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiBaseLoader
 from rai.data.loaders.rai_loaders.RaiMetadataLoader import RaiMetadataLoader
 from rai.data.loaders.rai_loaders.TableDataLoader import TableDataLoader, RaiTableDataLoader
 from rai.data.loaders.rai_loaders.WordDocDataLoader import WordDocDataLoader
+from rai.internal.registries import RaiRegistry
 
 Log = Log("RaiDataLoader")
 
 DEFAULT_CONTENT = "This data is unknown at this time."
 
+@RaiRegistry.data_loader(name="universal")
 class RaiDataLoader:
     file:RaiPath = None
     metadata:dict = None

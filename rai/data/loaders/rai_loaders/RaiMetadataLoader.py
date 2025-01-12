@@ -10,7 +10,7 @@ from F.LOG import Log
 from functools import singledispatchmethod
 
 from rai.agents.PromptMaster import PromptRegistry
-from rai.agents.automation import MetadataDG
+from rai.agents.automation import AgentFormatMetadata
 from rai.assistant.connectors import RaiAi
 from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiBaseLoader, RaiLoaderDocument
 
@@ -148,7 +148,7 @@ class RaiMetadataLoader:
                 temp = text
             else:
                 return self.default_metadata()
-            meta_result = MetadataDG().run(temp)
+            meta_result = AgentFormatMetadata().run(temp)
             if meta_result:
                 meta_dict = json.loads(meta_result)
                 final_meta = {}

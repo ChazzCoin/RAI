@@ -3,7 +3,7 @@ import uuid
 from F import DATE, DICT
 from rai.assistant import openai_client as openai
 from chdb.chroma import ChromaInstance
-from rai.data.TextCleaner import TextCleaner
+from rai.data.utilities.TextUtils import TextProcessor
 
 
 class RAGWithChroma(ChromaInstance):
@@ -22,7 +22,7 @@ class RAGWithChroma(ChromaInstance):
     def prepare_raw_text(raw_text: str, doc_name: str, topic: str="general", url: str=""):
         prepped_documents = []
         try:
-            paragraphs = TextCleaner.to_paragraphs_with_min_max(raw_text)
+            paragraphs = TextProcessor.to_paragraphs_with_min_max(raw_text)
             page = 0
             for paragraph in paragraphs:
                 id = f"{doc_name}:{str(page)}:{str(uuid.uuid4())}"

@@ -10,9 +10,11 @@ from rai.data.loaders.rai_loaders.LastResortDataLoader import LastResortDataLoad
 from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiLoaderDocument
 from rai.data.loaders.rai_loaders.RaiMetadataLoader import DEFAULT_METADATA
 from rai.data.loaders.rai_loaders.VisionDataLoader import VisionDataLoader
+from rai.internal.registries import RaiRegistry
 
 Log = Log("WordDocDataLoader")
 
+@RaiRegistry.data_loader(name="doc")
 class WordDocDataLoader(BaseLoader):
     cache: [RaiLoaderDocument] = None
     def __init__(self, file_path: str, metadata:dict=DEFAULT_METADATA):

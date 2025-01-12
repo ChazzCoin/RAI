@@ -1,35 +1,13 @@
 import json
-
 from F import DICT
-
-
 from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiLoaderDocument
-from F.LOG import Log
-
 from rai.data.loaders.rai_loaders.Utils import ensure_string
-
+from rai.internal.registries import RaiRegistry
+from F.LOG import Log
 Log = Log("JSONDataLoader")
 
 
-# def ensure_string(data):
-#     """
-#     Recursively ensure that all values are strings.
-#     If a value is None, convert it to the literal string "null".
-#     """
-#     if data is None:
-#         return "null"
-#     elif isinstance(data, dict):
-#         # Convert keys and values to strings, with None replaced by "null"
-#         return {str(k): ensure_string(v) for k, v in data.items()}
-#     elif isinstance(data, list):
-#         # Convert each list item to a string, replacing None with "null"
-#         return [ensure_string(item) for item in data]
-#     elif isinstance(data, (int, float, bool)):
-#         # Convert numbers/bools directly to strings
-#         return str(data)
-#     # For strings or anything else, just ensure it's a string
-#     return str(data)
-
+@RaiRegistry.data_loader(name="json")
 class JSONDataLoader:
     cache: [RaiLoaderDocument] = None
     is_file: bool = False

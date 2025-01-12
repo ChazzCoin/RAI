@@ -9,10 +9,11 @@ from rai.data.loaders import verify_loader_data
 from rai.data.loaders.rai_loaders.LastResortDataLoader import LastResortDataLoader
 from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiLoaderDocument
 from rai.data.loaders.rai_loaders.VisionDataLoader import VisionDataLoader
+from rai.internal.registries import RaiRegistry
 
 Log = Log("PowerPointDataLoader")
 
-
+@RaiRegistry.data_loader(name="powerpoint")
 class PowerPointDataLoader(BaseLoader):
     cache: [RaiLoaderDocument] = None
     def __init__(self, file_path: str, metadata=None):

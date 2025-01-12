@@ -2,11 +2,15 @@ import logging
 import time
 from typing import Optional
 
-from rai.internal.chromadb import Base, JSONField, get_db
-from rai.models.users import Users
+
+from rai.internal.connectors import POSTGRES_DB_CLIENT
+
+from rai.config import Base
 from rai.env import SRC_LOG_LEVELS
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import BigInteger, Boolean, Column, String, Text
+
+from rai.utils.utils import Users
 
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["MODELS"])
@@ -24,8 +28,8 @@ class Function(Base):
     name = Column(Text)
     type = Column(Text)
     content = Column(Text)
-    meta = Column(JSONField)
-    valves = Column(JSONField)
+    meta = Column(String)
+    valves = Column(String)
     is_active = Column(Boolean)
     is_global = Column(Boolean)
     updated_at = Column(BigInteger)
@@ -95,7 +99,7 @@ class FunctionsTable:
         )
 
         try:
-            with get_db() as db:
+            with POSTGRES_DB_CLIENT as db:
                 result = Function(**function.model_dump())
                 db.add(result)
                 db.commit()
@@ -110,14 +114,14 @@ class FunctionsTable:
 
     def get_function_by_id(self, id: str) -> Optional[FunctionModel]:
         try:
-            with get_db() as db:
+            with POSTGRES_DB_CLIENT as db:
                 function = db.get(Function, id)
                 return FunctionModel.model_validate(function)
         except Exception:
             return None
 
     def get_functions(self, active_only=False) -> list[FunctionModel]:
-        with get_db() as db:
+        with POSTGRES_DB_CLIENT as db:
             if active_only:
                 return [
                     FunctionModel.model_validate(function)
@@ -132,7 +136,7 @@ class FunctionsTable:
     def get_functions_by_type(
         self, type: str, active_only=False
     ) -> list[FunctionModel]:
-        with get_db() as db:
+        with POSTGRES_DB_CLIENT as db:
             if active_only:
                 return [
                     FunctionModel.model_validate(function)
@@ -147,7 +151,7 @@ class FunctionsTable:
                 ]
 
     def get_global_filter_functions(self) -> list[FunctionModel]:
-        with get_db() as db:
+        with POSTGRES_DB_CLIENT as db:
             return [
                 FunctionModel.model_validate(function)
                 for function in db.query(Function)
@@ -156,7 +160,7 @@ class FunctionsTable:
             ]
 
     def get_global_action_functions(self) -> list[FunctionModel]:
-        with get_db() as db:
+        with POSTGRES_DB_CLIENT as db:
             return [
                 FunctionModel.model_validate(function)
                 for function in db.query(Function)
@@ -165,7 +169,7 @@ class FunctionsTable:
             ]
 
     def get_function_valves_by_id(self, id: str) -> Optional[dict]:
-        with get_db() as db:
+        with POSTGRES_DB_CLIENT as db:
             try:
                 function = db.get(Function, id)
                 return function.valves if function.valves else {}
@@ -176,7 +180,7 @@ class FunctionsTable:
     def update_function_valves_by_id(
         self, id: str, valves: dict
     ) -> Optional[FunctionValves]:
-        with get_db() as db:
+        with POSTGRES_DB_CLIENT as db:
             try:
                 function = db.get(Function, id)
                 function.valves = valves
@@ -229,7 +233,7 @@ class FunctionsTable:
             return None
 
     def update_function_by_id(self, id: str, updated: dict) -> Optional[FunctionModel]:
-        with get_db() as db:
+        with POSTGRES_DB_CLIENT as db:
             try:
                 db.query(Function).filter_by(id=id).update(
                     {
@@ -243,7 +247,7 @@ class FunctionsTable:
                 return None
 
     def deactivate_all_functions(self) -> Optional[bool]:
-        with get_db() as db:
+        with POSTGRES_DB_CLIENT as db:
             try:
                 db.query(Function).update(
                     {
@@ -257,7 +261,7 @@ class FunctionsTable:
                 return None
 
     def delete_function_by_id(self, id: str) -> bool:
-        with get_db() as db:
+        with POSTGRES_DB_CLIENT as db:
             try:
                 db.query(Function).filter_by(id=id).delete()
                 db.commit()

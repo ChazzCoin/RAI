@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from F.CLASS import Flass
 
-from rai.agents.Tools import RaiFunctionCategories
+from rai.agents.Tools import YscPrimaryFunction
 from rai.assistant.connectors import RaiAi
 # Initialize OpenAI API key
 

@@ -7,7 +7,7 @@ from openai import OpenAI, AsyncOpenAI
 from pydantic import BaseModel
 
 from rai import app
-from rai.agents.Tools import RaiFunctionCategories, find_RaiFunction
+from rai.agents.Tools import find_RaiFunction
 from rai.assistant.ai_models import AiModels
 
 open_ai_key = os.getenv("OPENAI_API_KEY")

@@ -54,7 +54,7 @@ def find_RaiFunction(name:str, rai_functions:[]):
                 return func
     return None
 # Step 1: Define the dictionary dynamically
-def build_function_dict(ysc_context, pre_fix=PreFix, ):
+def ysc_primary(ysc_context, pre_fix=PreFix, ):
     function_dict = {
         "tryout_registration": f"{pre_fix} tryouts, placements, registration or how to signup and get involved in the club. {ysc_context}",
         "uniforms_attire": f"{pre_fix} how to order or get their uniforms and other attire {ysc_context}",
@@ -73,15 +73,15 @@ def build_function_dict(ysc_context, pre_fix=PreFix, ):
 
 # Step 2: Define a function to dynamically build the list
 def build_rai_function_categories(ysc_context, pre_fix=PreFix):
-    function_dict = build_function_dict(ysc_context, pre_fix)
+    function_dict = ysc_primary(ysc_context, pre_fix)
     rai_function_categories = [
         getFunctionJsonNoArgs(key, value) for key, value in function_dict.items()
     ]
     return rai_function_categories
 
-RaiFunctionCategories = build_rai_function_categories(YSC_Context)
+YscPrimaryFunction = build_rai_function_categories(YSC_Context)
 
-def build_youth_soccer_website_categories(ysc_context, pre_fix=PreFix, ):
+def ysc_secondary(ysc_context, pre_fix=PreFix):
     function_dict = {
         "admin": f"{pre_fix} general information about a team involving staff, coaches, players, events {ysc_context}",
         "summary": f"{pre_fix} general information about a team involving staff, coaches, players, events {ysc_context}",
@@ -96,13 +96,13 @@ def build_youth_soccer_website_categories(ysc_context, pre_fix=PreFix, ):
     return function_dict
 # Step 2: Define a function to dynamically build the list
 def build_youth_soccer_website_function_categories(ysc_context, pre_fix=PreFix):
-    function_dict = build_youth_soccer_website_categories(ysc_context, pre_fix)
+    function_dict = ysc_secondary(ysc_context, pre_fix)
     rai_function_categories = [
         getFunctionJsonNoArgs(key, value) for key, value in function_dict.items()
     ]
     return rai_function_categories
 
-YouthSoccerWebsiteCategories = build_youth_soccer_website_function_categories(YSC_Context)
+YscSecondaryFunctions = build_youth_soccer_website_function_categories(YSC_Context)
 
 RaiFunctions = [
 
@@ -125,3 +125,5 @@ RaiFunctions = [
       },
   }
 ]
+
+

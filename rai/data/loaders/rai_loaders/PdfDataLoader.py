@@ -1,18 +1,15 @@
 import os
 import PyPDF2
 import pytesseract
-from datrie import Iterator
 from pdf2image import convert_from_path
-from langchain_community.document_loaders import PyPDFLoader, PDFMinerLoader, PDFPlumberLoader
+from langchain_community.document_loaders import PDFMinerLoader, PDFPlumberLoader
 
 from F.LOG import Log
 
-from rai.data.extraction.parsers.PDF_v1 import FPDF
-from rai.data.loaders import verify_loader_data
-from rai.data.loaders.rai_loaders.LastResortDataLoader import LastResortDataLoader
+from rai.data.parsers.PDF_v1 import FPDF
 from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiLoaderDocument, RaiBaseLoader
 from rai.data.loaders.rai_loaders.RaiMetadataLoader import DEFAULT_METADATA
-from rai.data.loaders.rai_loaders.VisionDataLoader import VisionDataLoader
+from rai.internal.registries import RaiRegistry
 
 Log = Log("PdfDataLoader")
 
@@ -23,6 +20,7 @@ def safe(func):
         print(e)
         return None
 
+@RaiRegistry.data_loader(name="pdf")
 class PdfDataLoader(RaiBaseLoader):
     fpdf = None
     ocr = None

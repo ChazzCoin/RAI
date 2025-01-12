@@ -2,7 +2,6 @@ from typing import Dict
 
 from F import DICT
 
-from rai.agents.Tools import RaiFunctionCategories
 from rai.assistant.engines import OllamaEngine, OpenAiEngine, AiModels, FusedAI
 
 
@@ -44,6 +43,10 @@ class RaiAi:
         result = self.engine.generate_function(user, system, functions)
         return self.parse_function_names(result)
 
+    async def generate_function_async(self, user: str, system: str, functions: [dict]):
+        result = await self.engine.generate_function_async(user, system, functions)
+        return self.parse_function_names(result)
+
     @staticmethod
     def parse_function_names(function_response, default="general"):
         try:
@@ -78,11 +81,3 @@ class RaiAi:
         self.DEFAULT_MODEL = model
 
 
-if __name__ == '__main__':
-    rai = RaiAi()
-    ai = rai.get_engine()
-    print(ai.generate_function_as("Who is joel person?", """
-    **You are a youth soccer club assistant and RAG Master.**
-    GOAL:
-    Read the context of the users prompt and decide which categorized function to call.
-    """, RaiFunctionCategories))

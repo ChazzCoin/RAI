@@ -3,7 +3,7 @@ from F import DICT, DATE
 from dotenv import load_dotenv
 import os
 import logging
-from rai.data.TextCleaner import TextCleaner
+from rai.data.utilities.TextUtils import TextProcessor
 from rai.assistant import openai_client as openai
 from typing import List, Dict
 import asyncio
@@ -92,7 +92,7 @@ class ChromaInstance:
 
     @staticmethod
     def base_embedding(text_in):
-        cleaned_text = TextCleaner.clean_text_for_openai_embedding(text_in)
+        cleaned_text = TextProcessor.clean_text_for_openai_embedding(text_in)
         print("Cleaned Text for Embedding:", cleaned_text)
         embeddings = openai.generate_embeddings(cleaned_text)
         return embeddings

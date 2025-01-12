@@ -2,6 +2,7 @@ import uuid
 
 from sympy.abc import lamda
 
+from rai.agents.Tools import YscPrimaryFunction, YscSecondaryFunctions
 from rai.agents.prompts import context
 from rai.agents.PromptMaster import PromptRegistry
 GENERAL_PROMPT_TEMPLATE = lambda ai_name, org_name, org_rep_type, specialty: f"""
@@ -122,6 +123,8 @@ RAI_MODs = {
         'collection': 'pcsc2024',
         'prompt': GENERAL_PROMPT_TEMPLATE,
         'context_prompt': context.SOCCER_CLUB_CONTEXT_EXPANDER,
+        'primary_functions': "ysc_primary",
+        'secondary_functions': "ysc_secondary",
         'openai': 'gpt-4o',
         'ollama': 'llama3:latest',
         'org_type': 'Soccer Club',
@@ -154,9 +157,11 @@ RAI_MODs = {
         'collection': 'pcsc2025',
         'prompt': GENERAL_PROMPT_TEMPLATE,
         'context_prompt': context.SOCCER_CLUB_CONTEXT_EXPANDER,
+        'primary_functions': "ysc_primary",
+        'secondary_functions': "ysc_secondary",
         'openai': 'gpt-4o',
         'ollama': 'llama3:latest',
-        'org_type': 'Soccer Club',
+        'org_type': "Youth Soccer Club",
         'org_specialty': f"""
             You specialize in understanding youth soccer clubs, organizational structure, youth soccer parents, youth soccer coaches, youth soccer players.
         """,
@@ -186,6 +191,8 @@ RAI_MODs = {
             'collection': 'referral-assistant',
             'prompt': diag_prompt(False),
             'context_prompt': context.MEDICAL_CONTEXT_EXPANDER,
+            'primary_functions': "ysc_primary",
+            'secondary_functions': "ysc_secondary",
             'openai': 'gpt-4o',
             'ollama': 'llama3:latest',
             'org_type': 'Medical',
@@ -218,6 +225,8 @@ RAI_MODs = {
         'collection': 'referral-assistant',
         'prompt': diag_prompt(True),
         'context_prompt': context.MEDICAL_CONTEXT_EXPANDER,
+        'primary_functions': "ysc_primary",
+        'secondary_functions': "ysc_secondary",
         'openai': 'gpt-4o',
         'ollama': 'llama3:latest',
         'org_type': 'Medical',
@@ -248,6 +257,8 @@ RAI_MODs = {
             'collection': 'medical-neuro',
             'prompt': GENERAL_PROMPT_TEMPLATE,
             'context_prompt': context.MEDICAL_CONTEXT_EXPANDER,
+        'primary_functions': "ysc_primary",
+        'secondary_functions': "ysc_secondary",
             'openai': 'gpt-4o',
             'ollama': 'llama3:latest',
             'org_type': 'Medical',
@@ -282,6 +293,8 @@ RAI_MODs = {
         'collection': 'proverbs',
         'prompt': "You are a helpful RAG Assistant.",
         'context_prompt': context.SOCCER_CLUB_CONTEXT_EXPANDER,
+        'primary_functions': "ysc_primary",
+        'secondary_functions': "ysc_secondary",
         'openai': 'gpt-4o-mini',
         'ollama': 'llama3.2',
         'org_type': 'Librarian',
@@ -304,6 +317,8 @@ RAI_MODs = {
             'collection': 'ussf',
             'prompt': GENERAL_PROMPT_TEMPLATE,
             'context_prompt': context.SOCCER_CLUB_CONTEXT_EXPANDER,
+            'primary_functions': "ysc_primary",
+            'secondary_functions': "ysc_secondary",
             'openai': 'gpt-4o-mini',
             'ollama': 'llama3.2',
             'org_type': 'Governing Body of Soccer',

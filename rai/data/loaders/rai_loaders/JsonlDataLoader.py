@@ -7,9 +7,11 @@ from jsonlines import jsonlines
 from langchain_core.document_loaders import BaseLoader
 
 from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiLoaderDocument
+from rai.internal.registries import RaiRegistry
 
 Log = Log("JSONLDataLoader")
 
+@RaiRegistry.data_loader(name="jsonl")
 class JSONLDataLoader(BaseLoader):
     cache: [RaiLoaderDocument] = None
     def __init__(self, file_path: str, metadata={ 'image':'' }):

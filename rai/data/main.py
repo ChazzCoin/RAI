@@ -1,12 +1,10 @@
 from rai.agents.PromptMaster import PromptRegistry
 from rai.data import RaiPath
-from rai.data.extraction.read import read_file
-from rai.data.extraction.RaiFileExtraction import RaiFileExtractor, RaiConfig, VECTOR_DB_CLIENT
-from rai.data.extraction.RaiWebExtraction import RaiWebExtractor
+from rai.data.files.read import read_file
+from rai.data.RaiFileExtraction import RaiFileExtractor, RaiConfig
+from rai.data.RaiWebExtraction import RaiWebExtractor
 from rai.internal.connectors import VECTOR_DB_CLIENT
-
-
-RAI_DBs = lambda db: (f"{db}-main", f"{db}-internal", f"{db}-development")
+from rai.internal.registries import RaiRegistry
 
 def delete_collects(*collections):
     RaiFileExtractor.delete_collections(*collections)

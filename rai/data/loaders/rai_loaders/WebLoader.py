@@ -1,28 +1,26 @@
 import threading
-import time
 from typing import Set, List
 from urllib.parse import urlparse
 
 from F import DICT, LIST
 from F.LOG import Log
 from langchain_core.document_loaders import BaseLoader
-from pydantic import BaseModel
 from selenium.webdriver.common.by import By
 
-from rai.RAG.CDocs import RaiChromaDBDocumentManager
-from rai.agents.RaiAgents import AgentCategorizer
-from rai.agents.Tools import YouthSoccerWebsiteCategories
-from rai.data.DataUtilities import ensure_string_for_chroma
+from rai.RAG.CDocs import RaiRAG
+from rai.data.utilities.DataUtilities import ensure_string_for_chroma
+from rai.internal.registries import RaiRegistry
+
 Log = Log("RaiWebLoader")
 from selenium.common import WebDriverException, TimeoutException, NoSuchElementException
 
-from rai.data.extraction.RaiWebExtraction import RaiWebDriver, RaiUrl, remove_non_printable_ascii, WebPageDetails
+from rai.data.RaiWebExtraction import RaiWebDriver, RaiUrl, remove_non_printable_ascii, WebPageDetails
 from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiLoaderDocument
 from rai.data.loaders.rai_loaders.RaiMetadataLoader import RaiMetadataLoader
 
 
 
-
+@RaiRegistry.data_loader(name="web")
 class RaiWebLoader(RaiWebDriver, BaseLoader):
     cache:[] = []
 
@@ -51,7 +49,7 @@ class RaiWebLoader(RaiWebDriver, BaseLoader):
         self.documents = []        # store RaiDocument objects
         self.data_lock = threading.Lock()
         self.scrape_count = 0
-        self.chromadb = RaiChromaDBDocumentManager.web("pcsc2025", YouthSoccerWebsiteCategories)
+        self.chromadb = RaiRAG.web("pcsc2025")
 
     @classmethod
     def run(cls, url: str, page_limit: int = 1, username=None, password=None):
@@ -85,10 +83,9 @@ class RaiWebLoader(RaiWebDriver, BaseLoader):
             if self.is_within_base_url(link):
                 filtered_links.append(link)
 
-        with self.data_lock:
-            for link in filtered_links:
-                if link not in self.visited_urls:
-                    self.to_visit_urls.add(link)
+        for link in filtered_links:
+            if link not in self.visited_urls:
+                self.to_visit_urls.add(link)
 
     @staticmethod
     def clean_text(text: str) -> str:
@@ -116,6 +113,7 @@ class RaiWebLoader(RaiWebDriver, BaseLoader):
         """
         try:
             self.open(url)
+
             details = self.current_url_details()
             details.content = self.clean_text(self.extract_content())
             details.urls = self.extract_urls()
@@ -407,14 +405,12 @@ class RaiWebLoader(RaiWebDriver, BaseLoader):
 
         self.current_url_details().tables.extend(all_parsed_tables)
         return all_parsed_tables
-    def categorize_page(self, page_contents):
-        return AgentCategorizer().run(page_contents, "Youth Soccer Club", YouthSoccerWebsiteCategories)
 
 
 if __name__ == '__main__':
     email = "jperson@parkcitysoccer.org"
     password = "Philly23!"
-    crawler = RaiWebLoader.run("https://playmetrics.com/club-admin/staff", 4, username=email, password=password)
+    crawler = RaiWebLoader.run("https://www.parkcitysoccer.org/", 100, username=None, password=None)
     loader = crawler.load()
     for item in loader:
         print(item.page_content)

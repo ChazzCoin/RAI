@@ -1,8 +1,11 @@
 from F.LOG import Log
 from langchain_core.document_loaders import BaseLoader
 from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiLoaderDocument
+from rai.internal.registries import RaiRegistry
+
 Log = Log("RawTextDataLoader")
 
+@RaiRegistry.data_loader(name="text")
 class RawTextDataLoader(BaseLoader):
     cache: [RaiLoaderDocument] = None
     def __init__(self, raw_text: str, metadata={ 'image':'' }):

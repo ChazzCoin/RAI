@@ -11,17 +11,15 @@ import requests
 from F import DICT, LIST
 from F.LOG import Log
 from F.DATE import get_timestamp_str as get_current_timestamp
-from sqlalchemy import True_
 
 from rai.Async import AsyncTaskManager
 from rai.RaiModels import RAI_MODs, getRaiModels, RAG_PROMPT_TEMPLATE
-from rai.agents.RaiAgents import AgentCategorizer
-from rai.agents.Tools import RaiFunctionCategories, YouthSoccerWebsiteCategories
+from rai.agents.functions.manager import RaiFunctionManager
 from rai.assistant.ai_models import AiModels
 from rai.assistant.connectors import RaiAi
 from rai.internal.connectors import REDIS_DB_CLIENT_0, REDIS_DB_CLIENT_1, PostgresTables, VECTOR_DB_CLIENT
 from rai import env
-from rai.data.extraction.parsers.PDF_v1 import FPDF
+from rai.data.parsers.PDF_v1 import FPDF
 import base64
 import imghdr
 
@@ -129,13 +127,17 @@ async def chat_completion(idx:Optional[int]=None):
     # mod_initials: str = DICT.get('initials', modelIn_data, "none")
     mod_flow: str = DICT.get('ai_flow', modelIn_data, "none")
     mod_org_rep_type: str = DICT.get('org_rep_type', modelIn_data)
+    mod_org_type: str = DICT.get('org_type', modelIn_data)
     mod_collection_prefix: str = DICT.get('collection', modelIn_data, 'none')
     # mod_zip_code = DICT.get('zip', modelIn_data, '00000')
     mod_specialty: str = DICT.get('org_specialty', modelIn_data)
     mod_system_prompt_lambda = DICT.get('prompt', modelIn_data) #(mod_ai_name, mod_title, mod_org_rep_type, mod_specialty)
-    # mod_context_prompt_lambda = DICT.get('context_prompt', modelIn_data)
+    mod_context_prompt = DICT.get('context_prompt', modelIn_data)
     mod_openai_model: str = DICT.get('openai', modelIn_data, 'gpt-4o-mini')
     mod_ollama_model: str = DICT.get('ollama', modelIn_data, 'llama3:latest')
+
+    mod_primary_functions: [] = DICT.get('primary_functions', modelIn_data)
+    mod_secondary_functions: [] = DICT.get('secondary_functions', modelIn_data)
 
     """ System Prompt Overrider """
     PROMPT_CACHE = RAI_CACHE.get_key(current_rai_model)
@@ -197,55 +199,28 @@ async def chat_completion(idx:Optional[int]=None):
     elif mod_flow == "MRC":
         MessageContext.make_single(system_prompt=final_system_prompt)
     elif mod_flow == "QA":
-        # categorizer = AgentCategorizer()
-
-        sys_prompe = f"""
-        You are Park City Soccer Clubs Personal Assistant.
-        
-        **OVERALL PURPOSE**:
-        Your goal is to identify relevant function calls from the provided function definitions ("functions") based on the user's prompt.
-    
-        **OBJECTIVE**:
-        - Treat each function name in the "functions" list as a Topic/Category.
-        - Thoroughly analyze the user's prompt to decide which function(s) apply (there may be more than one).
-        - Return the function calls (in a specific format) that match the user's needs.
-        """
-
+        """ 1. Generate Context Expansion on Initial User Input """
         context_expansion = await RAI_ENGINE.generate_async(
             user=MessageContext.get_last_user_message,
-            system="""
-                You are Park City Soccer Clubs personal AI assistant.
-                Based on the context of youth soccer clubs and park city soccer club specifically,
-                Read the user prompt carefully and add context and keywords to the prompt for a better chromadb vector search. 
-                
-                EXAMPLE PROMPT INPUT:
-                Who is John Smith?
-                
-                EXAMPLE PROMPT OUTPUT:
-                Who is John Smith? 
-                What role does John Smith play at the club? 
-                What is John Smiths contact information, email, phone number? 
-                Is john smith part of any teams?
-                Coach, Player, Parent, Director, Admin, contact information. 
-            """
+            system=mod_context_prompt
         )
+        context_expansion = f"{MessageContext.get_last_user_message}\n{context_expansion}"
+        """ 2. Setup Async Manager """
         fsync = AsyncTaskManager()
+        ffunctions = RaiFunctionManager(mod_org_type)
         # AGENT: Context Decider...
-        primary_task = asyncio.create_task(RAI_ENGINE.generate_function_async(
-            user=context_expansion,
-            system=sys_prompe,
-            functions=RaiFunctionCategories
-        ), name="primary_categories")
-        secondary_task = asyncio.create_task(RAI_ENGINE.generate_function_async(
-            user=context_expansion,
-            system=sys_prompe,
-            functions=YouthSoccerWebsiteCategories
-        ), name="secondary_categories")
+        primary_task = asyncio.create_task(ffunctions.generate_async(
+            data=context_expansion,
+            functions=mod_primary_functions
+        ))
+        secondary_task = asyncio.create_task(ffunctions.generate_async(
+            data=context_expansion,
+            functions=mod_secondary_functions
+        ))
         fsync.add_task(primary_task)
         fsync.add_task(secondary_task)
         col_names = await fsync.await_results()
-        one = RAI_AI.parse_function_names(LIST.flatten(col_names))
-        cs = LIST.remove_duplicates(one)
+        cs = LIST.remove_duplicates(LIST.flatten(col_names))
         collections = [f"{mod_collection_prefix}.{c}" for c in cs]
         Log.w("Categorized Collection Names:", collections)
         # AGENT: Chroma Query

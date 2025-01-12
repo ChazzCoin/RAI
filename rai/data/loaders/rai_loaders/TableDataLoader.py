@@ -1,15 +1,17 @@
 import os
 import pandas as pd
 from F.LOG import Log
-from rai.data.extraction.parsers.Excel import csv_to_json
-from langchain_community.document_loaders import CSVLoader, UnstructuredExcelLoader, UnstructuredCSVLoader
+from langchain_community.document_loaders import UnstructuredExcelLoader, UnstructuredCSVLoader
 
 from rai.data.loaders.rai_loaders.JsonDataLoader import JSONDataLoader
 from rai.data.loaders.rai_loaders.LastResortDataLoader import LastResortDataLoader
 from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiLoaderDocument, RaiBaseLoader
+from rai.data.parsers.Excel import csv_to_json
+from rai.internal.registries import RaiRegistry
+
 Log = Log("TableDataLoader")
 
-
+@RaiRegistry.data_loader(name="table")
 class RaiTableDataLoader(RaiBaseLoader):
 
     def __init__(self, file_path: str, metadata: dict = {'image': ''}):

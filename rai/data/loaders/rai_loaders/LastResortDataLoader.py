@@ -4,7 +4,7 @@ from F.LOG import Log
 from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiLoaderDocument, RaiBaseLoader
 from rai.data.loaders.rai_loaders.RaiMetadataLoader import DEFAULT_METADATA
 from rai.data.loaders.rai_loaders.RawTextDataLoader import RawTextDataLoader
-from rai.data.extraction.read import read_file
+from rai.data.files.read import read_file
 
 Log = Log("LastResortLoader")
 DEFAULT_CONTENT = "This data is unknown at this time."

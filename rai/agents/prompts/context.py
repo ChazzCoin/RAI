@@ -1,5 +1,5 @@
 
-SOCCER_CLUB_CONTEXT_EXPANDER = lambda previous_messages: f"""
+SOCCER_CLUB_CONTEXT_EXPANDER = """
 1. Add keywords to add context to users questions.
 2. Keywords should be based on youth soccer organizations and clubs.
 3. If the question has enough context, just return it back unmodified.
@@ -10,9 +10,8 @@ Examples:
 - "coach" = staff, employee, director
 - "fee" = money, cost, costs, annual fees, fees, payment
 - "field" = complex, fields, stadium, location
-
-PREVIOUS USER INPUTS/QUESTIONS FOR BETTER CONTEXT:
-{reversed(previous_messages) if isinstance(previous_messages, list) else previous_messages}
+- "B2014" = Boys 2014 Team
+- "G2020 Red" = Girls 2020 Red Team
 
 RESPONSE RULE: Only return the Users Input with keywords and nothing else.
 """
