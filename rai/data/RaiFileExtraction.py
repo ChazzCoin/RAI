@@ -8,16 +8,16 @@ from rai import app
 from F.LOG import Log
 from tqdm import tqdm
 
-from rai.agents.RaiAgents import AgentRegistry, AgentCategorizer
+from rai.base.BaseAgents import RaiBaseAgent
 from rai.agents.Tools import YscPrimaryFunction, YscSecondaryFunctions
 from rai.assistant.connectors import RaiAi
 from rai.data import RaiPath
+from rai.data.loaders.rai_loaders.BaseLoad import RaiBaseLoader
 from rai.internal.connectors import VECTOR_DB_CLIENT
 from rai.assistant.openai_client import generate_embeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 from rai.data.loaders import RaiDataLoaders
-from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiBaseLoader
 from rai.data.loaders.rai_loaders.RaiMetadataLoader import RaiMetadataLoader
 
 Log = Log("RaiFileExtractor")
@@ -169,9 +169,8 @@ class RaiFileExtractor:
 
 
     def get_collection_category_name(self, data):
-        categorizer = AgentCategorizer()
-        results1 = categorizer.run(data, self.config.category_context, self.config.primary_functions)
-        results2 = categorizer.run(data, self.config.category_context, self.config.secondary_functions)
+        results1 = RaiBaseAgent.pipeline(name="categorize_sports", user_prompt=data, sub=False)
+        results2 = RaiBaseAgent.pipeline(name="categorize_sports", user_prompt=data, sub=True)
         return LIST.remove_duplicates(LIST.merge_lists(results1, results2))
 
     @staticmethod

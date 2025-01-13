@@ -3,9 +3,10 @@ import pandas as pd
 from F.LOG import Log
 from langchain_community.document_loaders import UnstructuredExcelLoader, UnstructuredCSVLoader
 
+from rai.data.loaders.rai_loaders.BaseLoad import RaiBaseLoader
 from rai.data.loaders.rai_loaders.JsonDataLoader import JSONDataLoader
 from rai.data.loaders.rai_loaders.LastResortDataLoader import LastResortDataLoader
-from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiLoaderDocument, RaiBaseLoader
+from rai.data.loaders.rai_loaders.BaseDoc import RaiLoaderDocument
 from rai.data.parsers.Excel import csv_to_json
 from rai.internal.registries import RaiRegistry
 

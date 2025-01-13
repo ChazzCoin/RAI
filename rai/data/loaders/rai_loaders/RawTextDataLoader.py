@@ -1,14 +1,15 @@
 from F.LOG import Log
-from langchain_core.document_loaders import BaseLoader
-from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiLoaderDocument
+from rai.data.loaders.rai_loaders.BaseDoc import RaiLoaderDocument
+from rai.data.loaders.rai_loaders.BaseLoad import RaiBaseLoader
 from rai.internal.registries import RaiRegistry
 
 Log = Log("RawTextDataLoader")
 
 @RaiRegistry.data_loader(name="text")
-class RawTextDataLoader(BaseLoader):
+class RawTextDataLoader(RaiBaseLoader):
     cache: [RaiLoaderDocument] = None
-    def __init__(self, raw_text: str, metadata={ 'image':'' }):
+    def __init__(self, raw_text: str, file_path: str, metadata={'image': ''}):
+        super().__init__(file_path, metadata)
         self.data = raw_text
         self.metadata = metadata if not None else { 'image': '' }
 

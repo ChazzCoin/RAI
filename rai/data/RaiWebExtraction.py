@@ -8,10 +8,6 @@ from typing import Set, List, Optional, Dict, Any
 from urllib.parse import urlparse
 
 from pydantic import BaseModel, Field
-from selenium.webdriver.remote.webelement import WebElement
-
-# from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiLoaderDocument
-# from rai.data.loaders.rai_loaders.RaiMetadataLoader import RaiMetadataLoader
 
 Log = Log("RaiWebExtraction")
 from selenium import webdriver

@@ -1,6 +1,7 @@
 import json
 from F import DICT
-from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiLoaderDocument
+from rai.data.loaders.rai_loaders.BaseDoc import RaiLoaderDocument
+from rai.data.loaders.rai_loaders.BaseLoad import RaiBaseLoader
 from rai.data.loaders.rai_loaders.Utils import ensure_string
 from rai.internal.registries import RaiRegistry
 from F.LOG import Log
@@ -8,12 +9,13 @@ Log = Log("JSONDataLoader")
 
 
 @RaiRegistry.data_loader(name="json")
-class JSONDataLoader:
+class JSONDataLoader(RaiBaseLoader):
     cache: [RaiLoaderDocument] = None
     is_file: bool = False
     json_data: [{}] = None
 
     def __init__(self, file_path: str = None, json_objects=None, metadata=None):
+        super().__init__(file_path, metadata)
         if file_path:
             self.file_path = file_path
             self.is_file = True

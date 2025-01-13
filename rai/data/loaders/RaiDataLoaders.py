@@ -10,12 +10,12 @@ from langchain_community.document_loaders import (
 from rai.data import RaiPath
 from F.LOG import Log
 
+from rai.data.loaders.rai_loaders.BaseLoad import RaiBaseLoader
 from rai.data.loaders.rai_loaders.JsonDataLoader import JSONDataLoader
 from rai.data.loaders.rai_loaders.JsonlDataLoader import JSONLDataLoader
 from rai.data.loaders.rai_loaders.LastResortDataLoader import LastResortDataLoader
 from rai.data.loaders.rai_loaders.PdfDataLoader import PdfDataLoader
 from rai.data.loaders.rai_loaders.PowerPointDataLoader import PowerPointDataLoader
-from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiBaseLoader
 from rai.data.loaders.rai_loaders.RaiMetadataLoader import RaiMetadataLoader
 from rai.data.loaders.rai_loaders.TableDataLoader import TableDataLoader, RaiTableDataLoader
 from rai.data.loaders.rai_loaders.WordDocDataLoader import WordDocDataLoader

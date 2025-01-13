@@ -2,21 +2,21 @@ import os
 
 from F.LOG import Log
 from langchain_community.document_loaders import UnstructuredPowerPointLoader
-from langchain_core.document_loaders import BaseLoader
 from pptx import Presentation
 
 from rai.data.loaders import verify_loader_data
+from rai.data.loaders.rai_loaders.BaseLoad import RaiBaseLoader
 from rai.data.loaders.rai_loaders.LastResortDataLoader import LastResortDataLoader
-from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiLoaderDocument
-from rai.data.loaders.rai_loaders.VisionDataLoader import VisionDataLoader
+from rai.data.loaders.rai_loaders.BaseDoc import RaiLoaderDocument
 from rai.internal.registries import RaiRegistry
 
 Log = Log("PowerPointDataLoader")
 
 @RaiRegistry.data_loader(name="powerpoint")
-class PowerPointDataLoader(BaseLoader):
+class PowerPointDataLoader(RaiBaseLoader):
     cache: [RaiLoaderDocument] = None
     def __init__(self, file_path: str, metadata=None):
+        super().__init__(file_path, metadata)
         if metadata is None:
             metadata = {'image': ''}
         self.file_path = file_path

@@ -4,10 +4,9 @@ from urllib.parse import urlparse
 
 from F import DICT, LIST
 from F.LOG import Log
-from langchain_core.document_loaders import BaseLoader
 from selenium.webdriver.common.by import By
 
-from rai.RAG.CDocs import RaiRAG
+from rai.data.loaders.rai_loaders.BaseLoad import RaiBaseLoader
 from rai.data.utilities.DataUtilities import ensure_string_for_chroma
 from rai.internal.registries import RaiRegistry
 
@@ -15,13 +14,13 @@ Log = Log("RaiWebLoader")
 from selenium.common import WebDriverException, TimeoutException, NoSuchElementException
 
 from rai.data.RaiWebExtraction import RaiWebDriver, RaiUrl, remove_non_printable_ascii, WebPageDetails
-from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiLoaderDocument
+from rai.data.loaders.rai_loaders.BaseDoc import RaiLoaderDocument
 from rai.data.loaders.rai_loaders.RaiMetadataLoader import RaiMetadataLoader
 
 
 
 @RaiRegistry.data_loader(name="web")
-class RaiWebLoader(RaiWebDriver, BaseLoader):
+class RaiWebLoader(RaiWebDriver, RaiBaseLoader):
     cache:[] = []
 
     """
@@ -49,7 +48,7 @@ class RaiWebLoader(RaiWebDriver, BaseLoader):
         self.documents = []        # store RaiDocument objects
         self.data_lock = threading.Lock()
         self.scrape_count = 0
-        self.chromadb = RaiRAG.web("pcsc2025")
+        # self.chromadb = RaiRAG.web("pcsc2025")
 
     @classmethod
     def run(cls, url: str, page_limit: int = 1, username=None, password=None):

@@ -74,8 +74,8 @@ class OpenAiEngine(FusedAI, engine="openai"):
     OAsync: AsyncOpenAI = None
 
     def __init__(self):
-        self.O = OpenAI(api_key=open_ai_key, timeout=10, max_retries=3)
-        self.OAsync = AsyncOpenAI(api_key=open_ai_key, timeout=10, max_retries=3)
+        self.O = OpenAI(api_key=open_ai_key, timeout=20, max_retries=3)
+        self.OAsync = AsyncOpenAI(api_key=open_ai_key, timeout=20, max_retries=3)
 
     def generate(self, user:str, system:str):
         try:
@@ -134,7 +134,7 @@ class OpenAiEngine(FusedAI, engine="openai"):
                 return response.parsed
         except Exception as e:
             print(e)
-            return "Uh oh. Something has gone wrong!"
+            return f"Uh oh. Something has gone wrong!: {e}"
     def generate_function(self, user: str, system: str, functions: [dict]):
         try:
             completion = self.O.chat.completions.create(

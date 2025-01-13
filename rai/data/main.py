@@ -1,4 +1,5 @@
 from rai.agents.PromptMaster import PromptRegistry
+from rai.base.BaseLoaders import RaiBaseLoaders
 from rai.data import RaiPath
 from rai.data.files.read import read_file
 from rai.data.RaiFileExtraction import RaiFileExtractor, RaiConfig
@@ -65,14 +66,14 @@ if __name__ == '__main__':
     # list_prompt_categories()
     # list_all_collections_by_prefix("pcsc2024", "external")
     # print(VECTOR_DB_CLIENT.client.list_collections())
-    config = RaiConfig()
-    config.pipeline = RaiFileExtractor.Pipelines.CHROMA
-    config.generate_ai_metadata = True
-    config.overwrite = False
-    config.single_run = True
-    config.base_path = RaiPath("/Users/chazzromeo/Desktop/pcsc2024/general")
-    config.collection_prefix = "pcsc2025"
-    RaiFileExtractor(config=config).import_directory(config.base_path)
+    # config = RaiConfig()
+    # config.pipeline = RaiFileExtractor.Pipelines.CHROMA
+    # config.generate_ai_metadata = True
+    # config.overwrite = False
+    # config.single_run = True
+    # config.base_path = RaiPath("/Users/chazzromeo/Desktop/pcsc2024/general")
+    # config.collection_prefix = "pcsc2025"
+    # RaiFileExtractor(config=config).import_directory(config.base_path)
     # config.base_path = RaiPath("/Users/chazzromeo/Desktop/proverbs2024")
     # config.collection_prefix = "proverbs.dec2024"
 
@@ -81,3 +82,4 @@ if __name__ == '__main__':
     # run_rai_file_extraction(fig=config)
 
     # get_all("pcsc2024.general")
+    print(RaiBaseLoaders.pipeline("code"))

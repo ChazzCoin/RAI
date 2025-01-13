@@ -6,8 +6,9 @@ from langchain_community.document_loaders import PDFMinerLoader, PDFPlumberLoade
 
 from F.LOG import Log
 
+from rai.data.loaders.rai_loaders.BaseLoad import RaiBaseLoader
 from rai.data.parsers.PDF_v1 import FPDF
-from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiLoaderDocument, RaiBaseLoader
+from rai.data.loaders.rai_loaders.BaseDoc import RaiLoaderDocument
 from rai.data.loaders.rai_loaders.RaiMetadataLoader import DEFAULT_METADATA
 from rai.internal.registries import RaiRegistry
 

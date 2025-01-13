@@ -3,16 +3,12 @@ from typing import Optional, List, Dict, Any, Callable
 from datetime import datetime
 import json
 import os
-import regex
-from F import LIST
 from F.CLASS import Flass
 from F.LOG import Log
-from functools import singledispatchmethod
 
-from rai.agents.PromptMaster import PromptRegistry
-from rai.agents.automation import AgentFormatMetadata
 from rai.assistant.connectors import RaiAi
-from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiBaseLoader, RaiLoaderDocument
+from rai.data.DataAgent import RaiBaseAgent
+from rai.data.loaders.rai_loaders.BaseDoc import RaiLoaderDocument
 
 Log = Log("RaiMetadataLoader")
 
@@ -133,7 +129,6 @@ class RaiMetadataLoader:
         Log.i("Loading Default Metadata.")
         return DataLoaderMetadata()
 
-
     def ai_genny(self, raiDocs: [RaiLoaderDocument]=None, text:str=None):
         try:
             if raiDocs:
@@ -148,7 +143,7 @@ class RaiMetadataLoader:
                 temp = text
             else:
                 return self.default_metadata()
-            meta_result = AgentFormatMetadata().run(temp)
+            meta_result = RaiBaseAgent.pipeline(name="metadata", user_prompt=temp)
             if meta_result:
                 meta_dict = json.loads(meta_result)
                 final_meta = {}
@@ -159,12 +154,3 @@ class RaiMetadataLoader:
         except Exception as e:
             print(e)
             return self.default_metadata()
-
-    @staticmethod
-    def get_metadata_system_prompt():
-        return PromptRegistry.get('metadata', 'system_prompt')
-    @staticmethod
-    def __get_metadata_extraction_prompt(content:str):
-        model = str(DataLoaderMetadata().toJson())
-        return PromptRegistry.get('metadata', 'extraction_prompt', (model, content))
-

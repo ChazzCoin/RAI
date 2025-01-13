@@ -1,5 +1,7 @@
 import re
 import unicodedata
+
+import tiktoken
 from F import MATH, LIST, DICT
 from F.LOG import Log
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -106,6 +108,32 @@ class CodeProcessor:
 
         return sections
 
+DATA_CLEANER = lambda text: TextProcessor.clean_text_for_openai_embedding(text)
+PRETRAIN = lambda text: {"text": DATA_CLEANER(text)}
+FINETUNE = lambda system, user, assistant: {
+    "messages": [
+        {"role": "system", "content": DATA_CLEANER(system)},
+        {"role": "user", "content": DATA_CLEANER(user)},
+        {"role": "assistant", "content": DATA_CLEANER(assistant)},
+    ]
+}
+
+@RaiRegistry.register("processor", name="format")
+class FormatProcessor:
+
+    @staticmethod
+    def TO_PRETRAIN(text):
+        return {"text": DATA_CLEANER(text)}
+    @staticmethod
+    def TO_FINETUNE(system, user, assistant):
+        return {
+            "messages": [
+                {"role": "system", "content": DATA_CLEANER(system)},
+                {"role": "user", "content": DATA_CLEANER(user)},
+                {"role": "assistant", "content": DATA_CLEANER(assistant)},
+            ]
+        }
+
 @RaiRegistry.register("processor", name="text")
 class TextProcessor:
     unicode_replacements = {
@@ -143,6 +171,9 @@ class TextProcessor:
     def split_web_docs(self, docs: []): return self.text_splitter_web.split_documents(docs)
     def split_pdf_docs(self, docs: []): return self.text_splitter_pdf.split_documents(docs)
     def split_table_docs(self, docs: []): return self.text_splitter_table.split_documents(docs)
+
+    @staticmethod
+    def TEXT_CLEANER(text): return TextProcessor.clean_text_for_openai_embedding(text)
 
     """ MASTER """
     @staticmethod
@@ -301,6 +332,34 @@ class TextProcessor:
             for key, value in dataset.items():
                 temp = f"{temp}\n{key}: {value}"
         return temp
+
+    @staticmethod
+    def is_within_model_token_limit(
+            text: str,
+            model: str = "gpt-4o",
+            max_tokens: int = 8192
+    ) -> bool:
+        """
+        Checks if a given text is within the specified token limit for a GPT-4 model.
+
+        :param text:       The input text to be checked.
+        :param model:      The model name recognized by tiktoken (e.g., "gpt-3.5-turbo", "gpt-4", etc.).
+        :param max_tokens: The token limit you want to check against.
+                           GPT-4 commonly has a context limit of 8192 or 32768 tokens
+                           depending on the variant.
+        :return:           True if the text is within the specified token limit, else False.
+        """
+        try:
+            encoding = tiktoken.encoding_for_model(model)
+        except KeyError:
+            # Fallback to a default encoding if model name not found
+            encoding = tiktoken.get_encoding("gpt2")
+
+        # Encode the text to tokens
+        tokenized_text = encoding.encode(text)
+        token_count = len(tokenized_text)
+
+        return token_count <= max_tokens
 
 
 FORM_SENTENCE = lambda strContent, startIndex, endIndex, caboose: f"{strContent[startIndex:endIndex]}{caboose}"

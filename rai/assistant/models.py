@@ -1,6 +1,9 @@
 import json
 from typing import List, Optional
 from pydantic import BaseModel
+
+from rai.base.BaseFormats import register_format
+
 """
     -> These are Structured Response Models
 """
@@ -45,50 +48,3 @@ class AiResponse:
             response=data.get('response', None)
         )
 
-class RaiQueryExpander(BaseModel):
-    query: Optional[str]
-
-class RaiMetadata(BaseModel):
-    title: Optional[str]
-    category: Optional[str]
-    sub_category: Optional[str]
-    version: Optional[str]
-    file_type: Optional[str]
-    date_created: Optional[str]
-    date_modified: Optional[str]
-    tags: List[str]
-    author: Optional[str]
-    description: Optional[str]
-    source: Optional[str]
-
-
-
-class TrueFalse(BaseModel):
-    result: Optional[bool]
-
-class QuestionAnswer(BaseModel):
-    question: Optional[str] = None
-    answer: Optional[str] = None
-
-class ListOfQuestionAnswers(BaseModel):
-    results: List[QuestionAnswer]
-
-class TrueOrFalse(BaseModel):
-    answer: bool
-
-class BaseEvent(BaseModel):
-    # Fields from the "table" style event
-    attendance: Optional[str] = None
-    date_time: Optional[str] = None
-    location: Optional[str] = None
-    opponent: Optional[str] = None
-    score: Optional[str] = None
-
-    # Fields from the "calendar" style event
-    attendance_count: Optional[str] = None
-    day_number: Optional[str] = None
-    description: Optional[str] = None
-    end_time: Optional[str] = None
-    event_name: Optional[str] = None
-    start_time: Optional[str] = None
-    weekday: Optional[str] = None

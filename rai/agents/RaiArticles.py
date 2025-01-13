@@ -7,7 +7,9 @@ import requests
 from bs4 import BeautifulSoup
 from weasyprint import HTML
 import logging
-from rai.data.extractors._RaiWebDriver import WebDriver
+
+from rai.data.RaiWebExtraction import RaiWebDriver
+
 
 def base_url_extractor(url):
     return urlparse(url).netloc
@@ -210,7 +212,7 @@ class RaiArticles:
 
 
 def selenium_get_core_page_details_v2(url, wait_time=10, max_scrolls=3):
-    webdrive = WebDriver()
+    webdrive = RaiWebDriver()
     core_details = {
         'title': '',
         'author': '',

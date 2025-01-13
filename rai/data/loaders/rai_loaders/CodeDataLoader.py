@@ -3,15 +3,17 @@ import os
 import re
 from typing import List
 
-from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiLoaderDocument
-from rai.internal.registries import RaiRegistry
+from rai.base.BaseLoaders import register_loader
+from rai.data.loaders.rai_loaders.BaseDoc import RaiLoaderDocument
+from rai.data.loaders.rai_loaders.BaseLoad import RaiBaseLoader
 
 
-@RaiRegistry.data_loader(name="code")
-class CodeDataLoader:
+@register_loader('code')
+class CodeDataLoader(RaiBaseLoader):
     cache: List[RaiLoaderDocument] = None
 
-    def __init__(self, directory_path: str, extensions=None, metadata=None):
+    def __init__(self, directory_path: str, file_path: str, extensions=None, metadata=None):
+        super().__init__(file_path, metadata)
         self.directory_path = directory_path
         self.extensions = extensions or [".swift", ".py", ".java", ".kt", ".js", ".ts"]
         self.metadata = metadata if metadata is not None else {}

@@ -6,15 +6,17 @@ from F.LOG import Log
 from jsonlines import jsonlines
 from langchain_core.document_loaders import BaseLoader
 
-from rai.data.loaders.rai_loaders.RaiLoaderDocument import RaiLoaderDocument
+from rai.data.loaders.rai_loaders.BaseDoc import RaiLoaderDocument
+from rai.data.loaders.rai_loaders.BaseLoad import RaiBaseLoader
 from rai.internal.registries import RaiRegistry
 
 Log = Log("JSONLDataLoader")
 
 @RaiRegistry.data_loader(name="jsonl")
-class JSONLDataLoader(BaseLoader):
+class JSONLDataLoader(RaiBaseLoader):
     cache: [RaiLoaderDocument] = None
-    def __init__(self, file_path: str, metadata={ 'image':'' }):
+    def __init__(self, file_path: str, metadata={'image': ''}):
+        super().__init__(file_path, metadata)
         self.file_path = file_path
         self.metadata = metadata if not None else { 'image': '' }
 
