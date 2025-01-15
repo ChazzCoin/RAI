@@ -13,6 +13,16 @@ class WebBodyExtractor(WebSoupExtractor):
 
     @staticmethod
     def refine_text_content(text: str) -> str: return text.strip()
+    @staticmethod
+    def combine_body_paragraphs(paragraphs: []) -> str:
+        paragraph_texts = []
+        for group in paragraphs:
+            text = group.content.strip()
+            if text:
+                paragraph_texts.append(text)
+        combined_text = "\n\n".join(paragraph_texts)
+        return combined_text
+
     def extract_content(self):
         content = ''
         try:
@@ -83,19 +93,50 @@ class WebBodyExtractor(WebSoupExtractor):
                     ))
 
             # Extract paragraphs
-            paragraphs = self.soup.find_all('p')
-            for p in paragraphs:
-                text = p.get_text(separator=' ', strip=True)
-                if text:
-                    combined_content += text + '\n'
-                    paragraph_groups.append(ContentGroup(
-                        content=text,
-                        metadata={
-                            "tag": 'p',
-                            "class": ' '.join(p.get('class', []))
-                        }
-                    ))
+            # Define your threshold for a "short" paragraph.
+            SHORT_THRESHOLD = 100  # Adjust this value based on your needs
 
+            paragraphs = self.soup.find_all('p')
+            combined_content = ""
+            paragraph_groups = []
+
+            i = 0
+            while i < len(paragraphs):
+                # Grab the text of the current paragraph.
+                p = paragraphs[i]
+                current_text = p.get_text(separator=' ', strip=True)
+                if not current_text:
+                    i += 1
+                    continue
+
+                # Start with the current text as the combined block.
+                combined_text = current_text
+
+                # If the current paragraph is short, look ahead and attach to the following paragraph(s)
+                while len(current_text) < SHORT_THRESHOLD and i < len(paragraphs) - 1:
+                    i += 1
+                    next_p = paragraphs[i]
+                    next_text = next_p.get_text(separator=' ', strip=True)
+                    if not next_text:
+                        continue
+                    # Append the next paragraph's text to the combined text.
+                    # Note: We prefix the next paragraph with the current short text.
+                    combined_text = combined_text + " " + next_text
+
+                    # Check the length of the "next_text" individually.
+                    current_text = next_text
+
+                # Append the combined block to our overall content and to our structured list.
+                combined_content += combined_text + '\n'
+                paragraph_groups.append(ContentGroup(
+                    content=combined_text,
+                    metadata={
+                        "tag": "p",
+                        "class": ' '.join(p.get('class', []))
+                    }
+                ))
+                i += 1
+            formatted_paragraph_content = self.combine_body_paragraphs(paragraph_groups)
             # Extract tables
             tables = self.soup.find_all('table')
             for table in tables:
@@ -183,8 +224,6 @@ class WebBodyExtractor(WebSoupExtractor):
                         }
                     ))
 
-            refined = self.refine_text_content(combined_content)
-
             body_data = WebBodyModel(
                 headings=heading_groups,
                 paragraphs=paragraph_groups,
@@ -193,7 +232,7 @@ class WebBodyExtractor(WebSoupExtractor):
                 lists=list_groups,
                 modals=modal_groups,
                 tiles=tile_groups,
-                combined_text=refined
+                combined_text=formatted_paragraph_content
             )
 
             return body_data

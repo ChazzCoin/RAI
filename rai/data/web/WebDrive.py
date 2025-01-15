@@ -1,12 +1,15 @@
+from io import BytesIO
 from urllib.parse import urlparse
 
+import pytesseract
+import requests
 from F import DICT, LIST
 from bs4 import BeautifulSoup
 import re
 from F.LOG import Log
 
 from typing import Optional, List, Dict, Any, Set
-
+from PIL import Image
 from pydantic import BaseModel, Field
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -162,14 +165,72 @@ class WebBaseExtract(WebBaseDriver):
         ]
         return relevant_urls
     """ IMAGES """
-    def extract_images(self):
-        images = self.driver.find_elements(By.TAG_NAME, 'img')
-        image_urls = [
-            image.get_attribute('src')
-            for image in images
-            if image.get_attribute('src') is not None
-        ]
-        return image_urls
+    def extract_image_urls(self) -> List[str]:
+        """
+        Finds and extracts every single image URL from the page.
+
+        It searches for:
+          1. <img> tags (including lazy-loaded images via data-src).
+          2. Inline CSS that contains background images.
+          3. <picture> elements with <source> tags using srcset attributes.
+
+        Returns:
+            A list of unique image URLs.
+        """
+        image_urls = set()
+
+        # --- 1. Extract from <img> tags ---
+        img_elements = self.driver.find_elements(By.TAG_NAME, "img")
+        for img in img_elements:
+            # Primary src attribute
+            src = img.get_attribute("src")
+            if src:
+                image_urls.add(src)
+            # Lazy-loaded images might be in a data-src attribute
+            data_src = img.get_attribute("data-src")
+            if data_src:
+                image_urls.add(data_src)
+            # Some libraries might use other data attributes like data-lazy
+            data_lazy = img.get_attribute("data-lazy")
+            if data_lazy:
+                image_urls.add(data_lazy)
+
+        # --- 2. Extract from elements with inline styles (e.g., background images) ---
+        # This finds all elements that have a style attribute set.
+        styled_elements = self.driver.find_elements(By.XPATH, "//*[@style]")
+        # A regex pattern to extract url(...) values from style attributes.
+        background_image_regex = re.compile(r'url\(["\']?(.*?)["\']?\)')
+        for elem in styled_elements:
+            style = elem.get_attribute("style")
+            if style:
+                matches = background_image_regex.findall(style)
+                for m in matches:
+                    if m:
+                        image_urls.add(m)
+
+        # --- 3. Extract from <picture> elements and <source> tags (srcset) ---
+        picture_elements = self.driver.find_elements(By.TAG_NAME, "picture")
+        for picture in picture_elements:
+            source_elements = picture.find_elements(By.TAG_NAME, "source")
+            for source in source_elements:
+                srcset = source.get_attribute("srcset")
+                if srcset:
+                    # srcset may contain multiple URLs separated by commas.
+                    urls = [u.split()[0].strip() for u in srcset.split(",")]
+                    for u in urls:
+                        if u:
+                            image_urls.add(u)
+
+        # Convert the set to a list before returning
+        return list(image_urls)
+    def extract_text_from_image_urls(self, image_urls):
+        image_texts = []
+        for img in image_urls:
+            temp = self.extract_text_from_image(img)
+            if temp and temp != '':
+                print(temp)
+                image_texts.append(temp)
+        return image_texts
     """ TABLES """
     def extract_all_tables(self):
         # 1. Find all tables in the DOM
@@ -427,6 +488,22 @@ class WebBaseExtract(WebBaseDriver):
 
             events.append(event_data)
         return events
+
+    @staticmethod
+    def extract_text_from_image(image_url: str) -> str:
+        """
+        Given an image URL, download the image and run OCR using pytesseract.
+        """
+        try:
+            response = requests.get(image_url)
+            response.raise_for_status()
+            image_bytes = BytesIO(response.content)
+            image = Image.open(image_bytes)
+            extracted_text = pytesseract.image_to_string(image)
+            return extracted_text
+        except Exception as e:
+            Log.e("Image Processing Error", e)
+            return ""
 
 class WebBaseActions(WebBaseExtract):
     do_login: bool = False

@@ -107,6 +107,7 @@ class WebPageDetails(BaseModel):
     urls: List[str] = Field(default_factory=list)
     tags: List[str] = Field(default_factory=list)
     images: List[str] = Field(default_factory=list)
+    images_content: List[str] = Field(default_factory=list)
     tables: List[Dict[str, Any]] = Field(default_factory=list)
     events: List[Dict[str, Any]] = Field(default_factory=list)
     # For metadata, we can store arbitrary key/value pairs

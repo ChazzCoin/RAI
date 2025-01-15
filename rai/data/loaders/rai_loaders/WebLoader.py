@@ -1,6 +1,6 @@
 import threading
 from typing import List
-from F import DICT, LIST
+from F import DICT, LIST, DATE
 from F.LOG import Log
 from openpyxl.styles.builtins import title
 from selenium.webdriver.common.by import By
@@ -53,7 +53,7 @@ class RaiWebLoader(RaiWebDriver, RaiBaseLoader):
         metadata: RaiMetadata = RaiBaseAgent.pipeline(name='metadata', user_prompt=content)
         meta = metadata.model_dump()
         meta = DICT.add_key_value('url', self.current_url, meta)
-        meta = DICT.add_key_value('page_title', title, meta)
+        meta = DICT.add_key_value('page_title', self.page_title, meta)
         return meta
 
     def to_documents(self, page: WebPageDetails):
@@ -87,9 +87,9 @@ class RaiWebLoader(RaiWebDriver, RaiBaseLoader):
             self.open(url)
 
             Log.i("Extracting Page.")
-            content = self.TEXT_CLEANER(self.extract_content())
             urls = self.extract_urls()
-            images = self.extract_images()
+            images = self.extract_image_urls()
+            image_texts = self.extract_text_from_image_urls(images)
             events = self.extract_events()
             table_objs = self.extract_all_tables()
 
@@ -97,23 +97,21 @@ class RaiWebLoader(RaiWebDriver, RaiBaseLoader):
             body = WebBodyExtractor.pipeline(self.driver.page_source)
 
             self.add_urls_to_queue(urls)
-            if not content:
-                Log.w("No Content Found. Skipping to Next Page.")
-                return
 
             """ Web Metadata """
-            metadata = self.generate_metadata(content)
+            metadata = self.generate_metadata(body.combined_text)
             page = WebPageDetails(
                 url=url,
                 title=self.page_title,
-                author="",
-                date="",
-                content=content,
+                author="RaiWebDriver",
+                date=DATE.get_now_month_day_year_str(),
+                content=body.combined_text,
                 body = body,
                 actions = actions,
                 urls=urls,
-                tags=[],
+                tags=DICT.get_any(keys=("tags", "keywords"), dic=metadata, default=[]),
                 images=images,
+                images_content=image_texts,
                 tables=table_objs,
                 events=events,
                 metadata=metadata
@@ -149,7 +147,7 @@ class RaiWebLoader(RaiWebDriver, RaiBaseLoader):
 if __name__ == '__main__':
     email = "jperson@parkcitysoccer.org"
     password = "Philly23!"
-    crawler = RaiWebLoader.pipeline("https://www.parkcitysoccer.org/", 100, username=None, password=None)
+    crawler = RaiWebLoader.pipeline("https://www.cnn.com/weather/live-news/fire-los-angeles-california-palisades-ventura-eaton-01-15-25-hnk/index.html", 100, username=None, password=None)
     loader = crawler.load()
     for item in loader:
         print(item.page_content)
