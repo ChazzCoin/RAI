@@ -1,6 +1,7 @@
 import json
 import time
 import uuid
+from enum import Enum
 
 from F import LIST, DICT
 from F.CLASS import Flass
@@ -13,6 +14,7 @@ from rai.agents.Tools import YscPrimaryFunction, YscSecondaryFunctions
 from rai.assistant.connectors import RaiAi
 from rai.data import RaiPath
 from rai.data.loaders.rai_loaders.BaseLoad import RaiBaseLoader
+from rai.data.loaders.rai_loaders.WebLoader import RaiWebLoader
 from rai.internal.connectors import VECTOR_DB_CLIENT
 from rai.assistant.openai_client import generate_embeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -24,24 +26,31 @@ Log = Log("RaiFileExtractor")
 
 ai = RaiAi()
 
-class RaiConfig(Flass):
+class RaiDataImportConfig(Flass):
+    class Pipelines:
+        PRINT = "print"
+        CHROMA = "chroma"
+
     pipeline: str = "print"
+    url: str = None
+    username: str = None
+    password: str = None
+    page_limit: int = 100
     collection_prefix: str = None
     file_collection_name: str = ""
     base_path: RaiPath = None
     overwrite: bool = False
     split_documents: bool = False
     metadatas: [dict] = None
-    generate_ai_metadata: bool = False
+    generate_metadata: bool = False
+    generate_collection_name: bool = False
     meta_loader: RaiMetadataLoader = RaiMetadataLoader()
     text_splitter: RecursiveCharacterTextSplitter = None
     single_run: bool = False
-    category_context: str = "Youth Soccer Club"
-    primary_functions = YscPrimaryFunction
-    secondary_functions = YscSecondaryFunctions
 
-class RaiFileExtractor:
-    config = RaiConfig()
+
+class RaiDataImporter:
+    config = RaiDataImportConfig()
     file_to_import_by_collection: {str:list} = {}
     file_to_import_count = 0
     cached_metadata = None
@@ -52,11 +61,19 @@ class RaiFileExtractor:
 
     current_file = ""
 
-    class Pipelines:
-        PRINT = "print"
-        CHROMA = "chroma"
+    @classmethod
+    def run(cls, config: RaiDataImportConfig):
+        newCls = cls()
+        newCls.setup(config)
+        if config.url:
+            crawler = RaiWebLoader.pipeline(config.url, config.page_limit, username=config.username, password=config.password)
+            newCls.__run_pipeline(loader=crawler)
+        if config.base_path:
+            newCls.import_directory(config.base_path)
+        newCls.to_chroma()
+        return newCls
 
-    def __init__(self, config: RaiConfig):
+    def setup(self, config: RaiDataImportConfig):
         self.config = config
         Log.w("Chunk Overlap:", app.state.config.CHUNK_OVERLAP)
         Log.w("Chunk Size:", app.state.config.CHUNK_SIZE)
@@ -126,17 +143,18 @@ class RaiFileExtractor:
         texts = self.get_texts(docs)
         metadata = self.prepare_metadatas(docs)
         items = self.prepare_chroma_documents(texts, metadata)
-        cnames = self.get_collection_category_name(' '.join(texts))
-        for c in cnames: self.add_to_pending(c, items)
-
+        if self.config.generate_collection_name:
+            cnames = self.get_collection_category_name(' '.join(texts))
+            for c in cnames: self.add_to_pending(f"{self.config.collection_prefix}.{c}", items)
+        else:
+            self.add_to_pending(self.config.collection_prefix, items)
     def to_chroma(self):
         for collection,items in self.pending.items():
-            current_name = f"{self.config.collection_prefix}.{collection}"
-            Log.i(f"importing [ {len(items)} ] docs in [ {current_name} ]")
+            Log.i(f"importing [ {len(items)} ] docs in [ {collection} ]")
             try:
-                self.overwrite_collection_check(current_name)
+                self.overwrite_collection_check(collection)
                 VECTOR_DB_CLIENT.insert(
-                    collection_name=current_name,
+                    collection_name=collection,
                     items=items,
                 )
                 self.add_to_success(collection, [self.current_file])
@@ -184,7 +202,7 @@ class RaiFileExtractor:
     def prepare_metadatas(self, docs: []):
         final_meta = {}
         try:
-            if self.config.generate_ai_metadata:
+            if self.config.generate_metadata:
                 meta = RaiMetadataLoader().ai_genny(raiDocs=docs)
                 if type(meta) in [str]:
                     meta_dict = json.loads(meta)
@@ -195,7 +213,7 @@ class RaiFileExtractor:
                 final_meta["file"] = str(self.current_file)
                 return final_meta
             else:
-                metadatas = RaiFileExtractor.get_metadatas(docs)
+                metadatas = RaiDataImporter.get_metadatas(docs)
             for key,value in LIST.get(0, metadatas, {}).items():
                 final_meta[str(key)] = str(value)
             final_meta["file"] = str(self.current_file)
@@ -232,7 +250,7 @@ class RaiFileExtractor:
     @staticmethod
     def get_all_from_collection(collection: str):
         try:
-            VECTOR_DB_CLIENT.get(collection_name=collection)
+            return VECTOR_DB_CLIENT.get(collection_name=collection)
         except Exception as e:
             Log.e(e)
 
@@ -247,7 +265,7 @@ class RaiFileManager:
         (RaiChromaDBDocumentManager) can handle the storage into Chroma.
     """
 
-    def __init__(self, config: RaiConfig):
+    def __init__(self, config: RaiDataImportConfig):
         self.config = config
         self.file_to_import_count = 0
         self.text_splitter = RecursiveCharacterTextSplitter(

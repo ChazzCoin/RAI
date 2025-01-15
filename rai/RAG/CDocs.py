@@ -8,7 +8,7 @@ from tqdm import tqdm
 from rai.agents.Tools import YscSecondaryFunctions, YscPrimaryFunction
 from rai.assistant.openai_client import generate_embeddings
 from rai.base.BaseAgents import RaiBaseAgent
-from rai.data.RaiFileExtraction import RaiConfig, RaiFileExtractor
+from rai.data.RaiFileExtraction import RaiDataImportConfig, RaiDataImporter
 from rai.data.loaders.rai_loaders.RaiMetadataLoader import RaiMetadataLoader
 from rai.internal.connectors import VECTOR_DB_CLIENT
 
@@ -23,12 +23,12 @@ class RaiRAG:
       - Inserting documents into Chroma.
       - Handling post-insertion analysis (success/fail).
     """
-    config: RaiConfig = None
+    config: RaiDataImportConfig = None
     @classmethod
     def web(cls, prefix):
-        config = RaiConfig()
-        config.pipeline = RaiFileExtractor.Pipelines.CHROMA
-        config.generate_ai_metadata = True
+        config = RaiDataImportConfig()
+        config.pipeline = RaiDataImporter.Pipelines.CHROMA
+        config.generate_metadata = True
         config.overwrite = False
         config.single_run = True
         config.base_path = None
@@ -37,7 +37,7 @@ class RaiRAG:
         config.secondary_functions = YscSecondaryFunctions
         return cls(config)
 
-    def __init__(self, config: RaiConfig):
+    def __init__(self, config: RaiDataImportConfig):
         self.config = config
         self.pending = {}
         self.success = {}
@@ -130,7 +130,7 @@ class RaiRAG:
         """
         final_meta = {}
         try:
-            if self.config.generate_ai_metadata:
+            if self.config.generate_metadata:
                 meta_loader = RaiMetadataLoader()
                 meta = meta_loader.ai_genny(raiDocs=docs)
                 # Could be string or dict

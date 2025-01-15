@@ -6,11 +6,11 @@ from langchain_community.document_loaders import PDFMinerLoader, PDFPlumberLoade
 
 from F.LOG import Log
 
+from rai.base.BaseLoaders import register_loader
 from rai.data.loaders.rai_loaders.BaseLoad import RaiBaseLoader
 from rai.data.parsers.PDF_v1 import FPDF
 from rai.data.loaders.rai_loaders.BaseDoc import RaiLoaderDocument
 from rai.data.loaders.rai_loaders.RaiMetadataLoader import DEFAULT_METADATA
-from rai.internal.registries import RaiRegistry
 
 Log = Log("PdfDataLoader")
 
@@ -21,7 +21,7 @@ def safe(func):
         print(e)
         return None
 
-@RaiRegistry.data_loader(name="pdf")
+@register_loader(name="pdf")
 class PdfDataLoader(RaiBaseLoader):
     fpdf = None
     ocr = None

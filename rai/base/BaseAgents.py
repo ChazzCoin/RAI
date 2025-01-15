@@ -151,17 +151,14 @@ class RaiBaseAgent(ABC, RaiAi, TextProcessor):
         if not agent_classes:
             raise ValueError(f"No agent found with name '{name}'")
         cls.name = name
-        # You might decide to pick the first, or do additional logic if multiple classes are registered.
         agent_cls = agent_classes[0]
-
-        # Instantiate the agent. If your agent requires, e.g. an engine, pass it here.
         agent_instance = agent_cls()
         return agent_instance.run(user_prompt=user_prompt, sub=sub)
 
     @abstractmethod
     def type(self): pass
 
-    def prompt(self): return RaiBasePrompts.prompt(self.name)
+    def prompt(self): return RaiBasePrompts.pipeline(self.name)
     def agent_context(self): return DICT.get(self.name, CONTEXTS, {})
     def system_prompt(self):
         temp = self.prompt()
@@ -201,6 +198,10 @@ What they do, how they do it...what they need...etc...
 - summarize data
 - 
 """
+@register_agent("objective")
+class AgentConfigPrimaryObjective(RaiBaseAgent):
+    def type(self): return "function"
+
 @register_agent("categorize_sports")
 class AgentConfigPrimaryCategorizer(RaiBaseAgent):
     def type(self): return "function"
@@ -225,8 +226,15 @@ if __name__ == "__main__":
     from rai.data.utilities.text_data import book_text
     print(
         RaiBaseAgent.pipeline(
-            name="faq",
-            user_prompt=book_text
+            name="objective",
+            user_prompt="Who is joel person?",
+            sub=False
         )
     )
-
+    print(
+        RaiBaseAgent.pipeline(
+            name="objective",
+            user_prompt="Who is joel person?",
+            sub=True
+        )
+    )

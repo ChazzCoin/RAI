@@ -4,15 +4,13 @@ import os
 from F import DICT
 from F.LOG import Log
 from jsonlines import jsonlines
-from langchain_core.document_loaders import BaseLoader
-
+from rai.base.BaseLoaders import register_loader
 from rai.data.loaders.rai_loaders.BaseDoc import RaiLoaderDocument
 from rai.data.loaders.rai_loaders.BaseLoad import RaiBaseLoader
-from rai.internal.registries import RaiRegistry
 
 Log = Log("JSONLDataLoader")
 
-@RaiRegistry.data_loader(name="jsonl")
+@register_loader(name="jsonl")
 class JSONLDataLoader(RaiBaseLoader):
     cache: [RaiLoaderDocument] = None
     def __init__(self, file_path: str, metadata={'image': ''}):

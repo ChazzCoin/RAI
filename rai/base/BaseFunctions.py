@@ -96,6 +96,54 @@ class BaseFunctionCategories(RaiBaseFunctions):
         "notifications": f"User Prompt Context Updates or Real-Time updates and information.",
     }
 
+@register_functions("objective")
+class BaseFunctionObjective(RaiBaseFunctions):
+    def type(self): return "no_args"
+    def functions(self) -> dict: return {
+        "how_to_guide": "User Prompt Context Involves asking how to do something, offering a step-by-step guide or detailed breakdown of a process.",
+        "find_search": "User Prompt Context Involves seeking out specific information, facts, or resources relevant to a user's query.",
+        "summarize": "User Prompt Context Involves condensing a broader topic or source text into a concise and coherent overview.",
+        "explain": "User Prompt Context Involves providing an in-depth elucidation or rationale for a particular concept or subject.",
+        "clarify": "User Prompt Context Involves resolving ambiguities, simplifying complexities, and adding precision to a user's request.",
+        "create": "User Prompt Context Involves generating new content, whether through code, written text, or other creative outputs."
+    }
+    def sub_functions(self) -> dict: return {
+        "step_by_step_tutorial": "User Prompt Sub-Objective Involves providing a methodical, phase-by-phase guide for completing a task.",
+        "quick_tips_best_practices": "User Prompt Sub-Objective Involves offering concise lists of essential pointers and tried-and-true methods.",
+        "troubleshooting_error_resolution": "User Prompt Sub-Objective Involves identifying pitfalls or mistakes and providing practical fixes or workarounds.",
+        "workflow_optimization": "User Prompt Sub-Objective Involves improving efficiency or productivity within existing workflows or processes.",
+        "demonstration_with_examples": "User Prompt Sub-Objective Involves illustrating concepts or solutions through practical, real-world examples.",
+
+        "resource_retrieval": "User Prompt Sub-Objective Involves locating and sharing relevant documentation, articles, or libraries.",
+        "fact_finding": "User Prompt Sub-Objective Involves seeking specific data, statistics, or factual details.",
+        "comparative_search": "User Prompt Sub-Objective Involves comparing information across multiple sources or options.",
+        "recommendation": "User Prompt Sub-Objective Involves suggesting tools, products, or services based on certain criteria.",
+        "location_reference_lookup": "User Prompt Sub-Objective Involves finding location-based data, references, or materials.",
+
+        "high_level_overview": "User Prompt Sub-Objective Involves condensing a broader topic into a concise abstract or summary.",
+        "bullet_point_breakdown": "User Prompt Sub-Objective Involves creating a succinct list of critical takeaways or highlights.",
+        "key_insights_highlights": "User Prompt Sub-Objective Involves focusing on the most impactful or defining points in a subject.",
+        "executive_summary": "User Prompt Sub-Objective Involves crafting an ultra-condensed overview for quick comprehension at a decision-making level.",
+        "comparative_summary": "User Prompt Sub-Objective Involves merging multiple perspectives into one cohesive, concise summary.",
+
+        "conceptual_breakdown": "User Prompt Sub-Objective Involves dissecting a topic into easily digestible, fundamental concepts.",
+        "in_depth_analysis": "User Prompt Sub-Objective Involves exploring deeper reasoning, logic, or mechanics behind a concept.",
+        "analogy_based_explanation": "User Prompt Sub-Objective Involves simplifying complex ideas through relatable metaphors or comparisons.",
+        "contextualized_scenario": "User Prompt Sub-Objective Involves providing real-life examples or situations for clarity.",
+        "advanced_vs_beginner_explanation": "User Prompt Sub-Objective Involves toggling between technical and simple explanations.",
+
+        "definition_terminology": "User Prompt Sub-Objective Involves clarifying or refining the meaning of keywords or phrases.",
+        "disambiguation": "User Prompt Sub-Objective Involves distinguishing between similar terms or topics to remove confusion.",
+        "context_reframing": "User Prompt Sub-Objective Involves reinterpreting the question or data to ensure correct scope.",
+        "error_correction": "User Prompt Sub-Objective Involves identifying and fixing inaccurate assumptions in the user’s request.",
+        "rephrase_simplify": "User Prompt Sub-Objective Involves converting complex language into more direct, understandable wording.",
+
+        "idea_generation": "User Prompt Sub-Objective Involves brainstorming or outlining fresh concepts, approaches, or creative angles.",
+        "content_production": "User Prompt Sub-Objective Involves generating new written or multimedia assets (articles, videos, etc.).",
+        "code_snippet_prototype": "User Prompt Sub-Objective Involves creating sample code or minimal working examples for demonstration.",
+        "design_layout": "User Prompt Sub-Objective Involves producing visual elements, UI/UX mockups, or overall page layouts.",
+        "customized_examples_demos": "User Prompt Sub-Objective Involves tailoring examples or demos specifically to the user’s unique requirements."
+    }
 
 if __name__ == "__main__":
     print(RaiBaseFunctions.pipeline("categorize_sports", sub=True))

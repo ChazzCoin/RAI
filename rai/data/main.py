@@ -1,50 +1,22 @@
-from rai.agents.PromptMaster import PromptRegistry
-from rai.base.BaseLoaders import RaiBaseLoaders
-from rai.data import RaiPath
+from F import DICT, LIST
+
 from rai.data.files.read import read_file
-from rai.data.RaiFileExtraction import RaiFileExtractor, RaiConfig
-from rai.data.RaiWebExtraction import RaiWebExtractor
+from rai.data.RaiFileExtraction import RaiDataImporter, RaiDataImportConfig
 from rai.internal.connectors import VECTOR_DB_CLIENT
-from rai.internal.registries import RaiRegistry
 
 def delete_collects(*collections):
-    RaiFileExtractor.delete_collections(*collections)
+    RaiDataImporter.delete_collections(*collections)
 
 def get_all(collection):
-    print(RaiFileExtractor.get_all_from_collection(collection))
+    for i in LIST.flatten(RaiDataImporter.get_all_from_collection(collection)):
+        for doc in DICT.get("documents", i, []):
+            if type(doc) in [list, tuple]:
+                for d in doc:
+                    print(d)
+            else:
+                print(doc)
 
-"""
-Pipelines:
-1. 'chroma' = Will import documents into ChromaDB
-2. 'print' = Will print/log all documents for debugging purposes
-"""
 
-
-"""
-prompt = get_prompt('soccer', 'get_system_prompt', ())
-prompt = get_prompt('metadata', 'get_ai_extraction_prompt', ())
-"""
-def get_prompt(category='autoformat', prompt_name='base_format_prompt', *args):
-    """ args = ("arg one", "arg two") -> a tuple() of arguments"""
-    return PromptRegistry.get(category, prompt_name, args)
-def list_prompt_categories():
-     print(PromptRegistry.get_all_types())
-
-"""
-    config = RaiConfig()
-    config.pipeline = RaiFileExtractor.Pipelines.CHROMA
-    config.generate_ai_metadata = True
-    config.overwrite = True
-    config.base_path = RaiPath("/Users/chazzromeo/Desktop/data")
-    config.collection_prefix = "parkone"
-    run_rai_file_extraction(fig=config)
-"""
-def run_rai_file_extraction(fig:RaiConfig):
-    return RaiFileExtractor(fig)
-
-def run_rai_web_extraction(url:str, pages=0):
-    """ pages = 0 -> entire website """
-    RaiWebExtractor.save(url, page_limit=pages)
 
 """ 
     Basic ole file opener for most file types youll need. 
@@ -61,25 +33,33 @@ def list_all_collections_by_prefix(*chained_path:str):
     print("Collections:\n", temp)
     return temp
 
+
+
+def run_web_extraction():
+    config = RaiDataImportConfig()
+    config.pipeline = RaiDataImportConfig.Pipelines.CHROMA
+    config.generate_metadata = False
+    config.generate_collection_name = False
+    config.overwrite = False
+    config.single_run = True
+    config.collection_prefix = "pcsc2025.web"
+    config.base_path = None
+    config.url = "https://www.parkcitysoccer.org/futures"
+    config.username = None
+    config.password = None
+    config.page_limit = 1
+    RaiDataImporter.run(config)
+
 if __name__ == '__main__':
     # print(PromptRegistry.list_prompts_by_category('metadata'))
     # list_prompt_categories()
     # list_all_collections_by_prefix("pcsc2024", "external")
-    # print(VECTOR_DB_CLIENT.client.list_collections())
-    # config = RaiConfig()
-    # config.pipeline = RaiFileExtractor.Pipelines.CHROMA
-    # config.generate_ai_metadata = True
-    # config.overwrite = False
-    # config.single_run = True
-    # config.base_path = RaiPath("/Users/chazzromeo/Desktop/pcsc2024/general")
-    # config.collection_prefix = "pcsc2025"
-    # RaiFileExtractor(config=config).import_directory(config.base_path)
-    # config.base_path = RaiPath("/Users/chazzromeo/Desktop/proverbs2024")
-    # config.collection_prefix = "proverbs.dec2024"
+    # collects = VECTOR_DB_CLIENT.client.list_collections()
+    # for c in collects:
+    #     print(c)
+    # all = VECTOR_DB_CLIENT.get_all_collections_by_chain("pcsc2025")
+    # for collection in all:
+    #     VECTOR_DB_CLIENT.delete_collection(collection)
 
-    # RaiWebExtractor.save("www.playmetrics.com/login", page_limit=1)
-
-    # run_rai_file_extraction(fig=config)
-
-    # get_all("pcsc2024.general")
-    print(RaiBaseLoaders.pipeline("code"))
+    run_web_extraction()
+    # get_all("pcsc2025.web")

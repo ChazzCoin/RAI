@@ -25,7 +25,7 @@ class RaiBasePrompts(ABC):
         return BASE_PROMPTS
 
     @classmethod
-    def prompt(cls, name: str):
+    def pipeline(cls, name: str):
         """Returns the stored prompt (string) by name, or None if not found."""
         return BASE_PROMPTS.get(name)
 
@@ -39,11 +39,20 @@ def prompt_faq_pcsc():
         If you are unsure of the correct response, provide partial information and clarify that it is your best understanding with limited data.
     """
 
+@register_prompt("objective")
+def prompt_objective():
+    return """
+        You are an intelligent AI that identifies relevant function calls from the provided function definitions ("functions") based on the user's prompt.
+        Instructions:
+        - Treat each function name in the "functions" list as the users 'objective' or what it is they are trying to do.
+        - Thoroughly analyze the user's prompt to decide which function(s) apply (there may be more than one).
+        - Return the function calls (in a specific format) that match the user's needs.
+    """
+
 @register_prompt("metadata")
 def prompt_metadata():
     return """
         You are an AI assistant tasked with extracting metadata from a given piece of text. You must produce a single JSON object that strictly follows the structure below:
-    
         Instructions:
         1. Return only the JSON object above—no additional text or keys.
         2. Fill the fields with accurate, relevant information derived from the user-provided text.
@@ -102,4 +111,4 @@ def prompt_context_expander():
 
 # --- No function call needed here ---
 if __name__ == "__main__":
-    print(RaiBasePrompts.prompt("true_false"))
+    print(RaiBasePrompts.pipeline("true_false"))

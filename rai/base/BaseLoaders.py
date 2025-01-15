@@ -1,15 +1,10 @@
 from abc import ABC
-
 from langchain_core.document_loaders import BaseLoader
 
 LOADER_REGISTRY = {}
 
 def register_loader(name: str):
     def decorator(cls):
-        """
-        1. Registers `cls` under `name` in our registry.
-        2. Returns `cls` unchanged.
-        """
         LOADER_REGISTRY.setdefault(name, []).append(cls)
         return cls
 
@@ -24,10 +19,6 @@ class RaiBaseLoaders(ABC):
 
     @classmethod
     def pipeline(cls, name: str) -> BaseLoader:
-        """
-        Main pipeline method. Looks up which agent classes are registered under 'name',
-        instantiates the first one, and calls its 'run(...)' method.
-        """
         agent_cls = LOADER_REGISTRY.get(name)
         if not agent_cls:
             raise ValueError(f"No agent found with name '{name}'")

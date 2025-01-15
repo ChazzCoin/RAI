@@ -1,11 +1,12 @@
 from F.LOG import Log
+
+from rai.base.BaseLoaders import register_loader
 from rai.data.loaders.rai_loaders.BaseDoc import RaiLoaderDocument
 from rai.data.loaders.rai_loaders.BaseLoad import RaiBaseLoader
-from rai.internal.registries import RaiRegistry
 
 Log = Log("RawTextDataLoader")
 
-@RaiRegistry.data_loader(name="text")
+@register_loader(name="text")
 class RawTextDataLoader(RaiBaseLoader):
     cache: [RaiLoaderDocument] = None
     def __init__(self, raw_text: str, file_path: str, metadata={'image': ''}):

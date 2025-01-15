@@ -4,17 +4,17 @@ import docx
 from F.LOG import Log
 from langchain_community.document_loaders import Docx2txtLoader
 
+from rai.base.BaseLoaders import register_loader
 from rai.data.loaders import verify_loader_data
 from rai.data.loaders.rai_loaders.BaseLoad import RaiBaseLoader
 from rai.data.loaders.rai_loaders.LastResortDataLoader import LastResortDataLoader
 from rai.data.loaders.rai_loaders.BaseDoc import RaiLoaderDocument
 from rai.data.loaders.rai_loaders.RaiMetadataLoader import DEFAULT_METADATA
 from rai.data.loaders.rai_loaders.VisionDataLoader import VisionDataLoader
-from rai.internal.registries import RaiRegistry
 
 Log = Log("WordDocDataLoader")
 
-@RaiRegistry.data_loader(name="doc")
+@register_loader(name="doc")
 class WordDocDataLoader(RaiBaseLoader):
     cache: [RaiLoaderDocument] = None
     def __init__(self, file_path: str, metadata: dict = DEFAULT_METADATA):
