@@ -102,7 +102,7 @@ class RaiWebLoader(RaiWebDriver, RaiBaseLoader):
                 return
 
             """ Web Metadata """
-            metadata = {}
+            metadata = self.generate_metadata(content)
             page = WebPageDetails(
                 url=url,
                 title=self.page_title,
