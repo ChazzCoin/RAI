@@ -334,21 +334,7 @@ class TextProcessor:
         return temp
 
     @staticmethod
-    def is_within_model_token_limit(
-            text: str,
-            model: str = "gpt-4o",
-            max_tokens: int = 8192
-    ) -> bool:
-        """
-        Checks if a given text is within the specified token limit for a GPT-4 model.
-
-        :param text:       The input text to be checked.
-        :param model:      The model name recognized by tiktoken (e.g., "gpt-3.5-turbo", "gpt-4", etc.).
-        :param max_tokens: The token limit you want to check against.
-                           GPT-4 commonly has a context limit of 8192 or 32768 tokens
-                           depending on the variant.
-        :return:           True if the text is within the specified token limit, else False.
-        """
+    def is_within_model_token_limit(text: str, model: str = "gpt-4o", max_tokens: int = 8192) -> bool:
         try:
             encoding = tiktoken.encoding_for_model(model)
         except KeyError:
@@ -360,7 +346,10 @@ class TextProcessor:
         token_count = len(tokenized_text)
 
         return token_count <= max_tokens
-
+    @staticmethod
+    def string_length_is_within(text: str, max_length: int = 100):
+        if len(text) > max_length: return False
+        else: return True
 
 FORM_SENTENCE = lambda strContent, startIndex, endIndex, caboose: f"{strContent[startIndex:endIndex]}{caboose}"
 

@@ -1,47 +1,20 @@
+import asyncio
 from abc import abstractmethod, ABC
 
 from F import DICT
-
+from rai.data.utilities.text_data import schedule_text
+from typing_extensions import overload
+from queue import Queue
+from threading import Thread
 from rai.assistant.connectors import RaiAi
 from rai.base.BaseFormats import RaiBaseFormats
 from rai.base.BaseFunctions import RaiBaseFunctions
 from rai.base.BasePrompts import RaiBasePrompts
 from rai.data.utilities.TextUtils import TextProcessor
-
+from rai.models import functions
+import concurrent
+from concurrent.futures import ThreadPoolExecutor
 AGENT_REGISTRY = {}
-
-# AAGENT_PROMPTS = {
-#     "default": "You are an helpful Assistant",
-#     "question_answer": """
-#         You will take the following dataset and you will generate accurate questions and corresponding answers.
-#         1. Questions: should be the most likely asked human questions based on the context of the information.
-#         2. Answers: should be detailed and as accurate as possible.
-#         Rule: If you do not know that answer, do not make something up. Just do not include that question and answer.
-#         """,
-#     "metadata": """
-#         You will read the following content and you will extract out the following metadata details for vector database and query optimizations.
-#         1. Look at each key name in the model and then try to determine the value for the key, based on the content.
-#         2. Try to guess the overall context and attempt to fill out all attributes even if you don't know.
-#         """,
-#     "true_false": """
-#         You are an AI assistant that strictly returns the Boolean truth value of a given statement—no additional text or commentary.
-#         **Only respond with the single word "True" or "False".**
-#         """,
-#     "context_expander": f"""
-#         **You will read the following User Query and add Proper context tag words to enhance vector RAG queries.**
-#         **User the following Topic/Category as contextual reference for enhancement.**
-#         **Only return the new query**
-#         """,
-#     "categorizer": f"""
-#         **OVERALL PURPOSE**:
-#         Your goal is to identify relevant function calls from the provided function definitions ("functions") based on the user's prompt.
-#         **OBJECTIVE**:
-#         - Treat each function name in the "functions" list as a Topic/Category.
-#         - Thoroughly analyze the user's prompt to decide which function(s) apply (there may be more than one).
-#         - Return the function calls (in a specific format) that match the user's needs.
-#         """,
-#
-# }
 CONTEXTS = {
     "is_event": {
         "prompt": """
@@ -125,10 +98,6 @@ CONTEXTS = {
 
 def register_agent(name: str):
     def decorator(cls):
-        """
-        1. Registers `cls` under `name` in our registry.
-        2. Returns `cls` unchanged.
-        """
         AGENT_REGISTRY.setdefault(name, []).append(cls)
         return cls
 
@@ -142,51 +111,78 @@ class RaiBaseAgent(ABC, RaiAi, TextProcessor):
     def get_registry(cls): return AGENT_REGISTRY
 
     @classmethod
-    def pipeline(cls, name: str, user_prompt: str, sub=False):
-        """
-        Main pipeline method. Looks up which agent classes are registered under 'name',
-        instantiates the first one, and calls its 'run(...)' method.
-        """
+    def pipeline(cls, name: str, user_prompt: str, system_prompt: str=None, sub=False):
         agent_classes = AGENT_REGISTRY.get(name)
-        if not agent_classes:
-            raise ValueError(f"No agent found with name '{name}'")
+        if not agent_classes: return None
         cls.name = name
         agent_cls = agent_classes[0]
         agent_instance = agent_cls()
-        return agent_instance.run(user_prompt=user_prompt, sub=sub)
+        return agent_instance.run(user_prompt=user_prompt, system_prompt=system_prompt, sub=sub)
+
+    @classmethod
+    async def pipeline_async(cls, name: str, user_prompt: str, system_prompt: str=None, sub=False):
+        agent_classes = AGENT_REGISTRY.get(name)
+        if not agent_classes: return None
+        cls.name = name
+        agent_cls = agent_classes[0]
+        agent_instance = agent_cls()
+        return await agent_instance.run_async(user_prompt=user_prompt, system_prompt=system_prompt, sub=sub)
 
     @abstractmethod
     def type(self): pass
-
+    @abstractmethod
+    def parse(self, result): pass
     def prompt(self): return RaiBasePrompts.pipeline(self.name)
     def agent_context(self): return DICT.get(self.name, CONTEXTS, {})
     def system_prompt(self):
         temp = self.prompt()
-        if temp:
-            return temp
+        if temp: return temp
         return DICT.get("prompt", self.agent_context())
     def context(self): return DICT.get("context", self.agent_context(), "")
     def prompter(self, user_prompt): return f"USER PROMPT:\n{user_prompt}\n{self.context()}"
 
-    def run(self, user_prompt, sub=False):
+    def run(self, user_prompt, system_prompt=None, sub=False):
         try:
             if self.type() == "format":
-                return self.engine.generate_format(
+                return self.parse(self.engine.generate_format(
                     user=self.prompter(user_prompt),
-                    system=self.system_prompt(),
+                    system=self.system_prompt() if not system_prompt else system_prompt,
                     format=RaiBaseFormats.pipeline(self.name)
-                )
+                ))
             elif self.type() == "function":
-                return self.engine.generate_function(
+                return self.parse(self.engine.generate_function(
                     user=self.prompter(user_prompt),
-                    system=self.system_prompt(),
+                    system=self.system_prompt() if not system_prompt else system_prompt,
                     functions=RaiBaseFunctions.pipeline(self.name, sub=sub)
-                )
+                ))
             elif self.type() == "base":
-                return self.engine.generate(
+                return self.parse(self.engine.generate(
+                    user=user_prompt,
+                    system=self.system_prompt() if not system_prompt else system_prompt
+                ))
+        except Exception as e:
+            print(f"Error: {e}")
+            return None
+
+    async def run_async(self, user_prompt, system_prompt=None, sub=False):
+        try:
+            if self.type() == "format":
+                return self.parse(await self.engine.generate_format_async(
                     user=self.prompter(user_prompt),
-                    system=self.system_prompt()
-                )
+                    system=self.system_prompt() if not system_prompt else system_prompt,
+                    format=RaiBaseFormats.pipeline(self.name)
+                ))
+            elif self.type() == "function":
+                return self.parse(await self.engine.generate_function_async(
+                    user=self.prompter(user_prompt),
+                    system=self.system_prompt() if not system_prompt else system_prompt,
+                    functions=RaiBaseFunctions.pipeline(self.name, sub=sub)
+                ))
+            elif self.type() == "base":
+                return self.parse(await self.engine.generate_async(
+                    user=user_prompt,
+                    system=self.system_prompt() if not system_prompt else system_prompt
+                ))
         except Exception as e:
             print(f"Error: {e}")
             return None
@@ -198,43 +194,101 @@ What they do, how they do it...what they need...etc...
 - summarize data
 - 
 """
+@register_agent("generate")
+class AgentConfigGenerate(RaiBaseAgent):
+    def type(self): return "base"
+    def parse(self, result): return result
+
+@register_agent("rag")
+class AgentConfigRAG(RaiBaseAgent):
+    def type(self): return "base"
+    def parse(self, result): return result
+
 @register_agent("objective")
-class AgentConfigPrimaryObjective(RaiBaseAgent):
+class AgentConfigObjective(RaiBaseAgent):
     def type(self): return "function"
+    def parse(self, result): return self.parse_function_names(result)
 
 @register_agent("categorize_sports")
-class AgentConfigPrimaryCategorizer(RaiBaseAgent):
+class AgentConfigCategorizeSports(RaiBaseAgent):
     def type(self): return "function"
+    def parse(self, result): return self.parse_function_names(result)
 
 @register_agent("context_expander")
 class AgentConfigPromptExpander(RaiBaseAgent):
     def type(self): return "format"
+    def parse(self, result): return result.query
 
 @register_agent("metadata")
 class AgentConfigMetadata(RaiBaseAgent):
     def type(self): return "format"
+    def parse(self, result): return result
 
 @register_agent("faq")
 class AgentConfigQuestionAnswer(RaiBaseAgent):
     def type(self): return "format"
+    def parse(self, result): return result.holder
 
 @register_agent("is_event")
-class AgentConfigTrueOrFalse(RaiBaseAgent):
+class AgentConfigIsEvent(RaiBaseAgent):
     def type(self): return "format"
+    def parse(self, result): return result.answer
+
+@register_agent("is_true")
+class AgentConfigIsTrue(RaiBaseAgent):
+    def type(self): return "format"
+    def parse(self, result): return result.answer
+
+@register_agent("events")
+class AgentConfigEvents(RaiBaseAgent):
+    def type(self): return "format"
+    def parse(self, result): return result.holder
+
+@register_agent("contacts")
+class AgentConfigContacts(RaiBaseAgent):
+    def type(self): return "format"
+    def parse(self, result): return result.holder
+
+@register_agent("locations")
+class AgentConfigLocations(RaiBaseAgent):
+    def type(self): return "format"
+    def parse(self, result): return result.holder
+
+@register_agent("step_by_step")
+class AgentConfigStepByStep(RaiBaseAgent):
+    def type(self): return "format"
+    def parse(self, result): return result.holder
+
+
+async def main():
+    results = await RaiBaseAgent.pipeline_async(
+            name="step_by_step",
+            user_prompt="How do I divide 522 by 2?"
+        )
+    if type(results) in [list, tuple]:
+        for item in results:
+            print(item)
+    elif type(results) in [dict]:
+        for item in results.items():
+            print(item)
+    else:
+        print(results)
 
 if __name__ == "__main__":
-    from rai.data.utilities.text_data import book_text
-    print(
-        RaiBaseAgent.pipeline(
-            name="objective",
-            user_prompt="Who is joel person?",
-            sub=False
-        )
+    # from rai.data.utilities.text_data import schedule_text
+
+    asyncio.run(
+        main()
     )
-    print(
-        RaiBaseAgent.pipeline(
-            name="objective",
-            user_prompt="Who is joel person?",
-            sub=True
-        )
-    )
+    # RaiBaseAgent.pipeline(
+    #     name="step_by_step",
+    #     user_prompt="How do I divide 522 by 2?"
+    # )
+    # if type(results) in [list, tuple]:
+    #     for item in results:
+    #         print(item)
+    # if type(results) in [dict]:
+    #     for item in results.items():
+    #         print(item)
+    # else:
+    #     print(results)

@@ -10,7 +10,6 @@ from F.LOG import Log
 
 from typing import Optional, List, Dict, Any, Set
 from PIL import Image
-from pydantic import BaseModel, Field
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.select import Select
@@ -227,10 +226,25 @@ class WebBaseExtract(WebBaseDriver):
         image_texts = []
         for img in image_urls:
             temp = self.extract_text_from_image(img)
-            if temp and temp != '':
+            if temp and temp != '' and not self.string_length_is_within(temp):
                 print(temp)
                 image_texts.append(temp)
         return image_texts
+    @staticmethod
+    def extract_text_from_image(image_url: str) -> str:
+        """
+        Given an image URL, download the image and run OCR using pytesseract.
+        """
+        try:
+            response = requests.get(image_url)
+            response.raise_for_status()
+            image_bytes = BytesIO(response.content)
+            image = Image.open(image_bytes)
+            extracted_text = pytesseract.image_to_string(image)
+            return extracted_text
+        except Exception as e:
+            Log.e("Image Processing Error", e)
+            return ""
     """ TABLES """
     def extract_all_tables(self):
         # 1. Find all tables in the DOM
@@ -489,22 +503,6 @@ class WebBaseExtract(WebBaseDriver):
             events.append(event_data)
         return events
 
-    @staticmethod
-    def extract_text_from_image(image_url: str) -> str:
-        """
-        Given an image URL, download the image and run OCR using pytesseract.
-        """
-        try:
-            response = requests.get(image_url)
-            response.raise_for_status()
-            image_bytes = BytesIO(response.content)
-            image = Image.open(image_bytes)
-            extracted_text = pytesseract.image_to_string(image)
-            return extracted_text
-        except Exception as e:
-            Log.e("Image Processing Error", e)
-            return ""
-
 class WebBaseActions(WebBaseExtract):
     do_login: bool = False
     max_scrolls = 5
@@ -668,6 +666,6 @@ class RaiWebDriver(WebBaseActions):
         self.visited_urls.add(url)
         WebDriverWait(self.driver, wait_time).until(EC.presence_of_element_located((By.TAG_NAME, 'body')))
         self.handle_popups()  # Handle any potential popups
-
+        time.sleep(2)
 
 

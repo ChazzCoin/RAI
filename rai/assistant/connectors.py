@@ -48,16 +48,15 @@ class RaiAi:
         return self.parse_function_names(result)
 
     @staticmethod
-    def parse_function_names(function_response, default="general"):
-        try:
-            names = [default]
-            for item in function_response:
-                n = DICT.get("name", item, "general")
-                names.append(n)
-            return names
-        except Exception as e:
-            print(e)
-            return [default]
+    def parse_function_names(result):
+        if type(result) in [list, tuple]:
+            parsed = []
+            for item in result:
+                name = DICT.get("name", item, None)
+                if name: parsed.append(name)
+            return parsed
+        else:
+            return result
 
     def set_temperature(self, temp: float):
         self.TEMPERATURE = temp

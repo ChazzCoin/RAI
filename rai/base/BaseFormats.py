@@ -22,6 +22,20 @@ class RaiBaseFormats(ABC):
     @classmethod
     def pipeline(cls, name: str): return BASE_MODELS.get(name)
 
+
+@register_format("contact")
+class RaiContactFormat(BaseModel):
+    first_name: Optional[str]
+    last_name: Optional[str]
+    email: Optional[str]
+    phone_number: Optional[str]
+    age: Optional[str]
+    gender: Optional[str]
+
+@register_format("contacts")
+class RaiContactsFormat(BaseModel):
+    holder: List[RaiContactFormat]
+
 @register_format("metadata")
 class RaiMetadata(BaseModel):
     title: Optional[str]
@@ -42,25 +56,38 @@ class RaiQueryExpander(BaseModel):
 
 class TrueFalse(BaseModel):
     result: Optional[bool]
+
 class QuestionAnswer(BaseModel):
     question: Optional[str] = None
     answer: Optional[str] = None
+
 @register_format("faq")
 class ListOfQuestionAnswers(BaseModel):
-    results: List[QuestionAnswer]
+    holder: List[QuestionAnswer]
+
 @register_format("is_event")
-class TrueOrFalse(BaseModel):
+class IsEventModel(BaseModel):
     answer: bool
+
+@register_format("is_true")
+class IsTrueModel(BaseModel):
+    answer: bool
+
+@register_format("step")
+class StepModel(BaseModel):
+    answer: str
+@register_format("step_by_step")
+class BaseEvents(BaseModel):
+    holder: List[StepModel]
+
 @register_format("event")
 class BaseEvent(BaseModel):
-    # Fields from the "table" style event
     attendance: Optional[str] = None
     date_time: Optional[str] = None
     location: Optional[str] = None
     opponent: Optional[str] = None
     score: Optional[str] = None
 
-    # Fields from the "calendar" style event
     attendance_count: Optional[str] = None
     day_number: Optional[str] = None
     description: Optional[str] = None
@@ -69,6 +96,38 @@ class BaseEvent(BaseModel):
     start_time: Optional[str] = None
     weekday: Optional[str] = None
 
+@register_format("events")
+class BaseEvents(BaseModel):
+    holder: List[BaseEvent]
+
+@register_format("location")
+class BaseLocation(BaseModel):
+    address_line1: Optional[str] = None
+    address_line2: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    postal_code: Optional[str] = None
+    country: Optional[str] = None
+
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+
+    def full_address(self) -> Optional[str]:
+        if self.address_line1 and self.city:
+            parts = [
+                self.address_line1,
+                self.address_line2,
+                self.city,
+                self.state,
+                self.postal_code,
+                self.country,
+            ]
+            # Filter out any None values and join with commas
+            return ", ".join(part for part in parts if part)
+        return None
+@register_format("locations")
+class BaseLocation(BaseModel):
+    holder: List[BaseLocation]
 
 if __name__ == "__main__":
 

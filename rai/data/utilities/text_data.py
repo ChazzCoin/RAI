@@ -1,3 +1,101 @@
+
+schedule_text = """
+
+
+PARK CITY SOCCER CLUB 2024/25 
+
+An overview of a year-round competitive soccer team experience
+
+ 
+
+Placement results are posted to the Club website by the end of the second day after tryouts.
+
+Preliminary teams are named for 2016/U9s, with an extended tryout during July resulting in
+
+final team assignments by early August. 
+
+ 
+
+ATHLETE / FAMILY COMMITMENT AND EXPECTATIONS
+
+The mission of the Park City Soccer Club is to build community through whole athlete development and a passionate pursuit of excellence both on and off the pitch. In addition to individual development, it is also imperative that athletes and families understand the commitment they are making to the team, each other, and the Park City Soccer Club. Attendance at all team functions is expected, however it is understood that at times a conflict may arise. PCSC supports multi-sport/multi-activity athletes and recognizes that at times additional endeavors may coincide with Club and team events. In the event of a scheduling conflict, please discuss with your coach.
+
+ 
+
+Our program runs on people! Athletes, coaches, parents, and community members are critical to the club athlete experience. Consistent involvement of the athlete ensures a more meaningful experience for all. Everyone will find a chance to participate in the program’s success. Whether it’s helping out the Park City Soccer Club’s own Extreme Cup, working to make your individual team run smoothly, or lending your talents at the wider club level; Park City Soccer Club is grateful for your involvement.
+
+Contact: Joel Person at joelp@gmail.com or 205-555-5555
+ 
+
+SUMMER
+
+* JUNE 3-5 *: Team Kickoff Meetings at the PC Hospital - Blair Education Center - In-person only.
+
+Families meet coaches and team members. Team annual plan, PlayMetrics, and uniforms will be discussed along with coaches’ philosophy, tournaments, and more.
+
+JUNE 10-21: Open Play/Functional Training will be available for 2011-2016 teams.
+
+JUNE 24-28: One.Soccer Camp (optional, requires additional fee.)
+
+JUNE 29: The PCSC’s education series with Athletic Republic kicks off.
+
+JULY 8-20: Pool play (age group) training begins for 2011-2016 teams.
+
+JULY 19-21: Team and age specific Kickoff Camps: There will be three days of training, scrimmages, strategy, and social gatherings in preparation for Park City’s Extreme Cup tournament and the 2024/25 season. Attendance is highly encouraged.
+
+JULY 25-27:  Annual Park City Extreme Cup Tournament
+
+All PCSC teams are expected to play. Games will take place in Park City and various fields in the Wasatch Back. Each team should plan to play 3-4 games Thursday-Saturday. There are many opportunities for volunteer involvement before, during, and after the event. 
+
+AUGUST: Team training 2x per week in preparation for the fall season. Most teams will participate in an August tournament. Club-wide BBQ & potluck August 17.
+
+ 
+
+FALL
+
+AUGUST 19-OCTOBER: Fall League Play: 7-10 games with home games in Park City, and away games taking place along the Wasatch Front. Training continues 2x per week.
+
+NOVEMBER-DECEMBER: Many teams will compete in a tournament. Most teams will wrap up the season with social events, team bonding opportunities, and player reviews. Functional/Pool play training will also be offered.
+
+ 
+
+WINTER
+
+JANUARY-FEBRUARY: Team training resumes 1-2x per week.
+
+Futsal League (optional) begins in Heber with 2 games per week. Play ends in February.
+
+ 
+
+SPRING
+
+MARCH: Team training ramps up to 2x per week in preparation for spring season.
+
+MARCH 16-MAY: Spring League Play: 7-10 games with home games in Park City, and away games taking place along the Wasatch Front. Training continues 2x per week during the season. Many teams participate in a May tournament.
+
+PLAYER PLACEMENTS for the 2025/2026 season will take place at the end of May.
+
+ 
+
+TOURNAMENTS
+
+Tournaments, whether it’s a local or a destination event, are excellent opportunities for development and team building. Attending events as a team is a large part of the PCSC experience. There are additional fees for tournaments and travel costs; scholarship support is available for travel tournaments. The calendar is set for the 2024/25 season as follows:  Click here for team tournaments.
+
+Park City Soccer Club
+6443 N Business Park Loop, Suite K
+Park City, UT 84098
+Phone: 435.901.3715
+
+
+More information is located in the Parent and Player’s Handbooks: Click Here
+
+﻿
+
+For questions, please contact PCSC Executive Director Shelley Gillwald at: sgillwald@parkcitysoccer.org
+
+"""
+
+
 book_text = """
 Isaac Newton’s amazing genius continues
 to significantly influence our lives
