@@ -1,7 +1,6 @@
 import json
 import time
 import uuid
-from enum import Enum
 
 from F import LIST, DICT
 from F.CLASS import Flass
@@ -9,11 +8,8 @@ from rai import app
 from F.LOG import Log
 from tqdm import tqdm
 
-from rai.base.BaseAgents import RaiBaseAgent
-from rai.agents.Tools import YscPrimaryFunction, YscSecondaryFunctions
 from rai.assistant.connectors import RaiAi
 from rai.data import RaiPath
-from rai.data.loaders.rai_loaders.BaseLoad import RaiBaseLoader
 from rai.data.loaders.rai_loaders.WebLoader import RaiWebLoader
 from rai.internal.connectors import VECTOR_DB_CLIENT
 from rai.assistant.openai_client import generate_embeddings
@@ -30,13 +26,13 @@ class RaiDataImportConfig(Flass):
     class Pipelines:
         PRINT = "print"
         CHROMA = "chroma"
-
     pipeline: str = "print"
     url: str = None
     username: str = None
     password: str = None
     page_limit: int = 100
     collection_prefix: str = None
+    collection: str = None
     file_collection_name: str = ""
     base_path: RaiPath = None
     overwrite: bool = False
@@ -70,7 +66,6 @@ class RaiDataImporter:
             newCls.__run_pipeline(loader=crawler)
         if config.base_path:
             newCls.import_directory(config.base_path)
-        newCls.to_chroma()
         return newCls
 
     def setup(self, config: RaiDataImportConfig):
@@ -82,7 +77,6 @@ class RaiDataImporter:
             chunk_overlap=app.state.config.CHUNK_OVERLAP,
             add_start_index=True,
         )
-
     def import_directory(self, directory_path: str = None):
         if directory_path is not None:
             self.config.base_path = RaiPath(directory_path)
@@ -108,7 +102,6 @@ class RaiDataImporter:
             self.import_file(file_path=file)
         Log.s(f"Finished Importing Files: Total [ {self.file_to_import_count} ]")
         return self.to_chroma()
-
     def import_file(self, file_path:str):
         try:
             if file_path is not None:
@@ -123,12 +116,13 @@ class RaiDataImporter:
             except Exception as e: Log.w(f"Error importing file '{file_path}' to Chroma DB: {e}")
         except Exception as e: Log.w(f"Error importing file '{file_path}': {e}")
 
-    def __run_pipeline(self, docs:[]=None, loader:RaiBaseLoader=None):
+    def __run_pipeline(self, docs:[]=None, loader=None):
         if not docs: docs = loader.load()
         if self.config.split_documents:
             docs = self.__split_docs_into_smaller_chunks(docs)
-        if self.config.pipeline.lower() == "chroma": return self.sort_for_chroma(docs)
-        elif self.config.pipeline.lower() == "print": return self.to_printer(docs)
+        self.sort(docs)
+        if self.config.pipeline.lower() == RaiDataImportConfig.Pipelines.CHROMA: return self.to_chroma()
+        elif self.config.pipeline.lower() == RaiDataImportConfig.Pipelines.PRINT: return self.to_printer(docs)
 
     def to_printer(self, docs:[]):
         Log.w(f"Printing Docs for Collection: [ {self.config.file_collection_name} ]")
@@ -139,15 +133,11 @@ class RaiDataImporter:
             count += 1
             time.sleep(1)
 
-    def sort_for_chroma(self, docs:[]):
-        texts = self.get_texts(docs)
-        metadata = self.prepare_metadatas(docs)
-        items = self.prepare_chroma_documents(texts, metadata)
-        if self.config.generate_collection_name:
-            cnames = self.get_collection_category_name(' '.join(texts))
-            for c in cnames: self.add_to_pending(f"{self.config.collection_prefix}.{c}", items)
-        else:
-            self.add_to_pending(self.config.collection_prefix, items)
+    def sort(self, docs: []):
+        items:{} = self.prepare_documents(docs=docs)
+        for k,v in items.items():
+            self.add_to_pending(k, v)
+
     def to_chroma(self):
         for collection,items in self.pending.items():
             Log.i(f"importing [ {len(items)} ] docs in [ {collection} ]")
@@ -177,19 +167,13 @@ class RaiDataImporter:
         value_new = LIST.merge_lists(value_old, items)
         self.pending[collection] = LIST.flatten(value_new)
     def add_to_success(self, collection, items):
-        value_old = DICT.get(collection, self.pending, [])
+        value_old = DICT.get(collection, self.success, [])
         value_new = LIST.merge_lists(value_old, items)
         self.success[collection] = LIST.flatten(value_new)
     def add_to_failed(self, collection, items):
-        value_old = DICT.get(collection, self.pending, [])
+        value_old = DICT.get(collection, self.failed, [])
         value_new = LIST.merge_lists(value_old, items)
         self.failed[collection] = LIST.flatten(value_new)
-
-
-    def get_collection_category_name(self, data):
-        results1 = RaiBaseAgent.pipeline(name="categorize_sports", user_prompt=data, sub=False)
-        results2 = RaiBaseAgent.pipeline(name="categorize_sports", user_prompt=data, sub=True)
-        return LIST.remove_duplicates(LIST.merge_lists(results1, results2))
 
     @staticmethod
     def get_texts(docs: []):
@@ -199,40 +183,25 @@ class RaiDataImporter:
     def get_metadatas(docs: []):
         metadatas = [{**doc.metadata, **({})} for doc in docs]
         return metadatas
-    def prepare_metadatas(self, docs: []):
-        final_meta = {}
-        try:
-            if self.config.generate_metadata:
-                meta = RaiMetadataLoader().ai_genny(raiDocs=docs)
-                if type(meta) in [str]:
-                    meta_dict = json.loads(meta)
-                else:
-                    meta_dict = meta
-                for key,value in meta_dict.items():
-                    final_meta[str(key)] = str(value)
-                final_meta["file"] = str(self.current_file)
-                return final_meta
-            else:
-                metadatas = RaiDataImporter.get_metadatas(docs)
-            for key,value in LIST.get(0, metadatas, {}).items():
-                final_meta[str(key)] = str(value)
-            final_meta["file"] = str(self.current_file)
-            return final_meta
-        except Exception as e:
-            Log.w(e)
-            return {}
-    @staticmethod
-    def prepare_chroma_documents(texts: [str], metadata: dict):
-        items = []
-        for idx, txt in enumerate(tqdm(texts, desc="Preparing Documents for chromadb...", colour="yellow")):
+    def prepare_documents(self, docs: []):
+        items = {}
+        for idx, doc in enumerate(tqdm(docs, desc="Preparing Documents for chromadb...", colour="yellow")):
             temp = {
                 "id": f"{str(uuid.uuid4())}:{str(idx)}",
-                "text": txt,
-                "vector": generate_embeddings(text=txt),
-                "metadata": metadata,
+                "text": doc.page_content,
+                "vector": generate_embeddings(text=doc.page_content),
+                "metadata": doc.metadata,
             }
-            items.append(temp)
+            # Get the collection from doc.metadata, defaulting to 'general'
+            collection = doc.metadata.get('collection', 'general')
+            # Build the collection key using the configured prefix and collection name
+            c = f"{self.config.collection_prefix}.web.{collection}"
+            # Retrieve the current list of items for this collection, or initialize an empty list if none
+            temp_items = items.get(c, [])
+            temp_items.append(temp)
+            items[c] = temp_items  # Save the updated list back to the dictionary.
         return items
+
     def overwrite_collection_check(self, collection_name: str):
         if self.config.overwrite and VECTOR_DB_CLIENT.has_collection(collection_name=collection_name):
             Log.w(f"Deleting existing collection {collection_name}")

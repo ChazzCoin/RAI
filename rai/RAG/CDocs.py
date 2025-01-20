@@ -8,7 +8,7 @@ from tqdm import tqdm
 from rai.agents.Tools import YscSecondaryFunctions, YscPrimaryFunction
 from rai.assistant.openai_client import generate_embeddings
 from rai.base.BaseAgents import RaiBaseAgent
-from rai.data.RaiFileExtraction import RaiDataImportConfig, RaiDataImporter
+from rai.data.DataImport import RaiDataImportConfig, RaiDataImporter
 from rai.data.loaders.rai_loaders.RaiMetadataLoader import RaiMetadataLoader
 from rai.internal.connectors import VECTOR_DB_CLIENT
 

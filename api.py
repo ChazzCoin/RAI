@@ -12,14 +12,13 @@ from F import DICT, LIST
 from F.LOG import Log
 from F.DATE import get_timestamp_str as get_current_timestamp
 
-from rai.Async import AsyncTaskManager
 from rai.RaiModels import RAI_MODs, getRaiModels, RAG_PROMPT_TEMPLATE
-from rai.agents.functions.manager import RaiFunctionManager
 from rai.assistant.ai_models import AiModels
 from rai.assistant.connectors import RaiAi
+from rai.base.BaseAgents import RaiBaseAgent
 from rai.internal.connectors import REDIS_DB_CLIENT_0, REDIS_DB_CLIENT_1, PostgresTables, VECTOR_DB_CLIENT
 from rai import env
-from rai.data.parsers.PDF_v1 import FPDF
+from rai.data.parsers.Pdf import FPDF
 import base64
 import imghdr
 
@@ -64,7 +63,7 @@ def decode_and_save_image(encoded_image):
 def decode_base64_to_file(base64_string):
     file_data = base64.b64decode(base64_string)
     if file_data.startswith(b'%PDF'):
-        return FPDF.extract_text_from_pdf_bytes(file_data)
+        return FPDF.extract_text_from_pdf(file_data)
     else:
         file_extension = imghdr.what(None, file_data)
         if file_extension not in ['jpeg', 'png']:
@@ -200,34 +199,35 @@ async def chat_completion(idx:Optional[int]=None):
         MessageContext.make_single(system_prompt=final_system_prompt)
     elif mod_flow == "QA":
         """ 1. Generate Context Expansion on Initial User Input """
-        context_expansion = await RAI_ENGINE.generate_async(
-            user=MessageContext.get_last_user_message,
-            system=mod_context_prompt
-        )
+
+        context_expansion = await RaiBaseAgent.pipeline_async(name="context_expander", user_prompt=MessageContext.get_last_user_message)
         context_expansion = f"{MessageContext.get_last_user_message}\n{context_expansion}"
         """ 2. Setup Async Manager """
-        fsync = AsyncTaskManager()
-        ffunctions = RaiFunctionManager(mod_org_type)
-        # AGENT: Context Decider...
-        primary_task = asyncio.create_task(ffunctions.generate_async(
-            data=context_expansion,
-            functions=mod_primary_functions
-        ))
-        secondary_task = asyncio.create_task(ffunctions.generate_async(
-            data=context_expansion,
-            functions=mod_secondary_functions
-        ))
-        fsync.add_task(primary_task)
-        fsync.add_task(secondary_task)
-        col_names = await fsync.await_results()
-        cs = LIST.remove_duplicates(LIST.flatten(col_names))
-        collections = [f"{mod_collection_prefix}.{c}" for c in cs]
+        # fsync = AsyncTaskManager()
+        # ffunctions = RaiFunctionManager(mod_org_type)
+        # # AGENT: Context Decider...
+        # RaiBaseAgent.pipeline_async(name="categorize_sports", user_prompt=MessageContext.get_last_user_message)
+        # primary_task = asyncio.create_task(ffunctions.generate_async(
+        #     data=context_expansion,
+        #     functions=mod_primary_functions
+        # ))
+        # secondary_task = asyncio.create_task(ffunctions.generate_async(
+        #     data=context_expansion,
+        #     functions=mod_secondary_functions
+        # ))
+        # fsync.add_task(primary_task)
+        # fsync.add_task(secondary_task)
+        # col_names = await fsync.await_results()
+        # cs = ["pages", "events", "images", "pdfs", "tables", "locations", "summaries", "context_groups", "lines"]
+
+        cs = [ "pages" ]
+        collections = [f"{mod_collection_prefix}.web.{c}" for c in cs]
         Log.w("Categorized Collection Names:", collections)
         # AGENT: Chroma Query
         query_results = VECTOR_DB_CLIENT.queryModelCollection(
             collections,
             user_message=context_expansion,
-            k=30
+            k=15
         )
         if query_results:
             ai_message = RAG_PROMPT_TEMPLATE(query_results, MessageContext.get_last_user_message)

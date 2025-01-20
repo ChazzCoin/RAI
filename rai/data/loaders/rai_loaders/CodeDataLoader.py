@@ -4,8 +4,7 @@ import re
 from typing import List
 
 from rai.base.BaseLoaders import register_loader
-from rai.data.loaders.rai_loaders.BaseDoc import RaiLoaderDocument
-from rai.data.loaders.rai_loaders.BaseLoad import RaiBaseLoader
+from rai.data.loaders.rai_loaders.BaseLoad import RaiBaseLoader, RaiLoaderDocument
 
 
 @register_loader('code')

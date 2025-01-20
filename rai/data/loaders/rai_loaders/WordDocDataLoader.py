@@ -6,9 +6,8 @@ from langchain_community.document_loaders import Docx2txtLoader
 
 from rai.base.BaseLoaders import register_loader
 from rai.data.loaders import verify_loader_data
-from rai.data.loaders.rai_loaders.BaseLoad import RaiBaseLoader
+from rai.data.loaders.rai_loaders.BaseLoad import RaiBaseLoader, RaiLoaderDocument
 from rai.data.loaders.rai_loaders.LastResortDataLoader import LastResortDataLoader
-from rai.data.loaders.rai_loaders.BaseDoc import RaiLoaderDocument
 from rai.data.loaders.rai_loaders.RaiMetadataLoader import DEFAULT_METADATA
 from rai.data.loaders.rai_loaders.VisionDataLoader import VisionDataLoader
 

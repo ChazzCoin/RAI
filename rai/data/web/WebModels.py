@@ -1,6 +1,9 @@
 from typing import List, Dict, Optional, Any
 from pydantic import BaseModel, Field
 
+from rai.base.BaseFormats import BaseLocation, RaiContactFormat, BaseEvent, TextModel, UrlModel
+
+
 class ImageData(BaseModel):
     src: str
     alt: Optional[str] = None
@@ -92,23 +95,48 @@ class WebLoginDetails(BaseModel):
     class Config:
         arbitrary_types_allowed = True  # Allows storing non-JSON-serializable objects
 
+class TextLineClassification(BaseModel):
+    header: bool = False
+    footer: bool = False
+    chapter: bool = False
 
-class WebPageDetails(BaseModel):
-    url: Optional[str] = None
+class TextLineDetail(BaseModel):
+    text: str
+    classification: TextLineClassification
+
+class PageExtractDetails(BaseModel):
+
     title: Optional[str] = None
     author: Optional[str] = None
     date: Optional[str] = None
     content: Optional[str] = None
+    page_count: Optional[str] = None
 
-    body: WebBodyModel
-    actions: WebActionModel
+    # FILE
+    file: Optional[str] = None
+    file_image: Optional[str] = None
+    lines: List[TextLineDetail] = Field(default_factory=list)
 
-    # Use default_factory to get empty lists if not provided
-    urls: List[str] = Field(default_factory=list)
+    # WEB
+    url: Optional[str] = None
+    body: Optional[WebBodyModel] = None
+    actions: Optional[WebActionModel] = None
+    pdfs: List[str] = Field(default_factory=list)
+    
+    pdfs_content: List[str] = Field(default_factory=list)
+
+    # Universal
+    summary: Optional[str] = None
+    urls: List[UrlModel] = Field(default_factory=list)
     tags: List[str] = Field(default_factory=list)
     images: List[str] = Field(default_factory=list)
     images_content: List[str] = Field(default_factory=list)
+    contacts: List[RaiContactFormat] = Field(default_factory=list)
+    locations: List[BaseLocation] = Field(default_factory=list)
     tables: List[Dict[str, Any]] = Field(default_factory=list)
-    events: List[Dict[str, Any]] = Field(default_factory=list)
+    events: List[BaseEvent] = Field(default_factory=list)
+    context_groups: List[TextModel] = Field(default_factory=list)
     # For metadata, we can store arbitrary key/value pairs
     metadata: Optional[Dict[str, Any]] = None
+
+

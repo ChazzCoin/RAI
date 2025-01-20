@@ -1,7 +1,6 @@
 from F import DICT, LIST
-
 from rai.data.files.read import read_file
-from rai.data.RaiFileExtraction import RaiDataImporter, RaiDataImportConfig
+from rai.data.DataImport import RaiDataImporter, RaiDataImportConfig
 from rai.internal.connectors import VECTOR_DB_CLIENT
 
 def delete_collects(*collections):
@@ -16,13 +15,6 @@ def get_all(collection):
             else:
                 print(doc)
 
-
-
-""" 
-    Basic ole file opener for most file types youll need. 
-    Returns a string of the text.
-    Otherwise, you'll need the RaiFileExtractor for a more robust extraction process. 
-"""
 def open_file(file_path, enable_vision=False): return read_file(file_path, enable_vision=enable_vision)
 
 def find_directory(file_name): pass
@@ -33,21 +25,19 @@ def list_all_collections_by_prefix(*chained_path:str):
     print("Collections:\n", temp)
     return temp
 
-
-
-def run_web_extraction():
+def run_import():
     config = RaiDataImportConfig()
     config.pipeline = RaiDataImportConfig.Pipelines.CHROMA
     config.generate_metadata = False
     config.generate_collection_name = False
     config.overwrite = False
     config.single_run = True
-    config.collection_prefix = "pcsc2025.web"
-    config.base_path = None
-    config.url = "https://www.parkcitysoccer.org/futures"
+    config.collection_prefix = "pcsc2025.2"
+    config.base_path = "/Users/chazzromeo/Desktop/pcsc2025"
+    config.url = None #"https://www.parkcitysoccer.org"
     config.username = None
     config.password = None
-    config.page_limit = 1
+    config.page_limit = 500
     RaiDataImporter.run(config)
 
 if __name__ == '__main__':
@@ -61,5 +51,5 @@ if __name__ == '__main__':
     # for collection in all:
     #     VECTOR_DB_CLIENT.delete_collection(collection)
 
-    run_web_extraction()
+    run_import()
     # get_all("pcsc2025.web")

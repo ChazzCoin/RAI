@@ -97,6 +97,11 @@ def prompt_faq():
 def prompt_events():
     return """
         You are an AI assistant tasked with extracting calendar based events and schedule from a given piece of text. 
+        **
+        IGNORE ANY EVENTS THAT DO NOT HAVE:
+            1. EVENT NAME
+            2. EVENT DATE/TIME
+        **
         You must produce a single JSON object that strictly follows the structure below:
         Instructions:
         1. Return only the JSON object above—no additional text or keys.
@@ -109,6 +114,11 @@ def prompt_events():
 def prompt_locations():
     return """
         You are an AI assistant tasked with extracting locations, addresses or google maps based places from a given piece of text. 
+        **
+        IGNORE ANY LOCATIONS THAT DO NOT HAVE:
+            1. LOCATION NAME
+            2. FULL ADDRESS
+        **
         You must produce a single JSON object that strictly follows the structure below:
         Instructions:
         1. Return only the JSON object above—no additional text or keys.
@@ -120,6 +130,11 @@ def prompt_locations():
 def prompt_contacts():
     return """
         You are an AI assistant tasked with extracting personal contact information from a given piece of text. 
+        **
+        IGNORE ANY CONTACTS THAT DO NOT HAVE:
+            1. FIRST NAME OR LAST NAME
+            2. EMAIL ADDRESS OR PHONE NUMBER
+        **
         You must produce a single JSON object that strictly follows the structure below:
         Instructions:
         1. Return only the JSON object above—no additional text or keys.
@@ -127,6 +142,39 @@ def prompt_contacts():
         3. If a particular field is not found or cannot be reasonably inferred, leave it as an empty string or an empty array (for "tags").
         4. Do not include any commentary, explanation, or keys outside this structure.
     """
+@register_prompt("urls")
+def prompt_urls():
+    return """
+        You are an AI assistant tasked with extracting urls and http hyperlinks from a given piece of text. 
+        **COMBINE OR REMOVE DUPLICATES**
+        **IGNORE EMAIL ADDRESSES, ONLY HTTPS BASED URL LINKS**
+        You must produce a single JSON object that strictly follows the structure below:
+        Instructions:
+        1. Return only the JSON object above—no additional text or keys.
+        2. Fill the fields with accurate, relevant information derived from the user-provided text.
+        3. Do not include any commentary, explanation, or keys outside this structure.
+    """
+
+@register_prompt("contextual_groups")
+def prompt_urls():
+    return """
+        You are an AI assistant tasked with separating out contextual similar groups of text from a larger piece of text. 
+        You will combine each group of text that are discussing or referring to the same topic, category or subject matter.
+        You must produce a single JSON object that strictly follows the structure below:
+        Instructions:
+        1. Return only the JSON object above—no additional text or keys.
+        2. Fill the fields with accurate, relevant information derived from the user-provided text.
+        3. Do not include any commentary, explanation, or keys outside this structure.
+    """
+
+@register_prompt("summarize")
+def prompt_urls():
+    return """
+        You are an AI assistant tasked with accurately summarizing and breaking down a given piece of text. 
+        **YOU WILL NOT MAKE UP ANY INFORMATION, YOU WILL SIMPLY SHORTEN THE USER PROMPT!**
+        **ONLY RETURN THE SUMMARIZED TEXT**
+    """
+
 @register_prompt("true_false")
 def prompt_true_false():
     return """

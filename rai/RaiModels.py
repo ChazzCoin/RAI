@@ -154,7 +154,7 @@ RAI_MODs = {
         'ai_name': 'Bruno',
         'ai_flow': 'QA',
         'org_rep_type': 'Personal Customer Representative',
-        'collection': 'pcsc2025',
+        'collection': 'pcsc2025.2',
         'prompt': GENERAL_PROMPT_TEMPLATE,
         'context_prompt': context.SOCCER_CLUB_CONTEXT_EXPANDER,
         'primary_functions': "ysc_primary",

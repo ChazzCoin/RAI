@@ -8,7 +8,7 @@ from F.LOG import Log
 
 from rai.assistant.connectors import RaiAi
 from rai.data.DataAgent import RaiBaseAgent
-from rai.data.loaders.rai_loaders.BaseDoc import RaiLoaderDocument
+from rai.data.loaders.rai_loaders.BaseLoad import RaiLoaderDocument
 
 Log = Log("RaiMetadataLoader")
 

@@ -1,7 +1,6 @@
 
 from F.LOG import Log
-from rai.data.loaders.rai_loaders.BaseDoc import RaiLoaderDocument
-from rai.data.loaders.rai_loaders.BaseLoad import RaiBaseLoader
+from rai.data.loaders.rai_loaders.BaseLoad import RaiBaseLoader, RaiLoaderDocument
 from rai.data.loaders.rai_loaders.RaiMetadataLoader import DEFAULT_METADATA
 from rai.data.loaders.rai_loaders.RawTextDataLoader import RawTextDataLoader
 from rai.data.files.read import read_file

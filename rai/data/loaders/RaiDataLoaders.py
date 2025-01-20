@@ -46,7 +46,7 @@ class RaiDataLoader:
         Log.w(f"Finding Dataloader for Ext: [ {file_ext} ]...")
         try:
             if file_ext == "pdf":
-                loader = PdfDataLoader(self.file, metadata=self.metadata)
+                loader = PdfDataLoader(self.file)
             elif file_ext in ["csv", "xls", "xlsx"]:
                 loader = RaiTableDataLoader(self.file, metadata=self.metadata)
             elif file_ext == "jsonl":

@@ -204,6 +204,11 @@ class AgentConfigRAG(RaiBaseAgent):
     def type(self): return "base"
     def parse(self, result): return result
 
+@register_agent("summarize")
+class AgentConfigSummarize(RaiBaseAgent):
+    def type(self): return "base"
+    def parse(self, result): return result
+
 @register_agent("objective")
 class AgentConfigObjective(RaiBaseAgent):
     def type(self): return "function"
@@ -223,6 +228,16 @@ class AgentConfigPromptExpander(RaiBaseAgent):
 class AgentConfigMetadata(RaiBaseAgent):
     def type(self): return "format"
     def parse(self, result): return result
+
+@register_agent("urls")
+class AgentConfigUrls(RaiBaseAgent):
+    def type(self): return "format"
+    def parse(self, result): return result.holder
+
+@register_agent("contextual_groups")
+class AgentConfigContextualGroups(RaiBaseAgent):
+    def type(self): return "format"
+    def parse(self, result): return result.holder
 
 @register_agent("faq")
 class AgentConfigQuestionAnswer(RaiBaseAgent):
@@ -261,9 +276,10 @@ class AgentConfigStepByStep(RaiBaseAgent):
 
 
 async def main():
+    from rai.data.utilities.text_data import schedule_text
     results = await RaiBaseAgent.pipeline_async(
-            name="step_by_step",
-            user_prompt="How do I divide 522 by 2?"
+            name="summarize",
+            user_prompt=schedule_text
         )
     if type(results) in [list, tuple]:
         for item in results:
@@ -276,19 +292,6 @@ async def main():
 
 if __name__ == "__main__":
     # from rai.data.utilities.text_data import schedule_text
-
     asyncio.run(
         main()
     )
-    # RaiBaseAgent.pipeline(
-    #     name="step_by_step",
-    #     user_prompt="How do I divide 522 by 2?"
-    # )
-    # if type(results) in [list, tuple]:
-    #     for item in results:
-    #         print(item)
-    # if type(results) in [dict]:
-    #     for item in results.items():
-    #         print(item)
-    # else:
-    #     print(results)

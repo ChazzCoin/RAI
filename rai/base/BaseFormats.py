@@ -31,6 +31,9 @@ class RaiContactFormat(BaseModel):
     phone_number: Optional[str]
     age: Optional[str]
     gender: Optional[str]
+    occupation: Optional[str]
+    position: Optional[str]
+    details: Optional[str]
 
 @register_format("contacts")
 class RaiContactsFormat(BaseModel):
@@ -73,6 +76,21 @@ class IsEventModel(BaseModel):
 class IsTrueModel(BaseModel):
     answer: bool
 
+@register_format("url")
+class UrlModel(BaseModel):
+    url: str
+@register_format("urls")
+class UrlsModel(BaseModel):
+    holder: List[UrlModel]
+
+@register_format("text")
+class TextModel(BaseModel):
+    text: str
+
+@register_format("contextual_groups")
+class TextsModel(BaseModel):
+    holder: List[TextModel]
+
 @register_format("step")
 class StepModel(BaseModel):
     answer: str
@@ -102,12 +120,16 @@ class BaseEvents(BaseModel):
 
 @register_format("location")
 class BaseLocation(BaseModel):
+    title: Optional[str] = None
     address_line1: Optional[str] = None
     address_line2: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None
     postal_code: Optional[str] = None
     country: Optional[str] = None
+
+    type: Optional[str] = None
+    description: Optional[str] = None
 
     latitude: Optional[float] = None
     longitude: Optional[float] = None
@@ -126,7 +148,7 @@ class BaseLocation(BaseModel):
             return ", ".join(part for part in parts if part)
         return None
 @register_format("locations")
-class BaseLocation(BaseModel):
+class BaseLocations(BaseModel):
     holder: List[BaseLocation]
 
 if __name__ == "__main__":

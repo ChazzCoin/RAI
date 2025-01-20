@@ -1,6 +1,7 @@
 from io import BytesIO
 from urllib.parse import urlparse
-
+# import PyPDF2
+from rai.data.parsers.Pdf import FPDF
 import pytesseract
 import requests
 from F import DICT, LIST
@@ -17,14 +18,13 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service as ChromeService
 from webdriver_manager.chrome import ChromeDriverManager
-
 import time
 from selenium.common.exceptions import (
     NoSuchElementException,
 )
 
 from rai.data.utilities.TextUtils import TextProcessor
-from rai.data.web.WebModels import SeleniumLocator, ButtonModel, InputFieldModel, WebLoginDetails, WebPageDetails
+from rai.data.web.WebModels import SeleniumLocator, ButtonModel, InputFieldModel, WebLoginDetails, PageExtractDetails
 Log = Log("WebMaster")
 
 def remove_non_printable_ascii(text):
@@ -107,7 +107,7 @@ class WebBaseQueue(WebBaseHelper):
     scrape_count = 0
     current_url = ""
     current_site_name = ""
-    pages: [WebPageDetails] = []
+    pages: [PageExtractDetails] = []
 
     @property
     def irrelevant_domains(self):
@@ -244,6 +244,47 @@ class WebBaseExtract(WebBaseDriver):
             return extracted_text
         except Exception as e:
             Log.e("Image Processing Error", e)
+            return ""
+
+    """ PDFS """
+
+    def extract_pdf_urls(self) -> List[str]:
+        """
+        Extracts PDF URLs from the current page by searching for <a> elements with href attributes ending in .pdf.
+
+        Returns:
+            A list of unique PDF URLs.
+        """
+        pdf_urls = set()
+        # Find all anchor tags
+        links = self.driver.find_elements(By.TAG_NAME, "a")
+        for link in links:
+            href = link.get_attribute("href")
+            if href and re.search(r'\.pdf(\?.*)?$', href, re.IGNORECASE):
+                pdf_urls.add(href)
+        return list(pdf_urls)
+
+    def extract_text_from_pdf_urls(self, pdf_urls: List[str]) -> List[str]:
+        pdf_texts = []
+        for pdf in pdf_urls:
+            temp = self.extract_text_from_pdf(pdf)
+            if temp and temp != '':
+                print(temp)
+                pdf_texts.append(temp)
+        return pdf_texts
+
+    @staticmethod
+    def extract_text_from_pdf(pdf_url: str) -> str:
+        """
+        Given a PDF URL, download the PDF and extract text from its pages using PyPDF2.
+        """
+        try:
+            response = requests.get(pdf_url)
+            response.raise_for_status()
+            pdf_bytes = BytesIO(response.content)
+            return FPDF.extract_text_from_pdf(bytes=pdf_bytes)
+        except Exception as e:
+            Log.e("PDF Processing Error", e)
             return ""
     """ TABLES """
     def extract_all_tables(self):

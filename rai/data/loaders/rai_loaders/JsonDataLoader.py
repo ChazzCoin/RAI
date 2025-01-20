@@ -2,8 +2,7 @@ import json
 from F import DICT
 
 from rai.base.BaseLoaders import register_loader
-from rai.data.loaders.rai_loaders.BaseDoc import RaiLoaderDocument
-from rai.data.loaders.rai_loaders.BaseLoad import RaiBaseLoader
+from rai.data.loaders.rai_loaders.BaseLoad import RaiBaseLoader, RaiLoaderDocument
 from rai.data.loaders.rai_loaders.Utils import ensure_string
 from F.LOG import Log
 Log = Log("JSONDataLoader")

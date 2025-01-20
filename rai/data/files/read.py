@@ -6,7 +6,7 @@ from openpyxl import load_workbook
 from pptx import Presentation
 from F.LOG import Log
 
-from rai.data.parsers.PDF_v1 import FPDF
+from rai.data.parsers.Pdf import FPDF
 from rai.data.parsers.Vision import VisionExtractor
 
 # Configure logging
