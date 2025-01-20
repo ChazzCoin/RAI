@@ -2,6 +2,7 @@
 import asyncio
 import json
 import os.path
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 import aiohttp
@@ -203,32 +204,29 @@ async def chat_completion(idx:Optional[int]=None):
         context_expansion = await RaiBaseAgent.pipeline_async(name="context_expander", user_prompt=MessageContext.get_last_user_message)
         context_expansion = f"{MessageContext.get_last_user_message}\n{context_expansion}"
         """ 2. Setup Async Manager """
-        # fsync = AsyncTaskManager()
-        # ffunctions = RaiFunctionManager(mod_org_type)
-        # # AGENT: Context Decider...
-        # RaiBaseAgent.pipeline_async(name="categorize_sports", user_prompt=MessageContext.get_last_user_message)
-        # primary_task = asyncio.create_task(ffunctions.generate_async(
-        #     data=context_expansion,
-        #     functions=mod_primary_functions
-        # ))
-        # secondary_task = asyncio.create_task(ffunctions.generate_async(
-        #     data=context_expansion,
-        #     functions=mod_secondary_functions
-        # ))
-        # fsync.add_task(primary_task)
-        # fsync.add_task(secondary_task)
-        # col_names = await fsync.await_results()
-        # cs = ["pages", "events", "images", "pdfs", "tables", "locations", "summaries", "context_groups", "lines"]
 
-        cs = [ "pages" ]
-        collections = [f"{mod_collection_prefix}.web.{c}" for c in cs]
-        Log.w("Categorized Collection Names:", collections)
-        # AGENT: Chroma Query
-        query_results = VECTOR_DB_CLIENT.queryModelCollection(
-            collections,
-            user_message=context_expansion,
-            k=15
-        )
+        # Prepare a results list with one slot for each collection
+        cs1 = [ "pages", "summaries", "context_groups", "events", "images", "pdfs" ]
+        collections_list = [f"{mod_collection_prefix}.web.{c}" for c in cs1]
+        # cs2 = [ "pages" ]
+        # collections2 = [f"{mod_collection_prefix}.{c}" for c in cs2]
+        # collections_list = LIST.merge_lists(collections1, collections2)
+        query_results = [None] * len(collections_list)
+        def query_db(collection, index):
+            query_results[index] = VECTOR_DB_CLIENT.queryModelCollection(
+                collection,
+                user_message=context_expansion,
+                k=3
+            )
+        # Create and start a thread for each collection
+        threads = []
+        for i, collection in enumerate(collections_list):
+            thread = threading.Thread(target=query_db, args=(collection, i))
+            threads.append(thread)
+            thread.start()
+        for thread in threads:
+            thread.join()
+
         if query_results:
             ai_message = RAG_PROMPT_TEMPLATE(query_results, MessageContext.get_last_user_message)
             MessageContext.modify_last_user_message(ai_message)

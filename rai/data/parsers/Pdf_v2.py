@@ -172,7 +172,7 @@ class RaiPdfMiner(RaiDocCreator):
                 body_text = "\n".join(body)
 
                 """ Page Extraction Model """
-                page = TextAnalysisAgent.analyze_text(
+                page = TextAnalysisAgent.analyze_text_async(
                     content=body_text,
                     file=self.file_path,
                     file_type='pdf',

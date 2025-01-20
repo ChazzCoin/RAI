@@ -8,6 +8,7 @@ from rai.base.BaseFormats import RaiMetadata
 from rai.base.BaseLoaders import register_loader
 from selenium.common import WebDriverException, TimeoutException, NoSuchElementException
 
+from rai.base.TextAnalysisAgent import TextAnalysisAgent
 from rai.data.loaders.rai_loaders.BaseLoad import RaiDocCreator
 from rai.data.web.BodyExtractor import WebBodyExtractor
 from rai.data.web.WebDrive import RaiWebDriver, RaiUrl
@@ -22,7 +23,7 @@ Log = Log("RaiWebLoader")
 class RaiWebLoader(RaiWebDriver, RaiDocCreator):
 
     def __init__(self, base_url: str, username=None, password=None):
-        super(RaiWebLoader, self).__init__(file_path="WEB")
+        super(RaiWebLoader, self).__init__()
         self.setup_login(username, password)
         self.url = RaiUrl(base_url)
         self.current_site_name = self.url.site_name
@@ -71,36 +72,28 @@ class RaiWebLoader(RaiWebDriver, RaiDocCreator):
             actions = WebActionExtractor.pipeline(self.driver.page_source)
             body = WebBodyExtractor.pipeline(self.driver.page_source)
             final_content = f"{body.combined_text}\n\n{' '.join(image_texts)}"
-            events_2 = RaiBaseAgent.pipeline(name="events", user_prompt=final_content)
-            contacts = RaiBaseAgent.pipeline(name="contacts", user_prompt=final_content)
-            locations = RaiBaseAgent.pipeline(name="locations", user_prompt=final_content)
-            events = LIST.merge_lists(events_1, events_2)
+
             print(final_content)
             self.add_urls_to_queue(urls)
 
             """ Web Metadata """
-            metadata = self.generate_metadata(body.combined_text)
-
-            page = PageExtractDetails(
-                url=url,
-                title=self.page_title,
-                author="RaiWebDriver",
-                date=DATE.get_now_month_day_year_str(),
-                content=final_content,
-                body = body,
-                actions = actions,
-                urls=urls,
-                tags=DICT.get_any(keys=("tags", "keywords"), dic=metadata, default=[]),
-                contacts=contacts,
-                locations=locations,
-                images=images,
-                images_content=image_texts,
-                pdfs=pdfs,
-                pdfs_content=pdf_texts,
-                tables=table_objs,
-                events=events,
-                metadata=metadata
+            page = TextAnalysisAgent.analyze_text_async(
+                content=body.combined_text,
+                url=self.current_url,
+                page_title=self.page_title
             )
+            page.title = self.page_title
+            page.url = url
+            page.author="RaiWebDriver"
+            page.events = LIST.merge_lists(page.events, events_1)
+            page.body = body
+            page.actions = actions
+            page.images = images
+            page.images_content = image_texts
+            page.pdfs = pdfs
+            page.pdfs_content = pdf_texts
+            page.tables = table_objs
+
             self.pages.append(page)
             self.to_documents(page)
             Log.s(f"Successfully Scraped Page: {url}")

@@ -32,9 +32,9 @@ def run_import():
     config.generate_collection_name = False
     config.overwrite = False
     config.single_run = True
-    config.collection_prefix = "pcsc2025.2"
-    config.base_path = "/Users/chazzromeo/Desktop/pcsc2025"
-    config.url = None #"https://www.parkcitysoccer.org"
+    config.collection_prefix = "pcsc2025.3"
+    config.base_path = None#"/Users/chazzromeo/Desktop/pcsc2025"
+    config.url = "https://www.parkcitysoccer.org"
     config.username = None
     config.password = None
     config.page_limit = 500
@@ -43,7 +43,7 @@ def run_import():
 if __name__ == '__main__':
     # print(PromptRegistry.list_prompts_by_category('metadata'))
     # list_prompt_categories()
-    # list_all_collections_by_prefix("pcsc2024", "external")
+    # list_all_collections_by_prefix("pcsc2025", "2")
     # collects = VECTOR_DB_CLIENT.client.list_collections()
     # for c in collects:
     #     print(c)
