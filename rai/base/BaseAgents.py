@@ -1,4 +1,5 @@
 import asyncio
+import threading
 from abc import abstractmethod, ABC
 
 from F import DICT
@@ -127,6 +128,32 @@ class RaiBaseAgent(ABC, RaiAi, TextProcessor):
         agent_cls = agent_classes[0]
         agent_instance = agent_cls()
         return await agent_instance.run_async(user_prompt=user_prompt, system_prompt=system_prompt, sub=sub)
+
+    @classmethod
+    def pipelines(cls, *names: str, user_prompt: str):
+        pipe_results = {}
+
+        def thread_runner(user_prompt, name):
+            agent_classes = AGENT_REGISTRY.get(name)
+            if not agent_classes:
+                pipe_results[name] = None
+                return
+            cls.name = name
+            agent_cls = agent_classes[0]
+            agent_instance = agent_cls()
+            pipe_results[name] = agent_instance.run(user_prompt=user_prompt)
+
+        # Create and start a thread for each collection
+        threads = []
+        for name in names:
+            thread = threading.Thread(target=thread_runner, args=(user_prompt, name))
+            threads.append(thread)
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        return pipe_results
+
 
     @abstractmethod
     def type(self): pass
@@ -274,13 +301,33 @@ class AgentConfigStepByStep(RaiBaseAgent):
     def type(self): return "format"
     def parse(self, result): return result.holder
 
+@register_agent("subject")
+class AgentConfigSubject(RaiBaseAgent):
+    def type(self): return "format"
+    def parse(self, result): return result.subject
 
-async def main():
-    from rai.data.utilities.text_data import schedule_text
+async def main(name, user_prompt):
+    # from rai.data.utilities.text_data import schedule_text
     results = await RaiBaseAgent.pipeline_async(
-            name="summarize",
-            user_prompt=schedule_text
+            name=name,
+            user_prompt=user_prompt
         )
+    if type(results) in [list, tuple]:
+        for item in results:
+            print(item)
+    elif type(results) in [dict]:
+        for item in results.items():
+            print(item)
+    else:
+        print(results)
+
+def mains(*names:str, user_prompt):
+    # from rai.data.utilities.text_data import schedule_text
+    results = RaiBaseAgent.pipelines(
+            *names,
+            user_prompt=user_prompt
+        )
+    print(user_prompt)
     if type(results) in [list, tuple]:
         for item in results:
             print(item)
@@ -292,6 +339,17 @@ async def main():
 
 if __name__ == "__main__":
     # from rai.data.utilities.text_data import schedule_text
-    asyncio.run(
-        main()
-    )
+    user_prompt = "How do i register for placements?"
+    mains("objective", "subject", user_prompt=user_prompt)
+    # asyncio.run(
+    #     main(
+    #         name="objective",
+    #         user_prompt=user_prompt
+    #     )
+    # )
+    # asyncio.run(
+    #     main(
+    #         name="subject",
+    #         user_prompt=user_prompt
+    #     )
+    # )

@@ -34,7 +34,7 @@ def run_import():
     config.single_run = True
     config.collection_prefix = "pcsc2025.3"
     config.base_path = None#"/Users/chazzromeo/Desktop/pcsc2025"
-    config.url = "https://www.parkcitysoccer.org"
+    config.url = "https://www.parkcityextremecup.com/"
     config.username = None
     config.password = None
     config.page_limit = 500

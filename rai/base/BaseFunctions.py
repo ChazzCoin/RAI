@@ -145,5 +145,7 @@ class BaseFunctionObjective(RaiBaseFunctions):
         "customized_examples_demos": "User Prompt Sub-Objective Involves tailoring examples or demos specifically to the user’s unique requirements."
     }
 
+
+
 if __name__ == "__main__":
     print(RaiBaseFunctions.pipeline("categorize_sports", sub=True))

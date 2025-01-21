@@ -86,7 +86,9 @@ class UrlsModel(BaseModel):
 @register_format("text")
 class TextModel(BaseModel):
     text: str
-
+@register_format("subject")
+class SubjectModel(BaseModel):
+    subject: str
 @register_format("contextual_groups")
 class TextsModel(BaseModel):
     holder: List[TextModel]

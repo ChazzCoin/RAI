@@ -200,7 +200,7 @@ async def chat_completion(idx:Optional[int]=None):
         MessageContext.make_single(system_prompt=final_system_prompt)
     elif mod_flow == "QA":
         """ 1. Generate Context Expansion on Initial User Input """
-
+        # TODO: RUN SETUP PIPELINES HERE, "objective", "subject", "context_expander"
         context_expansion = await RaiBaseAgent.pipeline_async(name="context_expander", user_prompt=MessageContext.get_last_user_message)
         context_expansion = f"{MessageContext.get_last_user_message}\n{context_expansion}"
         """ 2. Setup Async Manager """
@@ -227,6 +227,7 @@ async def chat_completion(idx:Optional[int]=None):
         for thread in threads:
             thread.join()
 
+        query_results = LIST.flatten(query_results)
         if query_results:
             ai_message = RAG_PROMPT_TEMPLATE(query_results, MessageContext.get_last_user_message)
             MessageContext.modify_last_user_message(ai_message)

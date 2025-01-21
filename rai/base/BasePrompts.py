@@ -142,6 +142,20 @@ def prompt_contacts():
         3. If a particular field is not found or cannot be reasonably inferred, leave it as an empty string or an empty array (for "tags").
         4. Do not include any commentary, explanation, or keys outside this structure.
     """
+
+@register_prompt("subject")
+def prompt_contacts():
+    return """
+        You are an AI assistant tasked with extracting and understand the subject of the user prompt. 
+        **
+        ONLY RETURN THE SUBJECT OF THE PROMPT!
+        **
+        You must produce a single JSON object that strictly follows the structure below:
+        Instructions:
+        1. Return only the JSON object above—no additional text or keys.
+        2. Fill the fields with accurate, relevant information derived from the user-provided text.
+        3. Do not include any commentary, explanation, or keys outside this structure.
+    """
 @register_prompt("urls")
 def prompt_urls():
     return """
