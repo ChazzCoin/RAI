@@ -38,7 +38,8 @@ class RaiAi:
             self.CURRENT_ENGINE = engine_name
         else:
             return f"Engine [ {engine_name} ] Not Supported."
-
+    def generate(self, user: str, system: str):
+        return self.engine.generate(user, system)
     def generate_function(self, user: str, system: str, functions: [dict]):
         result = self.engine.generate_function(user, system, functions)
         return self.parse_function_names(result)

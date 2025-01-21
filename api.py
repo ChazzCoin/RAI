@@ -17,6 +17,7 @@ from rai.RaiModels import RAI_MODs, getRaiModels, RAG_PROMPT_TEMPLATE
 from rai.assistant.ai_models import AiModels
 from rai.assistant.connectors import RaiAi
 from rai.base.BaseAgents import RaiBaseAgent
+from rai.composers.ObjectiveAgent import RaiObjectiveAgent
 from rai.internal.connectors import REDIS_DB_CLIENT_0, REDIS_DB_CLIENT_1, PostgresTables, VECTOR_DB_CLIENT
 from rai import env
 from rai.data.parsers.Pdf import FPDF
@@ -201,39 +202,37 @@ async def chat_completion(idx:Optional[int]=None):
     elif mod_flow == "QA":
         """ 1. Generate Context Expansion on Initial User Input """
         # TODO: RUN SETUP PIPELINES HERE, "objective", "subject", "context_expander"
-        context_expansion = await RaiBaseAgent.pipeline_async(name="context_expander", user_prompt=MessageContext.get_last_user_message)
-        context_expansion = f"{MessageContext.get_last_user_message}\n{context_expansion}"
-        """ 2. Setup Async Manager """
+        result: {} = RaiBaseAgent.pipelines(
+            "context_expander",
+            user_prompt=MessageContext.get_last_user_message
+        )
+        # objective: [] = DICT.get('objective', result, [])
+        # subject: str = DICT.get('subject', result, '')
+        context_expansion = f"{MessageContext.get_last_user_message}\n{DICT.get('context_expansion', result, '')}"
 
-        # Prepare a results list with one slot for each collection
+        # QUERY
         cs1 = [ "pages", "summaries", "context_groups", "events", "images", "pdfs" ]
         collections_list = [f"{mod_collection_prefix}.web.{c}" for c in cs1]
-        # cs2 = [ "pages" ]
-        # collections2 = [f"{mod_collection_prefix}.{c}" for c in cs2]
-        # collections_list = LIST.merge_lists(collections1, collections2)
-        query_results = [None] * len(collections_list)
-        def query_db(collection, index):
-            query_results[index] = VECTOR_DB_CLIENT.queryModelCollection(
-                collection,
-                user_message=context_expansion,
-                k=3
-            )
-        # Create and start a thread for each collection
-        threads = []
-        for i, collection in enumerate(collections_list):
-            thread = threading.Thread(target=query_db, args=(collection, i))
-            threads.append(thread)
-            thread.start()
-        for thread in threads:
-            thread.join()
-
-        query_results = LIST.flatten(query_results)
+        wrapped_results = VECTOR_DB_CLIENT.queryThreaded(*collections_list, user_prompt=context_expansion, k=3)
+        unwrapped_results = VECTOR_DB_CLIENT.unwrap_results(wrapped_results)
+        query_results = VECTOR_DB_CLIENT.unwrap_formatted(unwrapped_results, k=5)
         if query_results:
-            ai_message = RAG_PROMPT_TEMPLATE(query_results, MessageContext.get_last_user_message)
-            MessageContext.modify_last_user_message(ai_message)
+            MessageContext.ai_response = await RaiObjectiveAgent.pipeline_async(user_prompt=MessageContext.get_last_user_message, data=query_results)
+            # MessageContext.modify_last_user_message(ai_message)
         else:
             MessageContext.ai_response = "Sorry! No Results found, please try and provide more details and I will try again!"
             MessageContext.immediate_response_override = True
+        executor.submit(
+            MessageContext.save_to_chat_archive,
+            response=MessageContext.ai_response,
+            rai_model=current_rai_model,
+            ai_model=mod_openai_model
+        )
+
+        """ Response Override """
+        response = MessageContext.stream_response()
+        print("sending final response")
+        return Response(f"\n{json.dumps(response)}\n", content_type='text/event-stream')
 
     """ GENERATE AI CHAT RESPONSE """
     archived_ai_model = ""
