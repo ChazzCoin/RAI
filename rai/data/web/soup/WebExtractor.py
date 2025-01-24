@@ -1,30 +1,17 @@
 from typing import List
+
+from rai.data.web.soup.BaseExtractor import WebSoupExtractor
 from rai.data.web.WebModels import WebActionModel, LoginDetectionModel, InputFieldModel, ButtonModel, \
     JavascriptFunctionsModel, SeleniumLocator
 import re
-from bs4 import BeautifulSoup
 
 
-class WebSoupExtractor:
-    html = None
-    soup = None
-
-    def __init__(self, html):
-        self.html = html
-        self.soup = BeautifulSoup(self.html, 'html.parser')
-
-    @classmethod
-    def pipeline(cls, html):
-        return BeautifulSoup(html, 'html.parser')
-
-    def run(self):
-        self.soup = BeautifulSoup(self.html, 'html.parser')
-        return self.soup
 
 class WebActionExtractor(WebSoupExtractor):
 
     def __init__(self, html):
-        super().__init__(html)
+        super().__init__()
+        self.parse(html)
 
     @classmethod
     def pipeline(cls, html) -> WebActionModel:

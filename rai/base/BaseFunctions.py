@@ -67,8 +67,63 @@ What they do, how they do it...what they need...etc...
 - summarize data
 - 
 """
-@register_functions("categorize_sports")
-class BaseFunctionCategories(RaiBaseFunctions):
+@register_functions("industry")
+class BaseFunctionIndustry(RaiBaseFunctions):
+    def type(self):
+        return "no_args"
+
+    def functions(self) -> dict:
+        return {
+            "sports": "User Prompt Context Involves Sports-Related Queries",
+            "medical": "User Prompt Context Involves Medical or Health-Related Queries",
+            "law":    "User Prompt Context Involves Legal or Law-Related Queries"
+        }
+    def sub_functions(self) -> dict: return {}
+
+
+@register_functions("sports")
+class BaseFunctionSports(RaiBaseFunctions):
+    def type(self):
+        return "no_args"
+
+    def functions(self) -> dict:
+        return {
+            "soccer":   "User Prompt Context Involves Soccer",
+            "baseball": "User Prompt Context Involves Baseball",
+            "football": "User Prompt Context Involves Football"
+        }
+    def sub_functions(self) -> dict: return {}
+
+@register_functions("medical")
+class BaseFunctionMedical(RaiBaseFunctions):
+    def type(self):
+        return "no_args"
+
+    def functions(self) -> dict:
+        return {
+            "neuro":      "User Prompt Context Involves Neurology/Brain-Related Topics",
+            "cardiology": "User Prompt Context Involves Cardiology/Heart-Related Topics",
+            "optometry":  "User Prompt Context Involves Optometry/Eye-Related Topics"
+        }
+    def sub_functions(self) -> dict: return {}
+
+@register_functions("law")
+class BaseFunctionLaw(RaiBaseFunctions):
+    def type(self):
+        return "no_args"
+
+    def functions(self) -> dict:
+        return {
+            "criminal":  "User Prompt Context Involves Criminal Law",
+            "civil":     "User Prompt Context Involves Civil Law",
+            "corporate": "User Prompt Context Involves Corporate Law"
+        }
+    def sub_functions(self) -> dict: return {}
+
+
+
+@register_functions("topic_sports")
+class BaseFunctionTopicSports(RaiBaseFunctions):
     def type(self): return "no_args"
     def functions(self) -> dict: return {
         "tryout_registration": f"User Prompt Context Involves tryouts, placements, registration or how to signup and get involved in the club.",
@@ -92,6 +147,34 @@ class BaseFunctionCategories(RaiBaseFunctions):
         "games": f"User Prompt Context Calendar or general information about based team games.",
         "roster": f"User Prompt Context Players, Coaches, Parents, Managers, Staff involving a team or teams.",
         "teams": f"User Prompt Context List of teams or overview of club teams.",
+        "staff": f"User Prompt Context List or General Information about Coaches, Admins and Staff.",
+        "notifications": f"User Prompt Context Updates or Real-Time updates and information.",
+    }
+
+@register_functions("topic_medical")
+class BaseFunctionTopicMedical(RaiBaseFunctions):
+    def type(self): return "no_args"
+    def functions(self) -> dict: return {
+        "tryout_registration": f"User Prompt Context Involves tryouts, placements, registration or how to signup and get involved in the club.",
+    }
+    def sub_functions(self) -> dict: return {
+        "admin": f"User Prompt Context general information about a team involving staff, coaches, players, events.",
+        "summary": f"User Prompt Context general information about a team involving staff, coaches, players, events.",
+        "events": f"User Prompt Context Calendar based events like practices, games, festivals, meetings, parties.",
+        "staff": f"User Prompt Context List or General Information about Coaches, Admins and Staff.",
+        "notifications": f"User Prompt Context Updates or Real-Time updates and information.",
+    }
+
+@register_functions("topic_law")
+class BaseFunctionTopicLaw(RaiBaseFunctions):
+    def type(self): return "no_args"
+    def functions(self) -> dict: return {
+        "tryout_registration": f"User Prompt Context Involves tryouts, placements, registration or how to signup and get involved in the club.",
+    }
+    def sub_functions(self) -> dict: return {
+        "admin": f"User Prompt Context general information about a team involving staff, coaches, players, events.",
+        "summary": f"User Prompt Context general information about a team involving staff, coaches, players, events.",
+        "events": f"User Prompt Context Calendar based events like practices, games, festivals, meetings, parties.",
         "staff": f"User Prompt Context List or General Information about Coaches, Admins and Staff.",
         "notifications": f"User Prompt Context Updates or Real-Time updates and information.",
     }

@@ -6,6 +6,7 @@ from F import MATH, LIST, DICT
 from F.LOG import Log
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
+from rai.data.utilities.CompareUtils import DictComparator, StringComparator
 from rai.internal.registries import RaiRegistry
 
 Log = Log("TextCleaner")
@@ -135,7 +136,7 @@ class FormatProcessor:
         }
 
 @RaiRegistry.register("processor", name="text")
-class TextProcessor:
+class TextProcessor(DictComparator, StringComparator):
     unicode_replacements = {
         '\u201c': '"',  # Left double quotation mark
         '\u201d': '"',  # Right double quotation mark

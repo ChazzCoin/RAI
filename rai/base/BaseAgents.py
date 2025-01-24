@@ -245,6 +245,41 @@ class AgentConfigObjective(RaiBaseAgent):
 class AgentConfigCategorizeSports(RaiBaseAgent):
     def type(self): return "function"
     def parse(self, result): return self.parse_function_names(result)
+@register_agent("industry")
+class AgentConfigCategorizeIndustry(RaiBaseAgent):
+    def type(self): return "function"
+    def parse(self, result): return self.parse_function_names(result)
+
+@register_agent("sports")
+class AgentConfigCategorizeSports(RaiBaseAgent):
+    def type(self): return "function"
+    def parse(self, result): return self.parse_function_names(result)
+
+@register_agent("medical")
+class AgentConfigCategorizeMedical(RaiBaseAgent):
+    def type(self): return "function"
+    def parse(self, result): return self.parse_function_names(result)
+
+@register_agent("law")
+class AgentConfigCategorizeLaw(RaiBaseAgent):
+    def type(self): return "function"
+    def parse(self, result): return self.parse_function_names(result)
+
+@register_agent("topic_sports")
+class AgentConfigTopicSports(RaiBaseAgent):
+    def type(self): return "function"
+    def parse(self, result): return self.parse_function_names(result)
+
+@register_agent("topic_medical")
+class AgentConfigTopicMedical(RaiBaseAgent):
+    def type(self): return "function"
+    def parse(self, result): return self.parse_function_names(result)
+
+@register_agent("topic_law")
+class AgentConfigTopicLaw(RaiBaseAgent):
+    def type(self): return "function"
+    def parse(self, result): return self.parse_function_names(result)
+
 
 @register_agent("context_expander")
 class AgentConfigPromptExpander(RaiBaseAgent):
@@ -255,6 +290,12 @@ class AgentConfigPromptExpander(RaiBaseAgent):
 class AgentConfigMetadata(RaiBaseAgent):
     def type(self): return "format"
     def parse(self, result): return result
+
+
+@register_agent("herbal")
+class AgentConfigHerbal(RaiBaseAgent):
+    def type(self): return "format"
+    def parse(self, result): return result.holder
 
 @register_agent("urls")
 class AgentConfigUrls(RaiBaseAgent):
@@ -339,7 +380,7 @@ def mains(*names:str, user_prompt):
 
 if __name__ == "__main__":
     # from rai.data.utilities.text_data import schedule_text
-    user_prompt = "How do i register for placements?"
+    user_prompt = "Generate me a list of 100 herbs"
     mains("objective", "subject", user_prompt=user_prompt)
     # asyncio.run(
     #     main(

@@ -2,7 +2,7 @@ from abc import ABC
 
 BASE_PROMPTS = {}
 
-def register_prompt(name: str):
+def register_prompt(*names: str):
     """
     Decorator that calls the decorated function one time immediately
     (when the code is imported) and stores the returned value in BASE_PROMPTS.
@@ -11,7 +11,8 @@ def register_prompt(name: str):
         # Call the function immediately at decoration time.
         initial_value = func()
         # Store that return value in the dictionary
-        BASE_PROMPTS[name] = initial_value
+        for name in names:
+            BASE_PROMPTS[name] = initial_value
 
         def wrapper():
             return initial_value
@@ -62,17 +63,89 @@ def prompt_metadata():
         4. Do not include any commentary, explanation, or keys outside this structure.
     """
 
+CATEGORY = lambda context: f"""
+You are an intelligent AI that identifies relevant function calls from the provided function definitions ("functions") based on the user's prompt.
+{context}
+Instructions:
+- Treat each function name in the "functions" list as a Topic/Category.
+- Thoroughly analyze the user's prompt to decide which function(s) apply (there may be more than one).
+- Return the function calls (in a specific format) that match the user's needs.
+"""
+
+
+"""
+You are an intelligent AI that identifies relevant function calls from the provided function definitions ("functions") based on the user's prompt.
+Decide which overall parent industry the User Prompt is discussing or referring to.
+Instructions:
+- Treat each function name in the "functions" list as a Topic/Category.
+- Thoroughly analyze the user's prompt to decide which function(s) apply (there may be more than one).
+- Return the function calls (in a specific format) that match the user's needs.
+"""
 
 @register_prompt("categorize")
 def prompt_categorize():
+    return CATEGORY("Based on the function names, decide which seem to fit best based on the context.")
+@register_prompt("industry")
+def prompt_industry():
     return """
-        You are an intelligent AI that identifies relevant function calls from the provided function definitions ("functions") based on the user's prompt.
-        Instructions:
-        - Treat each function name in the "functions" list as a Topic/Category.
-        - Thoroughly analyze the user's prompt to decide which function(s) apply (there may be more than one).
-        - Return the function calls (in a specific format) that match the user's needs.
-    """
+You are an advanced AI specialized in topic classification. Your role is to identify which of the parent industries (e.g. "sports", "medical", "law") best captures the context of a user’s prompt. You have access to a set of function definitions ("functions"), each corresponding to a topic or category within those industries.
 
+Your task is to:
+1. Thoroughly analyze the user's prompt to determine the relevant parent industry (or industries).
+2. Treat each function name in the "functions" list as a distinct topic/category.
+3. If the user’s prompt is ambiguous or spans more than one industry, you may return multiple function calls.
+4. Provide your classification output in the **specific format** expected by the system, which indicates which function(s) you have chosen.
+
+Above all, ensure your analysis is **accurate**, **unbiased**, and **comprehensive**. 
+"""
+@register_prompt("sports")
+def prompt_sports():
+    return CATEGORY("Decide which overall parent sport the User Prompt is discussing or referring to.")
+@register_prompt("medical")
+def prompt_medical():
+    return CATEGORY("Decide which overall parent medical speciality the User Prompt is discussing or referring to.")
+@register_prompt("law")
+def prompt_law():
+    return CATEGORY("Decide which overall parent legal or law speciality the User Prompt is discussing or referring to.")
+@register_prompt("topic_sports")
+def prompt_topic_sports():
+    return CATEGORY("Decide which sub topic or category about sports, coaches, players, youth sports, youth clubs the User Prompt is discussing or referring to.")
+@register_prompt("topic_medical")
+def prompt_topic_sports():
+    return CATEGORY("Decide which sub topic or category involving doctors, medicine and the medical industry the User Prompt is discussing or referring to.")
+@register_prompt("topic_law")
+def prompt_topic_sports():
+    return CATEGORY("Decide which sub topic or category involving law or the legal industry the User Prompt is discussing or referring to.")
+
+
+@register_prompt("herbal")
+def prompt_herbal():
+    return """
+You are a master AI who specializes in herbalism and holistic medicine.
+
+**HERBAL CATEGORIES**
+Minerals & Earth-Based Healing
+Traditional & Modern Herbalism Systems
+Plants & Botanicals
+Emotional & Spiritual Wellbeing
+Purification & Nourishment
+Islamic Medicine / Healing
+Healing Practices
+Herbal Identification
+Herbal Health Benefits
+Herbal Preparations & Applications
+**
+
+**GOAL**
+Based on the HERBAL CATEGORIES list, you will generate a thorough list of herbs, superfoods, and naturopathic holistic ingredients.
+
+You must produce a single JSON object that strictly follows the structure below:
+Instructions:
+1. Return only the JSON object above—no additional text or keys.
+2. Fill the fields with accurate, relevant information derived from the user-provided text.
+3. If a particular field is not found or cannot be reasonably inferred, leave it as an empty string or an empty array (for "tags").
+4. Do not include any commentary, explanation, or keys outside this structure.
+"""
 
 @register_prompt("faq")
 def prompt_faq():

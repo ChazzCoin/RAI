@@ -1,7 +1,7 @@
 import threading
 from typing import Any, List, Optional
 
-from F import DICT, DATE
+from F import DICT, DATE, LIST
 
 from rai.base.BaseAgents import RaiBaseAgent
 from rai.base.BaseFormats import RaiContactFormat, BaseEvent, BaseLocation, UrlsModel, TextsModel
@@ -85,12 +85,12 @@ class TextAnalysisAgent:
             t.join()
 
         # Retrieve parallel results
-        contacts: List[RaiContactFormat] = results_dict["contacts"]
-        events: List[BaseEvent] = results_dict["events"]
-        locations: List[BaseLocation] = results_dict["locations"]
-        urls: List[UrlsModel] = results_dict["urls"]
-        context_groups: List[TextsModel] = results_dict["contextual_groups"]
-        summarize: List[TextsModel] = results_dict["summarize"]
+        contacts: List[RaiContactFormat] = LIST.remove_duplicates(results_dict["contacts"])
+        events: List[BaseEvent] = LIST.remove_duplicates(results_dict["events"])
+        locations: List[BaseLocation] = LIST.remove_duplicates(results_dict["locations"])
+        urls: List[UrlsModel] = LIST.remove_duplicates(results_dict["urls"])
+        context_groups: List[TextsModel] = LIST.remove_duplicates(results_dict["contextual_groups"])
+        summarize: str = results_dict["summarize"]
 
         # ------------------
         # 3. CONSTRUCT THE FINAL MODEL

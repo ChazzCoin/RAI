@@ -12,7 +12,7 @@ from pdfminer.layout import (
     LAParams, LTTextBox, LTTextLine, LTChar, LTFigure, LTImage, LTLine, LTCurve, LTRect,
 )
 from pdfminer.converter import PDFPageAggregator
-from rai.base.TextAnalysisAgent import TextAnalysisAgent
+from rai.composers.TextAnalysisAgent import TextAnalysisAgent
 from rai.data.loaders.rai_loaders.BaseLoad import RaiDocCreator, RaiLoaderDocument
 from rai.data.web.WebModels import TextLineClassification, TextLineDetail
 

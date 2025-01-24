@@ -83,6 +83,21 @@ class UrlModel(BaseModel):
 class UrlsModel(BaseModel):
     holder: List[UrlModel]
 
+@register_format("herb")
+class HerbFormat(BaseModel):
+    name: str
+    origin: Optional[str]
+    description: Optional[str]
+    medicinal_properties: Optional[str]
+    mineral_compisition: Optional[str]
+    usages: Optional[str]
+    isSpiritual: Optional[bool]
+    used_with: Optional[str]
+
+@register_format("herbal")
+class HerbFormat(BaseModel):
+    holder: List[HerbFormat]
+
 @register_format("text")
 class TextModel(BaseModel):
     text: str

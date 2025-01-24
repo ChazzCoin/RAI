@@ -13,12 +13,11 @@ from F import DICT, LIST
 from F.LOG import Log
 from F.DATE import get_timestamp_str as get_current_timestamp
 
-from rai.RaiModels import RAI_MODs, getRaiModels, RAG_PROMPT_TEMPLATE
+from rai.RaiModels import RAI_MODs, getRaiModels
 from rai.assistant.ai_models import AiModels
 from rai.assistant.connectors import RaiAi
-from rai.base.BaseAgents import RaiBaseAgent
-from rai.composers.ObjectiveAgent import RaiObjectiveAgent
-from rai.internal.connectors import REDIS_DB_CLIENT_0, REDIS_DB_CLIENT_1, PostgresTables, VECTOR_DB_CLIENT
+from rai.composers.RagAgent import RaiRagAgent
+from rai.internal.connectors import REDIS_DB_CLIENT_0, REDIS_DB_CLIENT_1, PostgresTables
 from rai import env
 from rai.data.parsers.Pdf import FPDF
 import base64
@@ -137,9 +136,6 @@ async def chat_completion(idx:Optional[int]=None):
     mod_openai_model: str = DICT.get('openai', modelIn_data, 'gpt-4o-mini')
     mod_ollama_model: str = DICT.get('ollama', modelIn_data, 'llama3:latest')
 
-    mod_primary_functions: [] = DICT.get('primary_functions', modelIn_data)
-    mod_secondary_functions: [] = DICT.get('secondary_functions', modelIn_data)
-
     """ System Prompt Overrider """
     PROMPT_CACHE = RAI_CACHE.get_key(current_rai_model)
     if str(MessageContext.get_last_user_message).lower().startswith('new prompt'):
@@ -202,26 +198,12 @@ async def chat_completion(idx:Optional[int]=None):
     elif mod_flow == "QA":
         """ 1. Generate Context Expansion on Initial User Input """
         # TODO: RUN SETUP PIPELINES HERE, "objective", "subject", "context_expander"
-        result: {} = RaiBaseAgent.pipelines(
-            "context_expander",
+        query_results = await RaiRagAgent.pipeline_async(
+            prefix=mod_collection_prefix,
             user_prompt=MessageContext.get_last_user_message
         )
-        # objective: [] = DICT.get('objective', result, [])
-        # subject: str = DICT.get('subject', result, '')
-        context_expansion = f"{MessageContext.get_last_user_message}\n{DICT.get('context_expansion', result, '')}"
-
-        # QUERY
-        cs1 = [ "pages", "summaries", "context_groups", "events", "images", "pdfs" ]
-        collections_list = [f"{mod_collection_prefix}.web.{c}" for c in cs1]
-        wrapped_results = VECTOR_DB_CLIENT.queryThreaded(*collections_list, user_prompt=context_expansion, k=3)
-        unwrapped_results = VECTOR_DB_CLIENT.unwrap_results(wrapped_results)
-        query_results = VECTOR_DB_CLIENT.unwrap_formatted(unwrapped_results, k=5)
-        if query_results:
-            MessageContext.ai_response = await RaiObjectiveAgent.pipeline_async(user_prompt=MessageContext.get_last_user_message, data=query_results)
-            # MessageContext.modify_last_user_message(ai_message)
-        else:
-            MessageContext.ai_response = "Sorry! No Results found, please try and provide more details and I will try again!"
-            MessageContext.immediate_response_override = True
+        if query_results: MessageContext.ai_response = query_results
+        else: MessageContext.ai_response = "Sorry! No Results found, please try and provide more details and I will try again!"
         executor.submit(
             MessageContext.save_to_chat_archive,
             response=MessageContext.ai_response,

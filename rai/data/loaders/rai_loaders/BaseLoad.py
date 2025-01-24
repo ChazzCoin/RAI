@@ -73,16 +73,33 @@ class RaiDocCreator(RaiBaseLoader, TextProcessor):
         context_groups: [TextsModel] = RaiBaseAgent.pipeline("contextual_groups", page.content)
         summarize: [TextsModel] = RaiBaseAgent.pipeline("summarize", page.content)
 
+    def are_docs_identical(self, doc1: RaiLoaderDocument, doc2: RaiLoaderDocument) -> bool:
+        if self.are_strings_identical(doc1.page_content, doc2.page_content):
+            if self.are_dicts_identical(doc1.metadata, doc2.metadata):
+                return True
+        return False
+
+    def has_doc(self, doc: RaiLoaderDocument) -> bool:
+        if doc in self.cache: return True
+        for document in self.cache:
+            if self.are_docs_identical(document, doc):
+                return True
+        return False
+
+    def add_doc(self, page_content, metadata):
+        doc = RaiLoaderDocument(
+            page_content=self.TEXT_CLEANER(str(page_content)),
+            metadata=ensure_string_for_chroma(metadata)
+        )
+        if self.has_doc(doc): return
+        self.cache.append(doc)
+
     def to_documents(self, page: PageExtractDetails):
         """ Web Contents Loader """
         Log.i("Creating Content Documents.")
         try:
             page.metadata['collection'] = "pages"
-            doc = RaiLoaderDocument(
-                page_content=self.TEXT_CLEANER(str(page.content)),
-                metadata=ensure_string_for_chroma(page.metadata)
-            )
-            self.cache.append(doc)
+            self.add_doc(page.content, page.metadata)
         except Exception as e:
             print(f"No Content. {e}")
         """ Table Contents Loader """
@@ -90,11 +107,7 @@ class RaiDocCreator(RaiBaseLoader, TextProcessor):
         try:
             page.metadata['collection'] = "tables"
             for tableItem in LIST.flatten(page.table_objs):
-                table_doc = RaiLoaderDocument(
-                    page_content=self.TEXT_CLEANER(str(tableItem)),
-                    metadata=ensure_string_for_chroma(page.metadata)
-                )
-                self.cache.append(table_doc)
+                self.add_doc(tableItem, page.metadata)
         except Exception as e:
             print(f"No Tables. {e}")
         """ Events Contents Loader """
@@ -102,11 +115,7 @@ class RaiDocCreator(RaiBaseLoader, TextProcessor):
         try:
             page.metadata['collection'] = "events"
             for eventItem in LIST.flatten(page.events):
-                event_doc = RaiLoaderDocument(
-                    page_content=self.TEXT_CLEANER(str(eventItem)),
-                    metadata=ensure_string_for_chroma(page.metadata)
-                )
-                self.cache.append(event_doc)
+                self.add_doc(eventItem, page.metadata)
         except Exception as e:
             print(f"No Events. {e}")
 
@@ -115,22 +124,14 @@ class RaiDocCreator(RaiBaseLoader, TextProcessor):
         try:
             page.metadata['collection'] = "pdfs"
             for pdfItem in LIST.flatten(page.pdfs_content):
-                pdf_doc = RaiLoaderDocument(
-                    page_content=str(self.TEXT_CLEANER(pdfItem)),
-                    metadata=ensure_string_for_chroma(page.metadata)
-                )
-                self.cache.append(pdf_doc)
+                self.add_doc(pdfItem, page.metadata)
         except Exception as e:
             print(f"No Pdfs. {e}")
         Log.i("Creating Image Content Documents.")
         try:
             page.metadata['collection'] = "images"
             for imageItem in LIST.flatten(page.images_content):
-                image_doc = RaiLoaderDocument(
-                    page_content=self.TEXT_CLEANER(str(imageItem)),
-                    metadata=ensure_string_for_chroma(page.metadata)
-                )
-                self.cache.append(image_doc)
+                self.add_doc(imageItem, page.metadata)
         except Exception as e:
             print(f"No Images. {e}")
 
@@ -138,11 +139,7 @@ class RaiDocCreator(RaiBaseLoader, TextProcessor):
         try:
             page.metadata['collection'] = "locations"
             for locationItem in LIST.flatten(page.locations):
-                loc_doc = RaiLoaderDocument(
-                    page_content=self.TEXT_CLEANER(str(locationItem)),
-                    metadata=ensure_string_for_chroma(page.metadata)
-                )
-                self.cache.append(loc_doc)
+                self.add_doc(locationItem, page.metadata)
         except Exception as e:
             print(f"No Locations. {e}")
 
@@ -150,22 +147,14 @@ class RaiDocCreator(RaiBaseLoader, TextProcessor):
         try:
             page.metadata['collection'] = "contacts"
             for contactItem in LIST.flatten(page.locations):
-                contact_doc = RaiLoaderDocument(
-                    page_content=self.TEXT_CLEANER(str(contactItem)),
-                    metadata=ensure_string_for_chroma(page.metadata)
-                )
-                self.cache.append(contact_doc)
+                self.add_doc(contactItem, page.metadata)
         except Exception as e:
             print(f"No Contacts. {e}")
 
         Log.i("Creating Summary Document.")
         try:
             page.metadata['collection'] = "summaries"
-            summary_doc = RaiLoaderDocument(
-                page_content=self.TEXT_CLEANER(str(page.summary)),
-                metadata=ensure_string_for_chroma(page.metadata)
-            )
-            self.cache.append(summary_doc)
+            self.add_doc(page.summary, page.metadata)
         except Exception as e:
             print(f"No Summary. {e}")
 
@@ -173,24 +162,15 @@ class RaiDocCreator(RaiBaseLoader, TextProcessor):
         try:
             page.metadata['collection'] = "context_groups"
             for contextGroupItem in LIST.flatten(page.context_groups):
-                contextGroup_doc = RaiLoaderDocument(
-                    page_content=self.TEXT_CLEANER(str(contextGroupItem.text)),
-                    metadata=ensure_string_for_chroma(page.metadata)
-                )
-                self.cache.append(contextGroup_doc)
+                self.add_doc(contextGroupItem, page.metadata)
         except Exception as e:
             print(f"No Context Groups. {e}")
-
 
         Log.i("Creating Line Documents.")
         try:
             page.metadata['collection'] = "lines"
-            for contextGroupItem in LIST.flatten(page.lines):
-                contextGroup_doc = RaiLoaderDocument(
-                    page_content=self.TEXT_CLEANER(str(contextGroupItem.text)),
-                    metadata=ensure_string_for_chroma(page.metadata)
-                )
-                self.cache.append(contextGroup_doc)
+            for lineItems in LIST.flatten(page.lines):
+                self.add_doc(lineItems, page.metadata)
         except Exception as e:
             print(f"No Lines. {e}")
 

@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from rai.assistant.connectors import RaiAi
 from rai.data import RaiPath
-from rai.data.loaders.rai_loaders.WebLoader import RaiWebLoader
+from rai.data.loaders.rai_loaders.WebLoader import RaiWebCrawler
 from rai.internal.connectors import VECTOR_DB_CLIENT
 from rai.assistant.openai_client import generate_embeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -62,7 +62,7 @@ class RaiDataImporter:
         newCls = cls()
         newCls.setup(config)
         if config.url:
-            crawler = RaiWebLoader.pipeline(config.url, config.page_limit, username=config.username, password=config.password)
+            crawler = RaiWebCrawler.pipeline(config.url, config.page_limit, username=config.username, password=config.password)
             newCls.__run_pipeline(loader=crawler)
         if config.base_path:
             newCls.import_directory(config.base_path)
@@ -195,7 +195,7 @@ class RaiDataImporter:
             # Get the collection from doc.metadata, defaulting to 'general'
             collection = doc.metadata.get('collection', 'general')
             # Build the collection key using the configured prefix and collection name
-            c = f"{self.config.collection_prefix}.web.{collection}"
+            c = f"{self.config.collection_prefix}.{collection}"
             # Retrieve the current list of items for this collection, or initialize an empty list if none
             temp_items = items.get(c, [])
             temp_items.append(temp)

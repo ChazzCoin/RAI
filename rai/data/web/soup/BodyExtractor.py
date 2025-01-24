@@ -1,10 +1,11 @@
-from rai.data.web.WebExtractor import WebSoupExtractor
+from rai.data.web.soup.WebExtractor import WebSoupExtractor
 from rai.data.web.WebModels import ContentGroup, WebBodyModel
 
 class WebBodyExtractor(WebSoupExtractor):
 
     def __init__(self, html):
-        super().__init__(html)
+        super().__init__()
+        self.parse(html)
 
     @classmethod
     def pipeline(cls, html) -> WebBodyModel:
@@ -22,6 +23,7 @@ class WebBodyExtractor(WebSoupExtractor):
                 paragraph_texts.append(text)
         combined_text = "\n\n".join(paragraph_texts)
         return combined_text
+
 
     def extract_content(self):
         content = ''
