@@ -259,9 +259,26 @@ class RaiWebPageScrape(WebBaseExtract, RaiDocCreator):
                 password=self.login_details.password,
             )
 
+            def click_next_page(click_times: int):
+                # Check for the Next Page button
+                next_button_selector = "nav a.pagination-link.pagination-next"
+                try:
+                    for i in range(click_times):
+                        next_button = tableDriver.driver.find_element(By.CSS_SELECTOR, next_button_selector)
+                        disabled_attr = next_button.get_attribute("disabled")
+                        if str(disabled_attr) == "disabled" or str(disabled_attr) == "true":
+                            continue
+                        tableDriver.driver.execute_script("arguments[0].scrollIntoView(true);", next_button)
+                        next_button.click()
+                        time.sleep(1)
+                        continue
+                    return True
+                except:
+                    return False
+
+            """ Loop Through Each Page of the Table """
             while True:
-                if page_count >= max_pages:
-                    break
+                if page_count >= max_pages: break
 
                 attempts = [
                     f"{table_selector} tr.clickable",
@@ -295,12 +312,29 @@ class RaiWebPageScrape(WebBaseExtract, RaiDocCreator):
 
                         row_dict = table_data[index]
                         row_element = clickable_rows[index]
+                        row_urls = []
+                        try:
+                            tableDriver.driver.execute_script(
+                                "arguments[0].dispatchEvent(new MouseEvent('click', { bubbles: true }));",
+                                row_element
+                            )
+                            temp_url = tableDriver.driver.current_url
+                            if str(temp_url) != str(self.driver.current_url):
+                                row_dict["Url"] = temp_url
+                                row_urls.append(temp_url)
+                                tableDriver.driver.back()
+                                tableDriver.wait().until(
+                                    EC.presence_of_all_elements_located(
+                                        (By.CSS_SELECTOR, selector)
+                                    ))
+                                clickable_rows = tableDriver.driver.find_elements(By.CSS_SELECTOR, selector)
+                                row_element = clickable_rows[index]
+                        except Exception as e:
+                            print(e)
+
 
                         # Attempt to extract links inside the row
                         row_links = row_element.find_elements(By.TAG_NAME, "a")
-                        row_urls = []
-                        row_modals = []
-                        has_modals = False
                         if row_links:
                             keep_max = len(row_links)
                             keep_index = -1
@@ -319,22 +353,6 @@ class RaiWebPageScrape(WebBaseExtract, RaiDocCreator):
                                     temp_url = tableDriver.driver.current_url
                                     if str(temp_url) == str(self.driver.current_url):
                                         try:
-
-                                            # modal_elements = tableDriver.driver.find_elements(By.TAG_NAME, 'div')
-                                            # found_modal = None
-                                            # stop_search = False
-                                            # while not stop_search:
-                                            #     for div in modal_elements:
-                                            #         if stop_search: break
-                                            #         str_div = str(div.get_attribute("class"))
-                                            #         str_tag = str(div.get_attribute("tag_name"))
-                                            #         if Re.contains("modal", str_div):
-                                            #             if Re.contains_any(["body", "full-screen"], str_div):
-                                            #                 found_modal = div
-                                            #                 stop_search = True
-                                            #                 break
-                                            #         continue
-
                                             modal_selector = "div.modal, div.full-screen-modal, div.responses-modal-body, div.modal-card-body"
                                             tableDriver.wait().until(
                                                 EC.presence_of_element_located((By.CSS_SELECTOR, modal_selector))
@@ -345,62 +363,37 @@ class RaiWebPageScrape(WebBaseExtract, RaiDocCreator):
                                             modal_content = modal_element.text
                                             row_dict["ModalContent"] = modal_content
                                             tableDriver.driver.refresh()
-
+                                            tableDriver.wait().until(
+                                                EC.presence_of_all_elements_located(
+                                                    (By.CSS_SELECTOR, selector)
+                                                ))
+                                            if page_count > 0:
+                                                click_next_page(page_count)
                                         except Exception as e:
                                             print(e)
                                             continue
                                     else:
+                                        row_urls.append(temp_url)
                                         tableDriver.driver.back()
-
-                                    tableDriver.wait().until(
-                                        EC.presence_of_all_elements_located(
-                                            (By.CSS_SELECTOR, selector)
-                                        ))
+                                        tableDriver.wait().until(
+                                            EC.presence_of_all_elements_located(
+                                                (By.CSS_SELECTOR, selector)
+                                            ))
                                     clickable_rows = tableDriver.driver.find_elements(By.CSS_SELECTOR, selector)
                                     row_element = clickable_rows[index]
                                     row_links = row_element.find_elements(By.TAG_NAME, "a")
                                 except Exception as e:
                                     print(e)
                             row_dict["Urls"] = row_urls
-                        else:
-                            # If no direct link, click the row to determine the URL change
-                            new_url = tableDriver.driver.current_url
-                            try:
-                                tableDriver.driver.execute_script("arguments[0].click();", row_element)
-                                time.sleep(2)  # Wait for potential UI change
-                                new_url = tableDriver.driver.current_url
-                                if new_url != tableDriver.driver.current_url:
-                                    row_dict["Url"] = new_url
-                                    tableDriver.driver.back()
-                                    tableDriver.wait().until(
-                                        EC.presence_of_all_elements_located(
-                                            (By.CSS_SELECTOR, f"{table_selector} tr.clickable"))
-                                    )
-                            except Exception as e:
-                                print(f"Row click failed: {e}")
-                                pass
                         all_rows_with_urls.append(row_dict)
-
                     except Exception as e:
                         print(f"Overall handling error: {e}")
                         all_rows_with_urls.append(row_dict)
                         continue
-
-                # Check for the Next Page button
-                next_button_selector = "nav a.pagination-link.pagination-next"
-                try:
-                    next_button = tableDriver.driver.find_element(By.CSS_SELECTOR, next_button_selector)
-                    disabled_attr = next_button.get_attribute("disabled")
-                    if str(disabled_attr) == "disabled" or str(disabled_attr) == "true":
-                        continue
-                    tableDriver.driver.execute_script("arguments[0].scrollIntoView(true);", next_button)
-                    next_button.click()
-                    time.sleep(1)
-                    # tableDriver.action().move_to_element(next_button).click().perform()
-                except:
-                    break
+                page_count = page_count + 1
+                if not click_next_page(1): break
                 time.sleep(2)
-                page_count += 1
+
 
         except Exception as e:
             print(f"Error: {e}")
@@ -409,149 +402,50 @@ class RaiWebPageScrape(WebBaseExtract, RaiDocCreator):
 
         return all_rows_with_urls
 
-    def extract_row_data2(self, table_selector: str = "table") -> [{}]:
-        # if not self.safe_find_element(By.CSS_SELECTOR, f"{table_selector} tr.clickable"):
-        #     return []
-        tableDriver = self.new()
-        tableDriver.add_cookies(self.get_cookies())
-        all_rows_with_urls = []  # Final list to return
-        max_pages = 20  # Safety limit to avoid infinite loops
-        page_count = 0
+    def normalize_class(self, class_name):
+        return class_name.replace('-', '').replace('_', '').lower()
+    def find_elements_flexibly(self, tag=None, class_variations=None, text_variations=None):
+        """
+        Find elements by flexible matching of tag, class names, and text.
 
-        try:
-            # 1) Load the page
-            tableDriver.open(
-                url=self.driver.current_url,
-                username=self.login_details.username,
-                password=self.login_details.password,
-            )
+        :param driver: Selenium WebDriver instance
+        :param tag: Tag name of the element (e.g., 'div', 'button')
+        :param class_variations: List of class name variations to match
+        :param text_variations: List of text variations to match
+        :return: List of WebElements matching the criteria
+        """
+        xpath_parts = []
 
-            while True:
-                if page_count >= max_pages:
-                    break
+        # Handle tag
+        tag_selector = tag if tag else '*'
 
-                attempts = [
-                    f"{table_selector} tr.clickable",
-                    f"{table_selector} tr"
-                ]
-                selector = f"{table_selector} tr.clickable"
-                for attempt in attempts:
-                    try:
-                        clickable_rows = tableDriver.driver.find_elements(By.CSS_SELECTOR, attempt)
-                        if clickable_rows:
-                            selector = attempt
-                            break
-                    except Exception as e:
-                        continue
+        # Handle class variations
+        if class_variations:
+            class_conditions = []
+            for cls in class_variations:
+                normalized_cls = self.normalize_class(cls)
+                class_conditions.append(f"contains(translate(@class, '-_', ''), '{normalized_cls}')")
+            class_xpath = "(" + " or ".join(class_conditions) + ")"
+            xpath_parts.append(class_xpath)
 
-                tableDriver.wait().until(
-                    EC.presence_of_all_elements_located((By.CSS_SELECTOR, selector))
-                )
+        # Handle text variations
+        if text_variations:
+            text_conditions = []
+            for txt in text_variations:
+                normalized_txt = txt.lower()
+                condition = f"contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{normalized_txt}')"
+                text_conditions.append(condition)
+            text_xpath = "(" + " or ".join(text_conditions) + ")"
+            xpath_parts.append(text_xpath)
 
-                table_data = tableDriver.extract_all_tables()  # returns a list of row dicts
-                clickable_rows = tableDriver.driver.find_elements(By.CSS_SELECTOR, selector)
-                row_count = min(len(clickable_rows), len(table_data))
+        # Combine all conditions
+        if xpath_parts:
+            xpath = f"//{tag_selector}[{' or '.join(xpath_parts)}]"
+        else:
+            xpath = f"//{tag_selector}"
 
-                for index in range(row_count):
+        return self.driver.find_elements(By.XPATH, xpath)
 
-                    try:
-                        clickable_rows = tableDriver.driver.find_elements(By.CSS_SELECTOR, selector)
-                        if index >= len(clickable_rows): break
-
-                        row_dict = table_data[index]
-                        row_element = clickable_rows[index]
-                        """
-                        TODO: 
-                        
-                        **SETUP**
-                            1. Each row could be 'clickable' itself. 
-                            2. Each row could have attributes that are <a> links to an entirely different url/page, it will just hide the url.
-                            3. Each row could have attributes that are <a> links to a popup 'modal' of somekind. 
-                        **GOAL**
-                            1. Handle the row click, drive/get the url, add it to the row_dict, drive back, continue on. The point is to get the final url for later deeper extraction.
-                            2. Handle each individual row attribute click, either go to the page, get the url, come back, continue.
-                                OR
-                                Open the modal, grab the content, close modal, add content to row_dict, continue.
-                            3. Handle edge cases. Row headers, etc.
-                        """
-
-
-
-                        new_url = tableDriver.driver.current_url
-
-                        try:
-                            tableDriver.driver.execute_script("arguments[0].click();", row_element)
-                            time.sleep(2)  # Wait for potential UI change
-                            new_url = tableDriver.driver.current_url
-                        except Exception as e:
-                            print(e)
-                            pass
-
-                        if clickable_mode == "row":
-                            row_dict["Url"] = new_url
-                            tableDriver.driver.back()
-                            tableDriver.wait().until(
-                                EC.presence_of_all_elements_located((By.CSS_SELECTOR, f"{table_selector} tr.clickable"))
-                            )
-                        elif clickable_mode == "link":
-                            pass
-                        elif clickable_mode == "view":
-                            # Handle modal popup
-                            try:
-                                modal_selector = "div.modal, div.full-screen-modal, div.responses-modal-body"  # Adjust selector for both modal types
-                                tableDriver.wait().until(
-                                    EC.presence_of_element_located((By.CSS_SELECTOR, modal_selector))
-                                )
-
-                                modal_element = tableDriver.driver.find_element(By.CSS_SELECTOR, modal_selector)
-                                modal_content = modal_element.text
-                                row_dict["ModalContent"] = modal_content
-
-                                close_button_selectors = ["div.modal button.close",
-                                                          "div.full-screen-modal button.close",
-                                                          "div.full-screen-modal button.button.is-text.close-button",
-                                                          "div.full-screen-modal button button.is-text.close-button",
-                                                          "button button.is-text.close-button",
-                                                          "button button.is-ghost"
-                                                          ]
-                                close_button = None
-                                for selector in close_button_selectors:
-                                    try:
-                                        close_button = tableDriver.driver.find_element(By.CSS_SELECTOR, selector)
-                                        break
-                                    except:
-                                        continue
-                                if close_button:
-                                    close_button.click()
-                            except Exception as modal_error:
-                                print(f"Modal handling error: {modal_error}")
-                                all_rows_with_urls.append(row_dict)
-                                continue
-                    except Exception as e:
-                        print(f"Overall handling error: {e}")
-                        all_rows_with_urls.append(row_dict)
-                        continue
-                    all_rows_with_urls.append(row_dict)
-
-                # Check for Next page button
-                next_button_selector = "nav a.pagination-link.pagination-next"
-                try:
-                    next_button = tableDriver.driver.find_element(By.CSS_SELECTOR, next_button_selector)
-                    disabled_attr = next_button.get_attribute("disabled")
-                    if str(disabled_attr) == "disabled" or str(disabled_attr) == "true":
-                        break
-                    tableDriver.driver.execute_script("arguments[0].scrollIntoView(true);", next_button)
-                    time.sleep(1)
-                    tableDriver.action().move_to_element(next_button).click().perform()
-                except:
-                    break
-                time.sleep(2)
-
-        except Exception as e:
-            print(f"Error: {e}")
-        finally:
-            tableDriver.quit()
-        return all_rows_with_urls
     def extract_clickable_row_data(self, table_selector: str = "table") -> [{}]:
 
         if not self.safe_find_element(By.CSS_SELECTOR, f"{table_selector} tr.clickable"):
@@ -636,4 +530,4 @@ class RaiWebPageScrape(WebBaseExtract, RaiDocCreator):
 if __name__ == '__main__':
     email = "jperson@parkcitysoccer.org"
     password = "Philly23!"
-    RaiWebPageScrape().scrape_light(url="https://playmetrics.com/director/programs/49521", username=email, password=password)
+    RaiWebPageScrape().scrape_light(url="https://playmetrics.com/teams/194123/roster", username=email, password=password)
