@@ -104,6 +104,14 @@ class TextLineDetail(BaseModel):
     text: str
     classification: TextLineClassification
 
+class SiteExtractDetails(BaseModel):
+    title: Optional[str] = None
+    base_url: Optional[str] = None
+    page_count: Optional[str] = None
+    tables: List[Dict[str, Any]] = Field(default_factory=list)
+    metadata: Optional[Dict[str, Any]] = None
+    urls: List[str] = Field(default_factory=list)
+
 class PageExtractDetails(BaseModel):
 
     title: Optional[str] = None

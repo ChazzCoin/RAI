@@ -153,6 +153,21 @@ class WebBaseActions(WebBaseDriver):
             print("Error: One or more login elements were not found or are invalid.")
             Log.e("FAILED to Log In!")
     """ HELPERS """
+
+    def click_next_table_page(self, click_times: int=1, selector="nav a.pagination-link.pagination-next"):
+        try:
+            for i in range(click_times):
+                next_button = self.driver.find_element(By.CSS_SELECTOR, selector)
+                disabled_attr = next_button.get_attribute("disabled")
+                if str(disabled_attr) == "disabled" or str(disabled_attr) == "true":
+                    return False
+                self.driver.execute_script("arguments[0].scrollIntoView(true);", next_button)
+                next_button.click()
+                time.sleep(1)
+                continue
+            return True
+        except:
+            return False
     def handle_popups(self):
         try:
             # Example: Dismiss cookie consent popup if present

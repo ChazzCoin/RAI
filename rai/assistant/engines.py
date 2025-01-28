@@ -3,15 +3,18 @@ from abc import ABC, abstractmethod, abstractproperty
 from typing import Optional, Dict, Type, Any
 import ollama
 from ollama import ChatResponse, EmbedResponse
-from openai import OpenAI, AsyncOpenAI
+from openai import OpenAI, AsyncOpenAI, Audio
 from pydantic import BaseModel
-
+import openai
 from rai import app
 from rai.agents.Tools import find_RaiFunction
 from rai.assistant.ai_models import AiModels
 
-open_ai_key = os.getenv("OPENAI_API_KEY")
+import math
+import tempfile
+from pydub import AudioSegment
 
+open_ai_key = os.getenv("OPENAI_API_KEY")
 class FusedAI(ABC):
     engines: Dict[str, Type['FusedAI']] = {}
     DEFAULT_MODEL: str = AiModels.DEFAULT_OLLAMA
@@ -386,6 +389,108 @@ class OllamaEngine(FusedAI, engine="ollama"):
             return None
 
 
+def transcribe_audio(audio_path):
+    """
+    Transcribes an audio file using OpenAI's Whisper API.
+    """
+    O = OpenAI(api_key=open_ai_key, timeout=20, max_retries=3)
+    with open(audio_path, "rb") as audio_file:
+        response = O.audio.transcriptions.with_raw_response.create(
+            file=audio_file,
+            model="whisper-1",
+            response_format="text"  # Other options: "json", "srt", "verbose_json"
+        )
+    return response.content
 
 
 
+def transcribe_audio_to_file(audio_path, output_path="transcript.txt", chunk_length_ms=5*60*1000):
+    """
+    Transcribes an audio file by splitting it into smaller chunks, transcribing each chunk using OpenAI's Whisper API,
+    and combining the results into a single text file.
+
+    Parameters:
+    - audio_path (str): Path to the input audio file.
+    - output_path (str): Path to save the final transcript. Defaults to "transcript.txt".
+    - chunk_length_ms (int): Length of each chunk in milliseconds. Defaults to 5 minutes.
+    """
+    # Ensure the OpenAI API key is set
+    O = OpenAI(api_key=open_ai_key, timeout=20, max_retries=3)
+    # Load the audio file
+    audio = AudioSegment.from_file(audio_path)
+    total_length_ms = len(audio)
+    print(f"Total audio length: {total_length_ms / 1000:.2f} seconds.")
+
+    # Calculate the number of chunks needed
+    num_chunks = math.ceil(total_length_ms / chunk_length_ms)
+    print(f"Splitting audio into {num_chunks} chunks of up to {chunk_length_ms / 1000 / 60:.2f} minutes each.")
+
+    transcripts = []
+
+    for i in range(num_chunks):
+        start_ms = i * chunk_length_ms
+        end_ms = min((i + 1) * chunk_length_ms, total_length_ms)
+        chunk = audio[start_ms:end_ms]
+
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as temp_audio_file:
+            chunk.export(temp_audio_file.name, format="mp3")
+            temp_audio_path = temp_audio_file.name
+
+        print(f"Processing chunk {i+1}/{num_chunks}: {start_ms/1000:.2f}s to {end_ms/1000:.2f}s")
+
+        try:
+            with open(temp_audio_path, "rb") as audio_file:
+                response =  O.audio.transcriptions.with_raw_response.create(
+                    file=audio_file,
+                    model="whisper-1",
+                    response_format="text"  # Other options: "json", "srt", "verbose_json"
+                )
+                transcript = response.content
+                if isinstance(transcript, bytes):
+                    transcript = transcript.decode('utf-8')
+                elif not isinstance(transcript, str):
+                    # If transcript is neither bytes nor str, convert it to str
+                    transcript = str(transcript)
+                transcripts.append(transcript)
+        except Exception as e:
+            print(f"Error transcribing chunk {i+1}: {e}")
+            transcripts.append(f"[Error transcribing chunk {i+1}]")
+        finally:
+            # Clean up the temporary file
+            os.remove(temp_audio_path)
+
+    # Combine all transcripts into a single text
+    full_transcript = "\n".join(transcripts)
+
+    # Save the combined transcript to the output file
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(full_transcript)
+
+    print(f"Transcription completed. Full transcript saved to {output_path}")
+
+    return full_transcript
+
+def transcribe_audio_to_file1(audio_path, output_path="transcript.txt"):
+    """
+    Transcribes an audio file using OpenAI's Whisper API and saves the response to a .txt file.
+    """
+    O = OpenAI(api_key=open_ai_key, timeout=20, max_retries=3)
+
+    with open(audio_path, "rb") as audio_file:
+        response = O.audio.transcriptions.with_raw_response.create(
+            file=audio_file,
+            model="whisper-1",
+            response_format="text"  # Other options: "json", "srt", "verbose_json"
+        )
+
+    # Save the transcription to a text file
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(response.content)
+
+    print(f"Transcription saved to {output_path}")
+
+    return response.content  # Optionally return the conten
+
+
+if __name__ == '__main__':
+    print(transcribe_audio_to_file("/Users/chazzromeo/Downloads/section_2.mp4", "/Users/chazzromeo/Documents/section_2.txt"))

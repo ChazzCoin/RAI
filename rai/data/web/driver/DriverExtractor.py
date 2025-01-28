@@ -109,7 +109,6 @@ class WebBaseExtract(WebBaseActions, WebSoupExtractor):
             return ""
 
     """ PDFS """
-
     def extract_pdf_urls(self) -> List[str]:
         """
         Extracts PDF URLs from the current page by searching for <a> elements with href attributes ending in .pdf.
@@ -125,7 +124,6 @@ class WebBaseExtract(WebBaseActions, WebSoupExtractor):
             if href and re.search(r'\.pdf(\?.*)?$', href, re.IGNORECASE):
                 pdf_urls.add(href)
         return list(pdf_urls)
-
     def extract_text_from_pdf_urls(self, pdf_urls: List[str]) -> List[str]:
         pdf_texts = []
         for pdf in pdf_urls:
@@ -134,7 +132,6 @@ class WebBaseExtract(WebBaseActions, WebSoupExtractor):
                 print(temp)
                 pdf_texts.append(temp)
         return pdf_texts
-
     @staticmethod
     def extract_text_from_pdf(pdf_url: str) -> str:
         """
@@ -149,7 +146,19 @@ class WebBaseExtract(WebBaseActions, WebSoupExtractor):
             Log.e("PDF Processing Error", e)
             return ""
     """ yes TABLES """
-    def extract_all_tables(self, table_elem=None):
+    def extract_all_tables(self):
+        full_table = []
+        try:
+            while True:
+                tempTable = self.extract_page_table()
+                if not tempTable: break
+                full_table.append(tempTable)
+                if not self.click_next_table_page(): break
+                continue
+        except Exception as e:
+            print(e)
+        return LIST.flatten(full_table)
+    def extract_page_table(self, table_elem=None):
         # 1. Find all tables in the DOM
         table_elements = table_elem if table_elem else self.driver.find_elements(By.TAG_NAME, "table")
 
@@ -201,11 +210,11 @@ class WebBaseExtract(WebBaseActions, WebSoupExtractor):
 
                 # Exclude empty row checks if needed (some pages might have blank rows)
                 if any(value for value in row_dict.values()):
+                    row_dict["parent"] = self.page_title or ""
                     table_data.append(row_dict)
 
             all_parsed_tables.append(table_data)
         return LIST.flatten(all_parsed_tables)
-
     """ TBD """
     def extract_metadata(self) -> [{}]:
         metas = self.driver.find_elements(By.TAG_NAME, 'meta')
@@ -226,140 +235,219 @@ class WebBaseExtract(WebBaseActions, WebSoupExtractor):
         return meta_tags
 
     """ INDUSTRY CUSTOM """
-    def extract_events(self):
-        return LIST.flatten(LIST.merge_lists(self._extract_calendar_events(), self._extract_table_events()))
-    def _extract_calendar_events(self):
-        # Locate all calendar event containers by their combined class name
-        # Adjust as needed if the class name changes or is dynamic
-        event_containers = self.driver.find_elements(
-            By.CSS_SELECTOR, "div.calendar-event-box.clickable.show-desktop-view"
-        )
+    def extract_calendar_events(self):
+        """
+        Extracts all calendar events from the page, grouping them by
+        Month/Year header (e.g. "January 2025") when possible, but still
+        attempting to parse events dynamically (even if the header fails).
 
+        Additionally, for each event container, we do a 'dynamic' pass:
+        we inspect child elements, gather their classes, and store text
+        in `event_info["dynamic_fields"]` under those class-based keys.
+        """
         events_data = []
-        for container in event_containers:
+
+        # Grab all top-level "calendar-list" sections
+        date_sections = self.driver.find_elements(By.CSS_SELECTOR, "div.calendar-list")
+
+        # If we find no sections, we could still try to parse all .calendar-event-box from entire page
+        if not date_sections:
+            events_data.extend(self._parse_events_fallback())
+            return events_data
+
+        for section in date_sections:
+            # Try to find date headers (e.g. "January 2025", etc.)
+            date_headers = section.find_elements(By.CSS_SELECTOR, "div.date-header")
+
+            # If no headers are found, just parse all event boxes in this "calendar-list" as fallback
+            if not date_headers:
+                # Fallback: parse all clickable event boxes in `section` directly
+                event_boxes = section.find_elements(By.CSS_SELECTOR, "div.calendar-event-box.clickable")
+                events_data.extend(
+                    self._parse_events_without_header(event_boxes)
+                )
+                continue
+
+            # Otherwise, handle normal header-based logic
+            for i, header_el in enumerate(date_headers):
+                month_year_text = header_el.text.strip()  # e.g. "January 2025"
+                event_boxes_in_this_header = []
+
+                # Gather siblings until we reach the next date-header
+                all_siblings = header_el.find_elements(By.XPATH, "./following-sibling::div")
+                for sibling in all_siblings:
+                    # If we find another date-header, that means stop
+                    try:
+                        sibling.find_element(By.CSS_SELECTOR, "div.date-header")
+                        break
+                    except NoSuchElementException:
+                        pass
+
+                    # Otherwise, gather event boxes
+                    try:
+                        boxes = sibling.find_elements(By.CSS_SELECTOR, "div.calendar-event-box.clickable")
+                        event_boxes_in_this_header.extend(boxes)
+                    except NoSuchElementException:
+                        continue
+
+                # Parse each event box found under this month/year
+                for container in event_boxes_in_this_header:
+                    event_info = {}
+
+                    # Store the extracted month_year from the header
+                    event_info["month_year"] = month_year_text
+
+                    # -------------------------
+                    # 1. WEEKDAY / DAY NUMBER
+                    # -------------------------
+                    try:
+                        date_container = container.find_element(By.CSS_SELECTOR, "div.date-container")
+                        weekday_el = date_container.find_element(By.CSS_SELECTOR, ".date-weekday")
+                        day_number_el = date_container.find_element(By.CSS_SELECTOR, ".date-number")
+                        event_info["weekday"] = weekday_el.text.strip()
+                        event_info["day_number"] = day_number_el.text.strip()
+                    except NoSuchElementException:
+                        event_info["weekday"] = None
+                        event_info["day_number"] = None
+
+                    # 2. EVENT NAME
+                    try:
+                        name_el = container.find_element(By.CSS_SELECTOR, "a.event-name")
+                        event_info["event_name"] = name_el.text.strip()
+                    except NoSuchElementException:
+                        event_info["event_name"] = None
+
+                    # ---------------------------------------------
+                    # 3. TIMES (start_time, end_time, arrival_time)
+                    # ---------------------------------------------
+                    event_info["start_time"] = None
+                    event_info["end_time"] = None
+                    event_info["arrival_time"] = None
+                    try:
+                        times_el = container.find_element(By.CSS_SELECTOR, "div.times")
+                        times_text = times_el.text.strip()
+                        if "Arrive by" in times_text:
+                            main_part, arrive_part = times_text.split("Arrive by", maxsplit=1)
+                            event_info["arrival_time"] = arrive_part.replace(")", "").strip()
+                            # strip parentheses from main_part as well
+                            times_text = main_part.strip().replace("(", "").replace(")", "").strip()
+
+                        if "–" in times_text:
+                            start_time, end_time = times_text.split("–", maxsplit=1)
+                            event_info["start_time"] = start_time.strip()
+                            event_info["end_time"] = end_time.strip()
+                        else:
+                            event_info["start_time"] = times_text.strip()
+                    except NoSuchElementException:
+                        pass
+
+                    # 4. ATTENDANCE COUNT
+                    try:
+                        attendance_el = container.find_element(By.CSS_SELECTOR, "div.attendance-count")
+                        count_btn = attendance_el.find_element(By.TAG_NAME, "button")
+                        spans = count_btn.find_elements(By.TAG_NAME, "span")
+                        if len(spans) > 1:
+                            event_info["attendance_count"] = spans[1].text.strip()
+                        else:
+                            event_info["attendance_count"] = None
+                    except NoSuchElementException:
+                        event_info["attendance_count"] = None
+
+                    # 5. LOCATION
+                    try:
+                        location_link = container.find_element(By.CSS_SELECTOR, "a.address-link")
+                        address_span = location_link.find_element(By.CSS_SELECTOR, ".address-detail")
+                        event_info["location"] = address_span.text.strip()
+                    except NoSuchElementException:
+                        event_info["location"] = None
+
+                    # 6. DESCRIPTION
+                    try:
+                        desc_el = container.find_element(By.CSS_SELECTOR, "div.info.description")
+                        event_info["description"] = desc_el.text.strip()
+                    except NoSuchElementException:
+                        event_info["description"] = None
+
+                    # 7. UNIFORM / EXTRA INFO
+                    try:
+                        uniform_el = container.find_element(By.CSS_SELECTOR, "div.is-flex span.info.uniform")
+                        event_info["uniform_instructions"] = uniform_el.text.strip()
+                    except NoSuchElementException:
+                        event_info["uniform_instructions"] = None
+
+                    # -------------------------
+                    # 8. OPTIONAL: DYNAMIC FIELDS
+                    # -------------------------
+                    # We'll gather anything else we can from child elements,
+                    # storing them in event_info["dynamic_fields"].
+                    dynamic_dict = {}
+                    all_descendants = container.find_elements(By.XPATH, ".//*")
+                    for elem in all_descendants:
+                        class_attr = elem.get_attribute("class") or ""
+                        text_val = elem.text.strip()
+                        if not text_val:
+                            continue  # skip if empty
+
+                        classes = class_attr.split()
+                        for c in classes:
+                            # Example: "date-weekday" => "date_weekday"
+                            normalized_key = c.replace("-", "_")
+                            # store in dynamic_dict
+                            # if we want first occurrence only:
+                            if normalized_key not in dynamic_dict:
+                                dynamic_dict[normalized_key] = text_val
+
+                    event_info["dynamic_fields"] = dynamic_dict
+                    # Example "parent" if you want to store page title or other metadata:
+                    event_info["parent"] = self.page_title
+                    # Done - add to results
+                    events_data.append(event_info)
+        return events_data
+
+    def _parse_events_without_header(self, event_boxes):
+        """
+        Fallback function if no headers exist: parse known fields
+        dynamically from each box, no 'month_year' assigned.
+        """
+        events = []
+        for container in event_boxes:
             event_info = {}
 
-            # 1. Date Container
-            try:
-                date_container = container.find_element(By.CSS_SELECTOR, "div.date-container")
-                weekday_el = date_container.find_element(By.CSS_SELECTOR, ".date-weekday")
-                day_number_el = date_container.find_element(By.CSS_SELECTOR, ".date-number")
+            # We'll skip 'month_year' because we don't have a date-header
+            event_info["month_year"] = None
 
-                event_info["weekday"] = weekday_el.text.strip()
-                event_info["day_number"] = day_number_el.text.strip()
-            except NoSuchElementException:
-                event_info["weekday"] = None
-                event_info["day_number"] = None
-
-            # 2. Event Name
+            # Try some known fields (like event_name)
             try:
                 name_el = container.find_element(By.CSS_SELECTOR, "a.event-name")
                 event_info["event_name"] = name_el.text.strip()
             except NoSuchElementException:
                 event_info["event_name"] = None
 
-            # 3. Times (e.g. "7:30 PM – 8:30 PM")
-            #    We'll look for a div with class="times"
-            try:
-                times_el = container.find_element(By.CSS_SELECTOR, "div.times")
-                times_text = times_el.text.strip()
-                if "–" in times_text:
-                    start_time, end_time = times_text.split("–", maxsplit=1)
-                    event_info["start_time"] = start_time.strip()
-                    event_info["end_time"] = end_time.strip()
-                else:
-                    event_info["start_time"] = times_text
-                    event_info["end_time"] = None
-            except NoSuchElementException:
-                event_info["start_time"] = None
-                event_info["end_time"] = None
+            # (You could replicate more known-field logic here if desired.)
+            # Or just do the dynamic approach:
+            dynamic_dict = {}
+            all_descendants = container.find_elements(By.XPATH, ".//*")
+            for elem in all_descendants:
+                class_attr = elem.get_attribute("class") or ""
+                text_val = elem.text.strip()
+                if not text_val:
+                    continue
+                for c in class_attr.split():
+                    norm_key = c.replace("-", "_")
+                    if norm_key not in dynamic_dict:  # store first occurrence
+                        dynamic_dict[norm_key] = text_val
 
-            # 4. Attendance Count
-            #    This example locates: container -> .attendance-count -> <button> -> <span> 6 </span>
-            try:
-                attendance_el = container.find_element(By.CSS_SELECTOR, "div.attendance-count")
-                count_btn = attendance_el.find_element(By.TAG_NAME, "button")
-                # The second <span> inside the button often holds the numeric count
-                spans = count_btn.find_elements(By.TAG_NAME, "span")
-                if len(spans) > 1:
-                    event_info["attendance_count"] = spans[1].text.strip()
-                else:
-                    event_info["attendance_count"] = None
-            except NoSuchElementException:
-                event_info["attendance_count"] = None
+            event_info["dynamic_fields"] = dynamic_dict
+            event_info["parent"] = self.page_title
 
-            # 5. Location
-            try:
-                location_link = container.find_element(By.CSS_SELECTOR, "a.address-link")
-                # Inside that, look for the .address-detail element
-                address_span = location_link.find_element(By.CSS_SELECTOR, ".address-detail")
-                event_info["location"] = address_span.text.strip()
-            except NoSuchElementException:
-                event_info["location"] = None
-
-            # 6. Description
-            #    Typically under `div.info.description`
-            try:
-                desc_el = container.find_element(By.CSS_SELECTOR, "div.info.description")
-                event_info["description"] = desc_el.text.strip()
-            except NoSuchElementException:
-                event_info["description"] = None
-
-            events_data.append(event_info)
-        return events_data
-    def _extract_table_events(self):
-        """
-        Finds all 'clickable' table rows and extracts event details
-        from each row. Returns a list of dicts, each representing one event.
-        """
-
-        # Locate all rows with <tr class="clickable">
-        rows = self.driver.find_elements(By.CSS_SELECTOR, "tr.clickable")
-
-        events = []
-        for row in rows:
-            # For each row, create a dictionary to store data
-            event_data = {}
-
-            # Example fields to scrape; adjust based on your table’s structure
-            # 1. Date/Time
-            try:
-                date_td = row.find_element(By.CSS_SELECTOR, 'td[data-label="Date/Time"]')
-                event_data["date_time"] = date_td.text.strip()
-            except NoSuchElementException:
-                event_data["date_time"] = ""
-
-            # 2. Opponent
-            try:
-                opponent_td = row.find_element(By.CSS_SELECTOR, 'td[data-label="Opponent"]')
-                event_data["opponent"] = opponent_td.text.strip()
-            except NoSuchElementException:
-                event_data["opponent"] = ""
-
-            # 3. Location
-            try:
-                location_td = row.find_element(By.CSS_SELECTOR, 'td[data-label="Location"]')
-                event_data["location"] = location_td.text.strip()
-            except NoSuchElementException:
-                event_data["location"] = ""
-
-            # 4. Attendance
-            try:
-                attendance_td = row.find_element(By.CSS_SELECTOR, 'td[data-label="Attendance"]')
-                event_data["attendance"] = attendance_td.text.strip()
-            except NoSuchElementException:
-                event_data["attendance"] = ""
-
-            # 5. Score
-            try:
-                score_td = row.find_element(By.CSS_SELECTOR, 'td[data-label="Score"]')
-                event_data["score"] = score_td.text.strip()
-            except NoSuchElementException:
-                event_data["score"] = ""
-
-            # You can also pull out other cells or data from the row as needed.
-            # Just repeat the pattern using row.find_element with the appropriate CSS.
-
-            events.append(event_data)
+            events.append(event_info)
         return events
 
+    def _parse_events_fallback(self):
+        """
+        If no .calendar-list found at all, parse .calendar-event-box at page level
+        (if that is a scenario for your app).
+        """
+        # Very similar to _parse_events_without_header
+        all_boxes = self.driver.find_elements(By.CSS_SELECTOR, "div.calendar-event-box.clickable")
+        return self._parse_events_without_header(all_boxes)

@@ -36,6 +36,9 @@ class RaiWebCrawler(RaiWebPageScrape):
             return self.cache
         return self.crawl()
 
+    def crawl_site(self):
+        self.site_recon()
+
     def crawl(self):
         """
         Main loop: pop URLs from to_visit_urls, scrape them, and add discovered links.

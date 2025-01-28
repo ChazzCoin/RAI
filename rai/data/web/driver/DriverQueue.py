@@ -1,16 +1,18 @@
 from typing import Set, List
 
 from F.LOG import Log
-
+from collections import deque
 from rai.data.web.WebModels import PageExtractDetails
 from rai.data.web.driver.DriverHelper import WebBaseHelper
-
+from urllib.parse import urlparse
 Log = Log("WebMaster")
 
 class WebBaseQueue(WebBaseHelper):
+    start_domain = None
     all_extracted_urls: set[str] = set()
     to_visit_urls: Set[str] = set()
     visited_urls: Set[str] = set()
+    recon_queue = deque()
     scrape_limit = 0
     scrape_count = 0
     current_url = ""
@@ -25,7 +27,17 @@ class WebBaseQueue(WebBaseHelper):
             'help', 'account', 'terms'
         ]
 
-    def add_urls_to_queue(self, new_links: List[str]):
+    def is_in_domain(self, url):
+        if not self.start_domain:
+            return True  # If domain not set, skip check
+        return urlparse(url).netloc == self.start_domain
+
+    def add_update_recon_queue(self, url):
+        if self.is_in_domain(url):
+            if url not in self.to_visit_urls:
+                self.recon_queue.append(url)
+                self.to_visit_urls.add(url)
+    def add_update_crawler_queue(self, new_links: List[str]):
         filtered_links = []
         for link in new_links:
             if str(link).endswith('.css'): continue
