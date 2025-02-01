@@ -1,14 +1,15 @@
+import time
 from typing import Optional
 
 from F import DICT, LIST
 from F.LOG import Log
 from selenium.webdriver.common.by import By
+from selenium.webdriver.remote.webelement import WebElement
 
 from rai.composers.TextAnalysisAgent import TextAnalysisAgent
-
+from rai.data.DataImport import RaiDataImporter
 from rai.data.web.WebModels import PageExtractDetails
-from rai.data.web.driver.WebDriver import RaiWebDriver
-
+from rai.data.web.driver.DriverSiteMapper import RaiWebSiteMapper
 from rai.data.web.soup.BodyExtractor import WebBodyExtractor
 from rai.data.web.soup.UrlExtractor import WebUrlExtractor
 from rai.data.web.soup.WebExtractor import WebActionExtractor
@@ -21,16 +22,172 @@ from selenium.common.exceptions import (
 
 Log = Log("RaiWebPageScrape")
 """ Master Web Driver """
-class RaiWebPageScrape(RaiWebDriver):
+class RaiWebPageScrape(RaiWebSiteMapper):
     pages = []
 
-    def scrape_page(self, url: str, username=None, password=None) -> Optional[PageExtractDetails]:
+
+    def import_single_page(self, url: str, username=None, password=None):
+        self.page_recon(url, username, password)
+        RaiDataImporter.import_web_docs("pcsc2025.3", url, self.cache)
+
+    def test(self, url: str, username=None, password=None):
+        self.open(url, username, password)
+        data = []
+        tab = 1
+        dont_stop = True
+        while dont_stop:
+            column_data = self.extract_columns()
+            table_data = self.extract_all_tables()
+            table_data2 = self.extract_table_data()
+            events = self.extract_calendar_events()
+            player = self.extract_player_profile()
+            temp = {
+                "columns": column_data,
+                "tables": table_data,
+                "table_data": table_data2,
+                "events": events,
+                "player": player
+            }
+            data.append(temp)
+            if self.click_nav_tab(tab):
+                self.post_open()
+                tab = tab + 1
+            else:
+                dont_stop = False
+        print("done")
+
+    def safe_get_children_text(self, element):
+        # Set up the WebDriver
+        if not element: return None
+        data = []
+        try:
+            # Use XPath to find all child elements recursively
+            children = element.find_elements(By.XPATH, './/*')
+
+            for child in children:
+                text = self.get_safe_text(child)
+                if text is not None: data.append(text)
+            return data
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            return data
+
+    def get_safe_text(self, element):
+        try:
+            if self.has_text(element):
+                return element.text
+            return None
+        except:
+            return None
+    def has_text(self, element) -> bool:
+        try:
+            if not element: return False
+            if not element.text: return False
+            if type(element.text) not in [str]: return False
+            if element.text == "": return False
+            if element.text == " ": return False
+            return True
+        except:
+            return False
+
+    def extract_columns(self):
+        data = {}
+        try:
+            columns = self.driver.find_elements(
+                By.XPATH,
+                "//div[contains(@class, 'column')]"
+            )
+            p = 0
+            for c in columns:
+                contents = c.find_elements(
+                    By.XPATH,
+                    "//div[contains(@class, 'content')]"
+                )
+                i = 0
+                for column in contents:
+                    if not self.has_text(column): continue
+                    data[f"{str(p)}-{str(i)}"] = str(column.text)
+                    i = i + 1
+                p = p + 1
+            return list(set(data.values()))
+        except:
+            return data
+    def extract_team_profile(self):
+        data = {}
+        try:
+            team_elem = self.driver.find_element(
+                By.XPATH,
+                "//*[contains(@class, 'team')]"
+            )
+            team_name = team_elem.find_element(
+                By.XPATH,
+                "//*[contains(@class, 'title')]"
+            )
+            data["name"] = str(team_name.text)
+            return data
+        except:
+            return data
+    def extract_player_profile(self):
+        data = {}
+        try:
+            player_profile = self.driver.find_element(
+                By.XPATH,
+                "//*[contains(@class, 'player') and contains(@class, 'profile')]"
+            )
+            player_name = player_profile.find_element(
+                By.XPATH,
+                "//*[contains(@class, 'player') and contains(@class, 'name')]"
+            )
+            player_fields = player_profile.find_elements(
+                By.XPATH,
+                "//*[contains(@class, 'field')]"
+            )
+            data = { "name": player_name.text }
+            for field in player_fields:
+                try:
+                    field_key = field.find_element(
+                        By.TAG_NAME, "label"
+                    )
+                    field_value = field.find_element(
+                        By.TAG_NAME,
+                        "div"
+                    )
+                    data[str(field_key.text)] = str(field_value.text)
+                except:
+                    continue
+            return data
+        except:
+            return data
+    def page_recon(self, url: str, username=None, password=None) -> []:
+        tabs = []
         try:
             self.open(url, username, password)
+            self.set_tab_count()
+            time.sleep(1)
+            if self.tab_count > 0:
+                for tab in range(self.tab_count):
+                    if self.click_next_nav_tab():
+                        print("true")
+                        tab_details = self.page_extract(url)
+                        tabs.append(tab_details)
+                    else:
+                        print("false")
+                    self.selected_tab = self.selected_tab + 1
+            else:
+                page_details = self.page_extract(url)
+                tabs.append(page_details)
+        except Exception as e:
+            print(e)
+        return tabs
+
+    def page_extract(self, url: str) -> Optional[PageExtractDetails]:
+        try:
+
             Log.i("Extracting Page.")
 
             """ Extract All Table Data """
             table_data = self.extract_all_tables()
+            table_data2 = self.extract_table_data()
 
             """ Extract Events """
             events = self.extract_calendar_events()
@@ -88,4 +245,4 @@ class RaiWebPageScrape(RaiWebDriver):
 if __name__ == '__main__':
     email = "jperson@parkcitysoccer.org"
     password = "Philly23!"
-    RaiWebPageScrape().scrape_page(url="https://playmetrics.com/teams/194128/summary", username=email, password=password)
+    RaiWebPageScrape().test(url="https://playmetrics.com/club-admin/volunteers", username=email, password=password)

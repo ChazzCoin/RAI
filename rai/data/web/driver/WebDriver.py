@@ -31,6 +31,10 @@ class RaiWebDriver(WebBaseExtract, RaiDocCreator):
         self.login(username, password)
         self.driver.get(url)
         self.visited_urls.add(url)
+        self.post_open()
+    def post_open(self):
         self.wait().until(EC.presence_of_element_located((By.TAG_NAME, 'body')))
         self.parse(self.driver.page_source)
+        self.set_tab_count()
+        self.do_infinite_scroll()
         time.sleep(2)

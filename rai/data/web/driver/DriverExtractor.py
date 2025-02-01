@@ -1,5 +1,5 @@
+import json
 import re
-import time
 from io import BytesIO
 from typing import List
 
@@ -8,16 +8,11 @@ import requests
 from F import LIST
 from F.LOG import Log
 from PIL import Image
-from bs4 import BeautifulSoup
-from selenium.common import NoSuchElementException, StaleElementReferenceException, ElementClickInterceptedException
-from selenium.webdriver import ActionChains
+from selenium.common import NoSuchElementException
 from selenium.webdriver.common.by import By
-from selenium.webdriver.remote.webelement import WebElement
-from selenium.webdriver.support.wait import WebDriverWait
 
 from rai.data.web.driver.DriverActions import WebBaseActions
 from rai.data.web.soup.BaseExtractor import WebSoupExtractor
-from selenium.webdriver.support import expected_conditions as EC
 
 from rai.data.parsers.Pdf import FPDF
 
@@ -248,7 +243,10 @@ class WebBaseExtract(WebBaseActions, WebSoupExtractor):
         events_data = []
 
         # Grab all top-level "calendar-list" sections
-        date_sections = self.driver.find_elements(By.CSS_SELECTOR, "div.calendar-list")
+        date_sections = self.driver.find_elements(
+            By.XPATH,
+            "//div[contains(@class, 'calendar') and contains(@class, 'list')]"
+        )
 
         # If we find no sections, we could still try to parse all .calendar-event-box from entire page
         if not date_sections:
@@ -257,12 +255,20 @@ class WebBaseExtract(WebBaseActions, WebSoupExtractor):
 
         for section in date_sections:
             # Try to find date headers (e.g. "January 2025", etc.)
-            date_headers = section.find_elements(By.CSS_SELECTOR, "div.date-header")
+            # date_headers = section.find_elements(By.CSS_SELECTOR, "div.date-header")
+            date_headers = section.find_elements(
+                By.XPATH,
+                "//div[contains(@class, 'date') and contains(@class, 'header')]"
+            )
 
             # If no headers are found, just parse all event boxes in this "calendar-list" as fallback
             if not date_headers:
                 # Fallback: parse all clickable event boxes in `section` directly
-                event_boxes = section.find_elements(By.CSS_SELECTOR, "div.calendar-event-box.clickable")
+                # event_boxes = section.find_elements(By.CSS_SELECTOR, "div.calendar-event-box.clickable")
+                event_boxes = section.find_elements(
+                    By.XPATH,
+                    "//*[contains(@class, 'event') and contains(@class, 'clickable')]"
+                )
                 events_data.extend(
                     self._parse_events_without_header(event_boxes)
                 )
@@ -270,7 +276,9 @@ class WebBaseExtract(WebBaseActions, WebSoupExtractor):
 
             # Otherwise, handle normal header-based logic
             for i, header_el in enumerate(date_headers):
-                month_year_text = header_el.text.strip()  # e.g. "January 2025"
+                month_year_text = header_el.text.strip()
+                # if month_year_text == '':
+                #     continue # e.g. "January 2025"
                 event_boxes_in_this_header = []
 
                 # Gather siblings until we reach the next date-header
@@ -284,6 +292,12 @@ class WebBaseExtract(WebBaseActions, WebSoupExtractor):
                         pass
 
                     # Otherwise, gather event boxes
+                    """
+                    boxes = sibling.find_elements(
+                                By.XPATH,
+                                "//*[contains(@class, 'calendar-') and contains(@class, 'clickable')]"
+                            )
+                    """
                     try:
                         boxes = sibling.find_elements(By.CSS_SELECTOR, "div.calendar-event-box.clickable")
                         event_boxes_in_this_header.extend(boxes)
@@ -370,7 +384,10 @@ class WebBaseExtract(WebBaseActions, WebSoupExtractor):
 
                     # 7. UNIFORM / EXTRA INFO
                     try:
-                        uniform_el = container.find_element(By.CSS_SELECTOR, "div.is-flex span.info.uniform")
+                        uniform_el = container.find_element(
+                                By.XPATH,
+                                "//div[contains(@class, 'info') and contains(@class, 'uniform')]"
+                            )
                         event_info["uniform_instructions"] = uniform_el.text.strip()
                     except NoSuchElementException:
                         event_info["uniform_instructions"] = None
@@ -402,6 +419,7 @@ class WebBaseExtract(WebBaseActions, WebSoupExtractor):
                     event_info["parent"] = self.page_title
                     # Done - add to results
                     events_data.append(event_info)
+
         return events_data
 
     def _parse_events_without_header(self, event_boxes):
@@ -451,3 +469,61 @@ class WebBaseExtract(WebBaseActions, WebSoupExtractor):
         # Very similar to _parse_events_without_header
         all_boxes = self.driver.find_elements(By.CSS_SELECTOR, "div.calendar-event-box.clickable")
         return self._parse_events_without_header(all_boxes)
+
+    def extract_table_data(self):
+        try:
+            # Locate the table container
+            table = self.driver.find_element(By.CSS_SELECTOR, ".table-wrapper")
+
+            # Extract header row (event types)
+            headers = []
+            event_columns = table.find_elements(By.CSS_SELECTOR, ".event-header")
+            for col in event_columns:
+                headers.append(col.text.strip())
+
+            # Extract players data
+            players_data = []
+            player_rows = table.find_elements(By.CSS_SELECTOR, ".player-row")
+
+            for row in player_rows:
+                player = {}
+
+                # Extract player name
+                try:
+                    name_element = row.find_element(By.CSS_SELECTOR, ".name-column a")
+                    player["name"] = name_element.text.strip()
+                except:
+                    player["name"] = "Unknown"
+
+                # Extract event statuses
+                event_statuses = []
+                event_cells = row.find_elements(By.CSS_SELECTOR, ".event-column")
+
+                for cell in event_cells:
+                    try:
+                        # Check for icons (checkmark, cross, etc.)
+                        icon_element = cell.find_element(By.TAG_NAME, "svg")
+                        icon_class = icon_element.get_attribute("data-icon")
+
+                        if icon_class == "check":
+                            event_statuses.append("Present")
+                        elif icon_class == "xmark":
+                            event_statuses.append("Absent")
+                        elif icon_class == "suitcase-medical":
+                            event_statuses.append("Medical Leave")
+                        else:
+                            event_statuses.append("Unknown")
+                    except:
+                        event_statuses.append("Unknown")
+
+                # Map headers to extracted data
+                player["events"] = dict(zip(headers, event_statuses))
+
+                players_data.append(player)
+
+            return players_data
+
+        except Exception as e:
+            print(f"Error extracting table data: {e}")
+            return json.dumps({"error": str(e)})
+

@@ -28,14 +28,14 @@ def register_objective_prompt(name: str):
 class RaiRagAgent(ABC, RaiAi, TextProcessor):
     name = None
     collections = [
-        "web.pages",
-        "web.summaries",
-        "web.context_groups",
-        "web.events",
-        "web.images",
-        "web.pdfs",
-        "web.contacts",
-        "web.locations"
+        "pages",
+        "summaries",
+        "context_groups",
+        "events",
+        "images",
+        "pdfs",
+        "contacts",
+        "locations"
     ]
 
     @classmethod
@@ -54,8 +54,8 @@ class RaiRagAgent(ABC, RaiAi, TextProcessor):
                 user_prompt=user_prompt
             )
 
-            expanded_user_prompt = DICT.get("context_expander", results, user_prompt)
-            wrapped_results = VECTOR_DB_CLIENT.queryThreaded(*collection_list, user_prompt=expanded_user_prompt, k=10)
+            # expanded_user_prompt = DICT.get("context_expander", results, user_prompt)
+            wrapped_results = VECTOR_DB_CLIENT.queryThreaded(*collection_list, user_prompt=user_prompt, k=10)
 
             unwrapped_results = VECTOR_DB_CLIENT.unwrap_results(wrapped_results)
             query_results = VECTOR_DB_CLIENT.unwrap_formatted(unwrapped_results, k=5)

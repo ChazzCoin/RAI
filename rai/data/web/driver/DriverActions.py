@@ -18,6 +18,9 @@ class WebBaseActions(WebBaseDriver):
     max_scrolls = 5
     login_url = None
 
+    tab_count = 0
+    selected_tab = 0
+
     def action(self): return ActionChains(self.driver)
 
     """ Future Pipeline Driver """
@@ -153,7 +156,36 @@ class WebBaseActions(WebBaseDriver):
             print("Error: One or more login elements were not found or are invalid.")
             Log.e("FAILED to Log In!")
     """ HELPERS """
+    def set_tab_count(self):
+        try:
+            nav_buttons = self.driver.find_elements(By.CSS_SELECTOR, "#scroll-tabs-mobile li a")
+            self.tab_count = len(nav_buttons) or 0
+        except NoSuchElementException:
+            self.tab_count = 0
 
+    def click_nav_tab(self, tab_index=0):
+        try:
+            nav_buttons = self.driver.find_elements(By.CSS_SELECTOR, "#scroll-tabs-mobile li a")
+            self.tab_count = len(nav_buttons)
+            next_btn = nav_buttons[tab_index]
+            self.driver.execute_script("arguments[0].scrollIntoView(true);", next_btn)
+            next_btn.click()
+            time.sleep(2)
+            return True
+        except:
+            return False
+
+    def click_next_nav_tab(self):
+        try:
+            nav_buttons = self.driver.find_elements(By.CSS_SELECTOR, "#scroll-tabs-mobile li a")
+            self.tab_count = len(nav_buttons)
+            next_btn = nav_buttons[self.selected_tab]
+            self.driver.execute_script("arguments[0].scrollIntoView(true);", next_btn)
+            next_btn.click()
+            time.sleep(2)
+            return True
+        except:
+            return False
     def click_next_table_page(self, click_times: int=1, selector="nav a.pagination-link.pagination-next"):
         try:
             for i in range(click_times):

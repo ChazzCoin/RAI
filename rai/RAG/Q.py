@@ -51,6 +51,7 @@ class Q(ChromaClient):
     def unwrap_results(self, results: {}) -> []:
         unwrapped_results = []
         for k,v in results.items():
+            if not v: continue
             unwrapped_results.append(v)
         flat = LIST.flatten(unwrapped_results)
         sort_flat = sorted(flat, key=lambda x: x["distance"])

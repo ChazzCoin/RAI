@@ -10,7 +10,6 @@ from tqdm import tqdm
 
 from rai.assistant.connectors import RaiAi
 from rai.data import RaiPath
-from rai.data.loaders.rai_loaders.WebLoader import RaiWebCrawler
 from rai.internal.connectors import VECTOR_DB_CLIENT
 from rai.assistant.openai_client import generate_embeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -44,6 +43,18 @@ class RaiDataImportConfig(Flass):
     text_splitter: RecursiveCharacterTextSplitter = None
     single_run: bool = False
 
+    @classmethod
+    def web_config(cls, prefix, url):
+        config = cls()
+        config.pipeline = RaiDataImportConfig.Pipelines.CHROMA
+        config.generate_metadata = False
+        config.generate_collection_name = False
+        config.overwrite = False
+        config.single_run = True
+        config.collection_prefix = prefix
+        config.base_path = None  # "/Users/chazzromeo/Desktop/pcsc2025"
+        config.url = url
+        return config
 
 class RaiDataImporter:
     config = RaiDataImportConfig()
@@ -57,17 +68,22 @@ class RaiDataImporter:
 
     current_file = ""
 
-    @classmethod
-    def run(cls, config: RaiDataImportConfig):
-        newCls = cls()
-        newCls.setup(config)
-        if config.url:
-            crawler = RaiWebCrawler.pipeline(config.url, config.page_limit, username=config.username, password=config.password)
-            newCls.__run_pipeline(loader=crawler)
-        if config.base_path:
-            newCls.import_directory(config.base_path)
-        return newCls
+    # @classmethod
+    # def run(cls, config: RaiDataImportConfig):
+    #     newCls = cls()
+    #     newCls.setup(config)
+    #     if config.url:
+    #         crawler = RaiWebCrawler.pipeline(config.url, config.page_limit, username=config.username, password=config.password)
+    #         newCls.__run_pipeline(loader=crawler)
+    #     if config.base_path:
+    #         newCls.import_directory(config.base_path)
+    #     return newCls
 
+    @classmethod
+    def import_web_docs(cls, prefix, url, docs:[]):
+        newCls = cls()
+        newCls.setup(RaiDataImportConfig.web_config(prefix, url))
+        return newCls.import_docs(docs)
     def setup(self, config: RaiDataImportConfig):
         self.config = config
         Log.w("Chunk Overlap:", app.state.config.CHUNK_OVERLAP)
@@ -115,6 +131,9 @@ class RaiDataImporter:
                 if self.config.single_run: return self.to_chroma()
             except Exception as e: Log.w(f"Error importing file '{file_path}' to Chroma DB: {e}")
         except Exception as e: Log.w(f"Error importing file '{file_path}': {e}")
+
+    def import_docs(self, docs:[]):
+        return self.__run_pipeline(docs=docs)
 
     def __run_pipeline(self, docs:[]=None, loader=None):
         if not docs: docs = loader.load()

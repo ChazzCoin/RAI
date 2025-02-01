@@ -10,18 +10,18 @@ Log = Log("RaiWebLoader")
 
 @register_loader(name="web")
 class RaiWebCrawler(RaiWebPageScrape):
-
+    scrape_count = 0
     def __init__(self, base_url: str, username=None, password=None):
         super(RaiWebCrawler, self).__init__()
         self.setup_login(username, password)
         self.url = RaiUrl(base_url)
+        self.start_domain = self.url
         self.current_site_name = self.url.site_name
         self.domain_name = self.url.savable_name
         self.to_visit_urls = {self.url}
         self.visited_urls = set()  # track visited
         self.documents = []        # store RaiDocument objects
         self.data_lock = threading.Lock()
-        self.scrape_count = 0
 
     @classmethod
     def pipeline(cls, url: str, page_limit: int = 1, username=None, password=None):
@@ -37,7 +37,8 @@ class RaiWebCrawler(RaiWebPageScrape):
         return self.crawl()
 
     def crawl_site(self):
-        self.site_recon()
+        self.site_recon(self.start_domain)
+        return self.crawl()
 
     def crawl(self):
         """
@@ -53,7 +54,7 @@ class RaiWebCrawler(RaiWebPageScrape):
             Log.w(f"Crawling has Begun...")
             self.current_url = next_url
             self.visited_urls.add(next_url)
-            self.scrape_page(next_url)
+            self.page_recon(next_url)
             self.scrape_count += 1
 
         Log.s("Crawling completed.")
@@ -63,7 +64,7 @@ class RaiWebCrawler(RaiWebPageScrape):
 if __name__ == '__main__':
     email = "jperson@parkcitysoccer.org"
     password = "Philly23!"
-    crawler = RaiWebCrawler.pipeline("https://playmetrics.com/teams/194123/summary", 10, username=None, password=None)
-    loader = crawler.load()
+    crawler = RaiWebCrawler("https://www.parkcitysoccer.org/", username=None, password=None)
+    loader = crawler.crawl_site()
     for item in loader:
         print(item.page_content)
