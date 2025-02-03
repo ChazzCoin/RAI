@@ -260,4 +260,17 @@ class RaiWebPageScrape(RaiWebSiteMapper):
 if __name__ == '__main__':
     email = "jperson@parkcitysoccer.org"
     password = "Philly23!"
-    RaiWebPageScrape().import_single_page(url="https://playmetrics.com/players/1727778", username=email, password=password)
+    urls = [
+        "https://www.parkcityextremecup.com/heber-venues-original-copy",
+        "https://www.parkcityextremecup.com/oakley-directions-maps",
+        "https://www.parkcityextremecup.com/referee-faqs",
+        "https://www.parkcityextremecup.com/lodgingv2",
+        "https://www.parkcityextremecup.com/where-to-eat",
+        "https://www.parkcityextremecup.com/where-to-shop",
+        "https://www.parkcityextremecup.com/things-to-do",
+        "https://www.parkcityextremecup.com/business-services",
+        "https://www.parkcityextremecup.com/who-to-call-1",
+        "https://www.parkcityextremecup.com/custom-apparel-1"
+    ]
+    for url in urls:
+        RaiWebPageScrape().import_single_page(url=url, username=None, password=None)

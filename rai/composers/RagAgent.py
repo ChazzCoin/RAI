@@ -35,7 +35,8 @@ class RaiRagAgent(ABC, RaiAi, TextProcessor):
         "images",
         "pdfs",
         "contacts",
-        "locations"
+        "locations",
+        "lines"
     ]
 
     @classmethod

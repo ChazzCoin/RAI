@@ -28,12 +28,15 @@ def run_import():
     config.overwrite = False
     config.single_run = True
     config.collection_prefix = "pcsc2025.3"
-    config.base_path = None#"/Users/chazzromeo/Desktop/pcsc2025"
-    config.url = "https://playmetrics.com/teams/194123/summary"
+    config.base_path = "/Users/chazzromeo/Desktop/pcsc2025/PARKING GUIDELINES 2024 - Google Docs.pdf"
+    config.url = None #"https://playmetrics.com/teams/194123/summary"
     config.username = "jperson@parkcitysoccer.org"
     config.password = "Philly23!"
     config.page_limit = 500
-    RaiDataImporter.run(config)
+    importer = RaiDataImporter()
+    importer.setup(config)
+    importer.import_file(config.base_path)
+
 
 if __name__ == '__main__':
     run_import()

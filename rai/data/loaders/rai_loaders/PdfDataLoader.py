@@ -1,6 +1,6 @@
 import os
 import PyPDF2
-from langchain_community.document_loaders import PDFMinerLoader, PDFPlumberLoader
+from langchain_community.document_loaders import PDFMinerLoader
 
 from F.LOG import Log
 
@@ -49,9 +49,7 @@ class PdfDataLoader(RaiPdfMiner):
                 return 0
 
     def fallback(self):
-        loader = PDFPlumberLoader(self.file_path)
-        if not loader:
-            loader = PDFMinerLoader(self.file_path)
+        loader = PDFMinerLoader(self.file_path)
         if loader:
             self.cache = loader
         return self.cache

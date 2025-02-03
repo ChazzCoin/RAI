@@ -1,97 +1,114 @@
+# Optimized requirements.txt
+
+##############################
 # Core dependencies
-python-docx>=1.1
-openpyxl>=3.1
-requests>=2.32
-openai>=1.45.1
-ollama>=0.4.4
-quart>=0.19
-hypercorn>=0.17
+##############################
+python-docx>=1.1,<2.0
+openpyxl>=3.1,<4.0
+requests>=2.32,<3.0
+openai>=1.45.1,<2.0
+ollama>=0.4.4,<1.0
+quart>=0.19,<1.0
+hypercorn>=0.17,<1.0
 chromadb==0.5.11
 chroma-hnswlib==0.7.6
-python-dotenv>=1.0
-psycopg>=3.2
-pydantic>=2.8
-pydantic-core>=2.23.4
-pydantic-settings>=2.5.2
-pandas>=2.2
-numpy>=1.26
-torch>=2.4
-transformers>=4.44
-datasets>=3.0
-peewee>=3.17
-peewee-migrate>=1.13.0
-quart-cors>=0.7.0
+python-dotenv>=1.0,<2.0
 
+# For Postgres, choose one:
+psycopg>=3.2,<4.0
+# psycopg2==2.9.10  # Uncomment only if you must use psycopg2
 
+pydantic>=2.8,<3.0
+pydantic-core>=2.23.4,<3.0
+pydantic-settings>=2.5.2,<3.0
+pandas>=2.2,<3.0
+numpy>=1.26,<2.0
+torch>=2.4,<3.0
+transformers>=4.44,<5.0
+datasets>=3.0,<4.0
+peewee>=3.17,<4.0
+peewee-migrate>=1.13.0,<2.0
+quart-cors>=0.7.0,<1.0
+
+##############################
 # Specific utility packages
-tiktoken>=0.7
-pdfminer>=20191125
-tldextract>=5.1
-selenium>=4.24
-webdriver-manager>=4.0
-pillow>=10.4
-weasyprint>=62.3
-rdflib>=6.3
-pytesseract>=0.3
-validators>=0.34
-pathlib>=1.0
-fastapi>=0.112
-langchain>=0.3
-langchain-community>=0.3
-langchain-core>=0.3.8
-SQLAlchemy>=2.0
-peewee>=3.17
-PyYAML>=6.0
-starlette>=0.38
-jwt>=1.3
-passlib>=1.7
-Markdown>=3.7
-docx2txt>=0.8
-rank-bm25>=0.2
-jsonlines>=4.0
-unstructured>=0.15
-tqdm>=4.66
-pypdf2>=3.0
-pdf2image>=1.17
-argcomplete>=1.10
-beautifulsoup4>=4.8
-chardet>=3.0
-EbookLib>=0.17
-lxml>=4.6
-python-pptx>=0.6
-six>=1.12
+##############################
+tiktoken>=0.7,<1.0
+# Use pdfminer.six (the maintained fork) instead of pdfminer:
+pdfminer.six>=20200517,<20250101
 
-pdfminer.six==20200517
-pdfplumber==0.11.4
+tldextract>=5.1,<6.0
+selenium>=4.24,<5.0
+webdriver-manager>=4.0,<5.0
+pillow>=10.4,<11.0
+weasyprint>=62.3,<63.0
+rdflib>=6.3,<7.0
+pytesseract>=0.3,<1.0
+validators>=0.34,<1.0
 
+# pathlib is in the standard library for Python 3.4+ (remove if not needed)
+# fastapi and starlette are used together, so pin them as well:
+fastapi>=0.112,<1.0
+starlette>=0.38,<1.0
+
+langchain>=0.3,<1.0
+langchain-community>=0.3,<1.0
+langchain-core>=0.3.8,<1.0
+langchain-text-splitters==0.3.0
+
+SQLAlchemy>=2.0,<3.0
+PyYAML>=6.0,<7.0
+
+# Security, authentication, and formatting
+jwt>=1.3,<2.0
+passlib>=1.7,<2.0
+Markdown>=3.7,<4.0
+
+docx2txt>=0.8,<1.0
+rank-bm25>=0.2,<1.0
+jsonlines>=4.0,<5.0
+unstructured>=0.15,<1.0
+tqdm>=4.66,<5.0
+
+# Use pypdf (the modern fork) rather than pypdf2:
+pypdf>=5.0.1,<6.0
+
+##############################
 # Redis and related utilities
-redis>=5.0
-aiohttp>=3.10
+##############################
+redis>=5.0,<6.0
+aiohttp>=3.10,<4.0
 
+##############################
 # Deep learning and NLP
-Colbert>=0.40
-huggingface-hub>=0.24
-faircore>=5.0
+##############################
+Colbert>=0.40,<1.0
+huggingface-hub>=0.24,<1.0
+faircore>=5.0,<6.0
 fairresources==5.3.0
 feedparser==6.0.11
-# Gevent for concurrency
-gevent>=24.2
+
+# For concurrency
+gevent>=24.2,<25.0
 
 regex==2024.7.24
 protobuf==5.28.2
 xgboost==2.1.3
-pypdf>=5.0.1
 datrie==0.8.2
 hanziconv==0.3.2
 nltk==3.9.1
-psycopg2==2.9.10
+
+# setuptools is generally installed; pin only if necessary:
 setuptools==68.2.0
 
 opencv-python==4.10.0.84
 onnxruntime==1.19.0
 pyclipper==1.3.0.post5
 shapely==2.0.6
-langchain-text-splitters==0.3.0
-textract==1.6.5
 scikit-learn==1.5.2
 sympy==1.13.2
+pydub>=0.25.1
+tempfile2>=0.1.2
+fairnlp==5.1.0
+psycopg2>=2.9.10
+pyxnat>=1.6.2

@@ -87,6 +87,14 @@ class TextAnalysisAgent:
         # Retrieve parallel results
         contacts: List[RaiContactFormat] = LIST.remove_duplicates(results_dict["contacts"])
         events: List[BaseEvent] = LIST.remove_duplicates(results_dict["events"])
+        if type(events) in [list]:
+            first = LIST.get(0, events, None)
+            if first is None:
+                events = []
+            elif type(first) not in [BaseEvent]:
+                events = []
+        else:
+            events = []
         locations: List[BaseLocation] = LIST.remove_duplicates(results_dict["locations"])
         urls: List[UrlsModel] = LIST.remove_duplicates(results_dict["urls"])
         context_groups: List[TextsModel] = LIST.remove_duplicates(results_dict["contextual_groups"])

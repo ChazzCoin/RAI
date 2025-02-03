@@ -295,23 +295,27 @@ class AgentConfigMetadata(RaiBaseAgent):
 @register_agent("herbal")
 class AgentConfigHerbal(RaiBaseAgent):
     def type(self): return "format"
-    def parse(self, result): return result.holder
-
+    def parse(self, result):
+        try: return result.holder
+        except: return result
 @register_agent("urls")
 class AgentConfigUrls(RaiBaseAgent):
     def type(self): return "format"
-    def parse(self, result): return result.holder
-
+    def parse(self, result):
+        try: return result.holder
+        except: return result
 @register_agent("contextual_groups")
 class AgentConfigContextualGroups(RaiBaseAgent):
     def type(self): return "format"
-    def parse(self, result): return result.holder
-
+    def parse(self, result):
+        try: return result.holder
+        except: return result
 @register_agent("faq")
 class AgentConfigQuestionAnswer(RaiBaseAgent):
     def type(self): return "format"
-    def parse(self, result): return result.holder
-
+    def parse(self, result):
+        try: return result.holder
+        except: return result
 @register_agent("is_event")
 class AgentConfigIsEvent(RaiBaseAgent):
     def type(self): return "format"
@@ -325,23 +329,28 @@ class AgentConfigIsTrue(RaiBaseAgent):
 @register_agent("events")
 class AgentConfigEvents(RaiBaseAgent):
     def type(self): return "format"
-    def parse(self, result): return result.holder
+    def parse(self, result):
+        try: return result.holder
+        except: return result
 
 @register_agent("contacts")
 class AgentConfigContacts(RaiBaseAgent):
     def type(self): return "format"
-    def parse(self, result): return result.holder
-
+    def parse(self, result):
+        try: return result.holder
+        except: return result
 @register_agent("locations")
 class AgentConfigLocations(RaiBaseAgent):
     def type(self): return "format"
-    def parse(self, result): return result.holder
-
+    def parse(self, result):
+        try: return result.holder
+        except: return result
 @register_agent("step_by_step")
 class AgentConfigStepByStep(RaiBaseAgent):
     def type(self): return "format"
-    def parse(self, result): return result.holder
-
+    def parse(self, result):
+        try: return result.holder
+        except: return result
 @register_agent("subject")
 class AgentConfigSubject(RaiBaseAgent):
     def type(self): return "format"
