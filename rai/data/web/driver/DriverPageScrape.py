@@ -159,38 +159,57 @@ class RaiWebPageScrape(RaiWebSiteMapper):
         except:
             return data
     def page_recon(self, url: str, username=None, password=None) -> []:
-        tabs = []
-        try:
-            self.open(url, username, password)
-            self.set_tab_count()
-            time.sleep(1)
-            if self.tab_count > 0:
-                for tab in range(self.tab_count):
-                    if self.click_next_nav_tab():
-                        print("true")
-                        tab_details = self.page_extract(url)
-                        tabs.append(tab_details)
-                    else:
-                        print("false")
-                    self.selected_tab = self.selected_tab + 1
+        self.open(url, username, password)
+        tab = 1
+        dont_stop = True
+        while dont_stop:
+            page = self.page_extract(url)
+            if page: self.pages.append(page)
+            if self.click_nav_tab(tab):
+                self.post_open()
+                tab = tab + 1
             else:
-                page_details = self.page_extract(url)
-                tabs.append(page_details)
-        except Exception as e:
-            print(e)
-        return tabs
+                dont_stop = False
+        return self.pages
 
     def page_extract(self, url: str) -> Optional[PageExtractDetails]:
         try:
-
+            header_content = f"PAGE HEADER:\n{url}\n{self.page_title}\n"
+            body_content = "PAGE BODY:\n"
+            footer_content = "PAGE FOOTER:\n"
             Log.i("Extracting Page.")
 
+            player = self.extract_player_profile()
+            if player: header_content += f"{str(player)}\n"
+
+            column_data = self.extract_columns()
+            if column_data:
+                if type(column_data) == list:
+                    for col in column_data:
+                        footer_content += f"{str(col)}\n"
+                else:
+                    footer_content += f"{str(column_data)}\n"
+
+            """ Extract Body """
+            body = WebBodyExtractor.pipeline(self.driver.page_source)
+            body_content += f"{body.combined_text}\n"
+
             """ Extract All Table Data """
-            table_data = self.extract_all_tables()
+            table_data1 = self.extract_all_tables()
             table_data2 = self.extract_table_data()
+            table_data = LIST.flatten(LIST.merge_lists(table_data1, table_data2))
+            if table_data:
+                for item in table_data:
+                    body_content +=  f"{str(item)}\n"
 
             """ Extract Events """
             events = self.extract_calendar_events()
+            if events:
+                if type(events) == list:
+                    for evn in events:
+                        body_content += f"{str(evn)}\n"
+                else:
+                    body_content += f"{str(events)}\n"
 
             """ Extract PDF Files """
             pdfs = self.extract_pdf_urls()
@@ -207,18 +226,14 @@ class RaiWebPageScrape(RaiWebSiteMapper):
             """ Extract Actions """
             actions = WebActionExtractor.pipeline(self.driver.page_source)
 
-            """ Extract Body """
-            body = WebBodyExtractor.pipeline(self.driver.page_source)
-
-            final_content = f"{body.combined_text}\n\n{' '.join(image_texts)}"
+            final_content = f"{header_content}\n{body_content}\n{footer_content}"
             print(final_content)
-
             """ Add New Urls to Queue """
             self.add_update_crawler_queue(LIST.merge_lists(urls, urls2))
 
             """ Page Extraction Model """
             page = TextAnalysisAgent.analyze_text_async(
-                content=body.combined_text,
+                content=final_content,
                 url=self.current_url,
                 page_title=self.page_title
             )
@@ -245,4 +260,4 @@ class RaiWebPageScrape(RaiWebSiteMapper):
 if __name__ == '__main__':
     email = "jperson@parkcitysoccer.org"
     password = "Philly23!"
-    RaiWebPageScrape().test(url="https://playmetrics.com/club-admin/volunteers", username=email, password=password)
+    RaiWebPageScrape().import_single_page(url="https://playmetrics.com/players/1727778", username=email, password=password)

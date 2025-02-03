@@ -209,7 +209,11 @@ class WebBaseActions(WebBaseDriver):
                 time.sleep(1)  # Allow some time for the popup to close
         except Exception as e:
             Log.e(f"Popup handling error: {str(e)}")
-    def do_infinite_scroll(self):
+    def do_infinite_scroll_down(self):
         for _ in range(self.max_scrolls):
             self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            time.sleep(2)  # Delay to ensure dynamic content is loaded
+    def do_infinite_scroll_up(self):
+        for _ in range(self.max_scrolls):
+            self.driver.execute_script("window.scrollTo(0, 0);")  # Scroll to the top
             time.sleep(2)  # Delay to ensure dynamic content is loaded
