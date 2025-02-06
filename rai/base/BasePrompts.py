@@ -286,6 +286,14 @@ def prompt_context_expander():
         **Only return the new query**
     """
 
+
+@register_prompt("separate_prompt")
+def prompt_separate_prompt():
+    return """
+        1. Parse the user's prompt and identify every distinct question or statement within it.
+        2. Return the separated questions as a list. 
+    """
+
 @register_prompt("step_by_step")
 def prompt_step_by_step():
     return """

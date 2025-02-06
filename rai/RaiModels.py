@@ -109,44 +109,10 @@ proverbs_special = f"""
 
 """ -- YOU MUST ADD THE MODEL HERE FOR IT TO 'MOLD' TO YOUR CONFIGURATION -- """
 RAI_MODs = {
-    'park-city:2024': {
-        'id': 'park-city-soccer-club-2024',
-        'name': 'park-city:2024',
-        'model': 'park-city:2024',
-        'zip':'84098',
-        'address': '',
-        'title': 'Park City Soccer Club',
-        'initials': 'PCSC',
-        'ai_name': 'Bruno',
-        'ai_flow': 'QA',
-        'org_rep_type': 'Personal Customer Representative',
-        'collection': 'pcsc2024',
-        'prompt': GENERAL_PROMPT_TEMPLATE,
-        'context_prompt': context.SOCCER_CLUB_CONTEXT_EXPANDER,
-        'primary_functions': "ysc_primary",
-        'secondary_functions': "ysc_secondary",
-        'openai': 'gpt-4o',
-        'ollama': 'llama3:latest',
-        'org_type': 'Soccer Club',
-        'org_specialty': f"""
-            You specialize in understanding youth soccer clubs, organizational structure, youth soccer parents, youth soccer coaches, youth soccer players.
-        """,
-        'modified_at': '2024-07-02T06:32:47.913084094Z',
-        'size': 177669289,
-        'digest': 'c4ff0145029b23c94b81626b5cdd671a5c48140a3f8d972575efb9d145527581',
-        'details': {
-            'parent_model': '',
-            'format': 'gguf',
-            'family': 'gpt2',
-            'families': ['gpt2'],
-            'parameter_size': '163.04M',
-            'quantization_level': 'Q8_0'
-        }
-     },
     'park-city:2025': {
-        'id': 'park-city-soccer-club-2025',
-        'name': 'park-city:2025',
-        'model': 'park-city:2025',
+        'id': 'park-city-soccer-club-2025-3',
+        'name': 'park-city:2025-3',
+        'model': 'park-city:2025-3',
         'zip':'84098',
         'address': '',
         'title': 'Park City Soccer Club',

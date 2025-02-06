@@ -83,6 +83,11 @@ class UrlModel(BaseModel):
 class UrlsModel(BaseModel):
     holder: List[UrlModel]
 
+@register_format("separate_prompt")
+class SeparatePromptFormat(BaseModel):
+    prompts: List[str]
+
+
 @register_format("herb")
 class HerbFormat(BaseModel):
     name: str

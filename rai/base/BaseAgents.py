@@ -1,20 +1,15 @@
-import asyncio
+
 import threading
 from abc import abstractmethod, ABC
 
 from F import DICT
-from rai.data.utilities.text_data import schedule_text
-from typing_extensions import overload
-from queue import Queue
-from threading import Thread
+
 from rai.assistant.connectors import RaiAi
 from rai.base.BaseFormats import RaiBaseFormats
 from rai.base.BaseFunctions import RaiBaseFunctions
 from rai.base.BasePrompts import RaiBasePrompts
 from rai.data.utilities.TextUtils import TextProcessor
-from rai.models import functions
-import concurrent
-from concurrent.futures import ThreadPoolExecutor
+
 AGENT_REGISTRY = {}
 CONTEXTS = {
     "is_event": {
@@ -130,10 +125,10 @@ class RaiBaseAgent(ABC, RaiAi, TextProcessor):
         return await agent_instance.run_async(user_prompt=user_prompt, system_prompt=system_prompt, sub=sub)
 
     @classmethod
-    def pipelines(cls, *names: str, user_prompt: str):
+    def pipelines(cls, *names: str, user_prompt: str, system_prompt: str=None):
         pipe_results = {}
 
-        def thread_runner(user_prompt, name):
+        def thread_runner(user_prompt, name, system_prompt):
             agent_classes = AGENT_REGISTRY.get(name)
             if not agent_classes:
                 pipe_results[name] = None
@@ -141,12 +136,12 @@ class RaiBaseAgent(ABC, RaiAi, TextProcessor):
             cls.name = name
             agent_cls = agent_classes[0]
             agent_instance = agent_cls()
-            pipe_results[name] = agent_instance.run(user_prompt=user_prompt)
+            pipe_results[name] = agent_instance.run(user_prompt=user_prompt, system_prompt=system_prompt)
 
         # Create and start a thread for each collection
         threads = []
         for name in names:
-            thread = threading.Thread(target=thread_runner, args=(user_prompt, name))
+            thread = threading.Thread(target=thread_runner, args=(user_prompt, name, system_prompt))
             threads.append(thread)
             thread.start()
         for thread in threads:
@@ -351,6 +346,14 @@ class AgentConfigStepByStep(RaiBaseAgent):
     def parse(self, result):
         try: return result.holder
         except: return result
+
+@register_agent("separate_prompt")
+class AgentConfigSeparatePrompt(RaiBaseAgent):
+    def type(self): return "format"
+    def parse(self, result):
+        try: return result.prompts
+        except: return result
+
 @register_agent("subject")
 class AgentConfigSubject(RaiBaseAgent):
     def type(self): return "format"
@@ -389,8 +392,8 @@ def mains(*names:str, user_prompt):
 
 if __name__ == "__main__":
     # from rai.data.utilities.text_data import schedule_text
-    user_prompt = "Generate me a list of 100 herbs"
-    mains("objective", "subject", user_prompt=user_prompt)
+    user_prompt = "How do I register my child?"
+    mains("separate_prompt", user_prompt=user_prompt)
     # asyncio.run(
     #     main(
     #         name="objective",

@@ -199,6 +199,7 @@ async def chat_completion(idx:Optional[int]=None):
         """ 1. Generate Context Expansion on Initial User Input """
         # TODO: RUN SETUP PIPELINES HERE, "objective", "subject", "context_expander"
         query_results = await RaiRagAgent.pipeline_async(
+            name='base',
             prefix=mod_collection_prefix,
             user_prompt=MessageContext.get_last_user_message
         )
