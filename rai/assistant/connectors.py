@@ -17,6 +17,10 @@ class RaiAi:
     OLLAMA = OllamaEngine()
     OPENAI = OpenAiEngine()
 
+    MODEL_DEFAULT = AiModels.DEFAULT_OPENAI
+    MODEL_FUNCTION = AiModels.DEFAULT_OPENAI
+    MODEL_FORMAT = AiModels.DEFAULT_OPENAI
+
     def __init__(self, engine_name:str='openai'):
         self.engines: Dict[str, FusedAI] = {}
         self.initialize_engines()
@@ -38,8 +42,9 @@ class RaiAi:
             self.CURRENT_ENGINE = engine_name
         else:
             return f"Engine [ {engine_name} ] Not Supported."
-    def generate(self, user: str, system: str):
-        return self.engine.generate(user, system)
+    def generate(self, user: str, system: str, image=None):
+        return self.engine.generate(user, system, image)
+
     def generate_function(self, user: str, system: str, functions: [dict]):
         result = self.engine.generate_function(user, system, functions)
         return self.parse_function_names(result)
@@ -81,3 +86,7 @@ class RaiAi:
         self.DEFAULT_MODEL = model
 
 
+if __name__ == '__main__':
+    engine = RaiAi()
+    result = engine.generate(user='Extract the table data from this image and return the data as json objects.', system='Extract the text data from the image provided and retain its structure.', image='/Users/chazzromeo/Desktop/pcsc2024/Complex Schedule.png')
+    print(result)

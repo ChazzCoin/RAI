@@ -1,4 +1,7 @@
+import asyncio
+import threading
 import time
+import uuid
 from typing import Optional
 
 from F import DICT, LIST
@@ -9,6 +12,7 @@ from selenium.webdriver.remote.webelement import WebElement
 from rai.composers.TextAnalysisAgent import TextAnalysisAgent
 from rai.data.DataImport import RaiDataImporter
 from rai.data.web.WebModels import PageExtractDetails
+from rai.data.web.driver.AsyncCrawler import RaiQuickCrawler
 from rai.data.web.driver.DriverSiteMapper import RaiWebSiteMapper
 from rai.data.web.soup.BodyExtractor import WebBodyExtractor
 from rai.data.web.soup.UrlExtractor import WebUrlExtractor
@@ -25,10 +29,22 @@ Log = Log("RaiWebPageScrape")
 class RaiWebPageScrape(RaiWebSiteMapper):
     pages = []
 
-
-    def import_single_page(self, url: str, username=None, password=None):
+    async def pageThreader(self, prefix:str, url:str):
+        crawler = RaiQuickCrawler()
+        await crawler.url_recon(url)
+        self.current_url = url
+        self.add_update_crawler_queue(crawler.all_links)
+        count = 0
+        while self.to_visit_urls:
+            if count == 3: break
+            next = self.to_visit_urls.pop()
+            self.page_recon(next)
+            self.visited_urls.add(next)
+            count = count + 1
+        RaiDataImporter.import_web_docs(prefix, url, self.cache)
+    def import_single_page(self, prefix:str, url: str, username=None, password=None):
         self.page_recon(url, username, password)
-        RaiDataImporter.import_web_docs("pcsc2025.3", url, self.cache)
+        RaiDataImporter.import_web_docs(prefix, url, self.cache)
 
     def test(self, url: str, username=None, password=None):
         self.open(url, username, password)
@@ -234,8 +250,11 @@ class RaiWebPageScrape(RaiWebSiteMapper):
             """ Page Extraction Model """
             page = TextAnalysisAgent.analyze_text_async(
                 content=final_content,
-                url=self.current_url,
-                page_title=self.page_title
+                url=self.driver.current_url,
+                page_title=self.page_title,
+                parent_id=self.site_id,
+                page_id=self.page_id,
+                page_number=f"{len(self.pages) + 1}",
             )
             page.title = self.page_title
             page.url = url
@@ -257,6 +276,8 @@ class RaiWebPageScrape(RaiWebSiteMapper):
             Log.e(f"Error Scraping {url}: {e}")
             return None
 
+
+
 if __name__ == '__main__':
     email = "jperson@parkcitysoccer.org"
     password = "Philly23!"
@@ -272,5 +293,7 @@ if __name__ == '__main__':
         "https://www.parkcityextremecup.com/who-to-call-1",
         "https://www.parkcityextremecup.com/custom-apparel-1"
     ]
-    for url in urls:
-        RaiWebPageScrape().import_single_page(url=url, username=None, password=None)
+    asyncio.run(RaiWebPageScrape().pageThreader("busa2025.1", "https://birminghamunited.com"))
+    # print(ps)
+    # for url in urls:
+    #     RaiWebPageScrape().import_single_page(prefix="pcsc2025.4", url=url, username=email, password=password)

@@ -6,6 +6,7 @@ from F import DICT, LIST, DATE
 from rai.base.BaseAgents import RaiBaseAgent
 from rai.assistant.connectors import RaiAi
 from rai.base.BaseContexts import RaiBaseContexts, context_soccer
+from rai.data.loaders.rai_loaders.BaseLoad import RaiLoaderDocument
 from rai.data.utilities.TextUtils import TextProcessor
 from rai.internal.connectors import VECTOR_DB_CLIENT
 OBJECTIVE_PROMPT_REGISTRY = {}
@@ -173,10 +174,30 @@ class RaiRagAgent(ABC, RaiAi, TextProcessor):
         Current Date & Time: {now.strftime("%Y-%m-%d %H:%M:%S %Z%z")}
         """
 
+
+"""
+pages = self.unwrap_collection('pages', wrapped_results)
+events = self.unwrap_collection('events', wrapped_results)
+top_only = self.filter_by_distance(unwrapped_results)
+top_doc: RaiLoaderDocument = LIST.get(0, top_only, None)
+
+top_doc_meta = DICT.get("metadata", top_doc, None)
+
+top_parent_id = DICT.get("parent_id", top_doc_meta, None)
+top_page_id = DICT.get("page_id", top_doc_meta, None)
+top_page_number = DICT.get("page_number", top_doc_meta, None)
+parent_where_query = { "parent_id": {"$eq": top_parent_id} }
+page_where_query = { "page_id": {"$eq": top_page_id} }
+number_where_query = { "page_number": {"$eq": top_page_number} }
+where_results = VECTOR_DB_CLIENT.queryThreaded(*collection_list, user_prompt=user_prompt, k=10, where=page_where_query)
+
+"""
+
 @register_rag_agent("base")
 class RagAgentBaseRunner(RaiRagAgent):
     async def run_async(self, prefix: str, user_prompt: str):
         try:
+            # self.switch_engine('ollama')
             collection_list = [f"{prefix}.{c}" for c in self.collections]
             results = RaiBaseAgent.pipelines(
                 "context_expander", "objective",
@@ -185,13 +206,7 @@ class RagAgentBaseRunner(RaiRagAgent):
 
             # expanded_user_prompt = DICT.get("context_expander", results, user_prompt)
             wrapped_results = VECTOR_DB_CLIENT.queryThreaded(*collection_list, user_prompt=user_prompt, k=10)
-
-            pages = self.unwrap_collection('pages', wrapped_results)
-            events = self.unwrap_collection('events', wrapped_results)
-
             unwrapped_results = VECTOR_DB_CLIENT.unwrap_results(wrapped_results)
-
-            top_only = self.filter_by_distance(unwrapped_results)
 
             query_results = VECTOR_DB_CLIENT.unwrap_formatted(unwrapped_results, k=5)
 
@@ -285,17 +300,16 @@ def how_to_guide():
         You will read the given knowledge library of documents and break down how to accomplish the users prompt.
         You will give detailed, step by step instructions.
         Use numbers, bullets and other human readable formats to help with visualization.
-        **ALWAYS INCLUDE SOURCES AND URLS, CONTACTS, EMAILS**
+        **ALWAYS INCLUDE HUMAN READABLE LINKS FOR SOURCES AND URLS, CONTACTS, EMAILS**
         **ALWAYS INCLUDE ADDRESSES AND LOCATIONS WITH GOOGLE URL LINKS**
         **BASED ON THE PROVIDED REAL-TIME DATE, PROVIDE WARNINGS FOR PAST DATES**
     """
-
 @register_objective_prompt("find_search")
 def find_search():
     return """
         You specialize and are a master in extracting and returning concise and specific information based on the information provided.
         You will read the given knowledge library of documents and break down how to accomplish the users prompt.
-        **ALWAYS INCLUDE SOURCES AND URLS, CONTACTS, EMAILS**
+        **ALWAYS INCLUDE HUMAN READABLE LINKS FOR SOURCES AND URLS, CONTACTS, EMAILS**
         **ALWAYS INCLUDE ADDRESSES AND LOCATIONS WITH GOOGLE URL LINKS**
         **BASED ON THE PROVIDED REAL-TIME DATE, PROVIDE WARNINGS FOR PAST DATES**
     """
@@ -304,7 +318,8 @@ def summarize():
     return """
         You specialize and are a master in summarizing a large set of information based on the information provided.
         You will read the given knowledge library of documents and break down how to accomplish the users prompt.
-        **ALWAYS INCLUDE SOURCES AND URLS, CONTACTS, EMAILS, ADDRESSES AND LOCATIONS WHEN APPROPRIATE**
+        **ALWAYS INCLUDE HUMAN READABLE LINKS FOR SOURCES AND URLS, CONTACTS, EMAILS**
+        **ALWAYS INCLUDE ADDRESSES AND LOCATIONS WITH GOOGLE URL LINKS**
         **BASED ON THE PROVIDED REAL-TIME DATE, PROVIDE WARNINGS FOR PAST DATES**
     """
 @register_objective_prompt("explain")
@@ -312,7 +327,7 @@ def explain():
     return """
         You specialize and are a master in further explaining in more detail based on the information provided.
         You will read the given knowledge library of documents and break down how to accomplish the users prompt.
-        **ALWAYS INCLUDE SOURCES AND URLS, CONTACTS, EMAILS**
+        **ALWAYS INCLUDE HUMAN READABLE LINKS FOR SOURCES AND URLS, CONTACTS, EMAILS**
         **ALWAYS INCLUDE ADDRESSES AND LOCATIONS WITH GOOGLE URL LINKS**
         **BASED ON THE PROVIDED REAL-TIME DATE, PROVIDE WARNINGS FOR PAST DATES**
     """
@@ -321,7 +336,7 @@ def clarify():
     return """
         You specialize and are a master in clarifying information based on the information provided.
         You will read the given knowledge library of documents and break down how to accomplish the users prompt.
-        **ALWAYS INCLUDE SOURCES AND URLS, CONTACTS, EMAILS**
+        **ALWAYS INCLUDE HUMAN READABLE LINKS FOR SOURCES AND URLS, CONTACTS, EMAILS**
         **ALWAYS INCLUDE ADDRESSES AND LOCATIONS WITH GOOGLE URL LINKS**
         **BASED ON THE PROVIDED REAL-TIME DATE, PROVIDE WARNINGS FOR PAST DATES**
     """
@@ -330,7 +345,7 @@ def create():
     return """
         You specialize and are a master in creating new content based on the information provided.
         You will read the given knowledge library of documents and break down how to accomplish the users prompt.
-        **ALWAYS INCLUDE SOURCES AND URLS, CONTACTS, EMAILS**
+        **ALWAYS INCLUDE HUMAN READABLE LINKS FOR SOURCES AND URLS, CONTACTS, EMAILS**
         **ALWAYS INCLUDE ADDRESSES AND LOCATIONS WITH GOOGLE URL LINKS**
         **ALWAYS BE DATE/TIME AWARE AND INCLUDE WARNINGS FOR OLD/PAST DATES**
     """

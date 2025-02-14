@@ -65,14 +65,6 @@ class RaiDocCreator(RaiBaseLoader, TextProcessor):
         metadata: RaiMetadata = RaiBaseAgent.pipeline(name='metadata', user_prompt=content)
         return metadata.model_dump()
 
-    def pipeline_extraction(self, page: PageExtractDetails):
-        contacts: [RaiContactFormat] = RaiBaseAgent.pipeline("contacts", page.content)
-        events: [BaseEvent] = RaiBaseAgent.pipeline("events", page.content)
-        locations: [BaseLocation] = RaiBaseAgent.pipeline("locations", page.content)
-        urls: [UrlsModel] = RaiBaseAgent.pipeline("urls", page.content)
-        context_groups: [TextsModel] = RaiBaseAgent.pipeline("contextual_groups", page.content)
-        summarize: [TextsModel] = RaiBaseAgent.pipeline("summarize", page.content)
-
     def are_docs_identical(self, doc1: RaiLoaderDocument, doc2: RaiLoaderDocument) -> bool:
         if self.are_strings_identical(doc1.page_content, doc2.page_content):
             if self.are_dicts_identical(doc1.metadata, doc2.metadata):
@@ -87,12 +79,18 @@ class RaiDocCreator(RaiBaseLoader, TextProcessor):
         return False
 
     def add_doc(self, page_content, metadata):
-        doc = RaiLoaderDocument(
-            page_content=self.TEXT_CLEANER(str(page_content)),
-            metadata=ensure_string_for_chroma(metadata)
-        )
-        if self.has_doc(doc): return
-        self.cache.append(doc)
+        content = self.TEXT_CLEANER(str(page_content))
+        if not self.string_length_is_within(text=content, max_length=5000):
+            contents = self.split_string_by_limit(content, char_limit=5000)
+        else: contents = [content]
+
+        for c in contents:
+            doc = RaiLoaderDocument(
+                page_content=c,
+                metadata=ensure_string_for_chroma(metadata)
+            )
+            if self.has_doc(doc): return
+            self.cache.append(doc)
 
     def to_documents(self, page: PageExtractDetails):
         """ Web Contents Loader """

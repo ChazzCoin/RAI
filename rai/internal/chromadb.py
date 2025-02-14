@@ -108,14 +108,22 @@ class ChromaClient:
                 }
             )
         return None
-    def search_vector(self, collection_name: str, vectors: list[list[float]], limit: int) -> Optional[SearchResult]:
+    def search_vector(self, collection_name: str, vectors: list[list[float]], limit: int, where:dict=None) -> Optional[SearchResult]:
         # Search for the nearest neighbor items based on the vectors and return 'limit' number of results.
         collection = self.client.get_collection(name=collection_name)
         if collection:
-            result = collection.query(
-                query_embeddings=vectors,
-                n_results=limit,
-            )
+
+            if not where:
+                result = collection.query(
+                    query_embeddings=vectors,
+                    n_results=limit,
+                )
+            else:
+                result = collection.query(
+                    query_embeddings=vectors,
+                    n_results=limit,
+                    where=where,
+                )
 
             return SearchResult(
                 **{

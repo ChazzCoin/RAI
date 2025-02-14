@@ -226,6 +226,11 @@ class AgentConfigRAG(RaiBaseAgent):
     def type(self): return "base"
     def parse(self, result): return result
 
+@register_agent("paraphrase")
+class AgentConfigParaphrase(RaiBaseAgent):
+    def type(self): return "base"
+    def parse(self, result): return result
+
 @register_agent("summarize")
 class AgentConfigSummarize(RaiBaseAgent):
     def type(self): return "base"
@@ -233,6 +238,16 @@ class AgentConfigSummarize(RaiBaseAgent):
 
 @register_agent("objective")
 class AgentConfigObjective(RaiBaseAgent):
+    def type(self): return "function"
+    def parse(self, result): return self.parse_function_names(result)
+
+@register_agent("text_sentiment")
+class AgentConfigTextSentiment(RaiBaseAgent):
+    def type(self): return "function"
+    def parse(self, result): return self.parse_function_names(result)
+
+@register_agent("document_type")
+class AgentConfigDocumentType(RaiBaseAgent):
     def type(self): return "function"
     def parse(self, result): return self.parse_function_names(result)
 
@@ -291,25 +306,25 @@ class AgentConfigMetadata(RaiBaseAgent):
 class AgentConfigHerbal(RaiBaseAgent):
     def type(self): return "format"
     def parse(self, result):
-        try: return result.holder
+        try: return result.herbs
         except: return result
 @register_agent("urls")
 class AgentConfigUrls(RaiBaseAgent):
     def type(self): return "format"
     def parse(self, result):
-        try: return result.holder
+        try: return result.urls
         except: return result
 @register_agent("contextual_groups")
 class AgentConfigContextualGroups(RaiBaseAgent):
     def type(self): return "format"
     def parse(self, result):
-        try: return result.holder
+        try: return result.groups
         except: return result
 @register_agent("faq")
 class AgentConfigQuestionAnswer(RaiBaseAgent):
     def type(self): return "format"
     def parse(self, result):
-        try: return result.holder
+        try: return result.faqs
         except: return result
 @register_agent("is_event")
 class AgentConfigIsEvent(RaiBaseAgent):
@@ -325,26 +340,26 @@ class AgentConfigIsTrue(RaiBaseAgent):
 class AgentConfigEvents(RaiBaseAgent):
     def type(self): return "format"
     def parse(self, result):
-        try: return result.holder
+        try: return result.events
         except: return result
 
 @register_agent("contacts")
 class AgentConfigContacts(RaiBaseAgent):
     def type(self): return "format"
     def parse(self, result):
-        try: return result.holder
+        try: return result.contacts
         except: return result
 @register_agent("locations")
 class AgentConfigLocations(RaiBaseAgent):
     def type(self): return "format"
     def parse(self, result):
-        try: return result.holder
+        try: return result.locations
         except: return result
 @register_agent("step_by_step")
 class AgentConfigStepByStep(RaiBaseAgent):
     def type(self): return "format"
     def parse(self, result):
-        try: return result.holder
+        try: return result.steps
         except: return result
 
 @register_agent("separate_prompt")
@@ -358,6 +373,11 @@ class AgentConfigSeparatePrompt(RaiBaseAgent):
 class AgentConfigSubject(RaiBaseAgent):
     def type(self): return "format"
     def parse(self, result): return result.subject
+
+@register_agent("rag_query_generator")
+class AgentConfigRagQueryGenerator(RaiBaseAgent):
+    def type(self): return "format"
+    def parse(self, result): return result.queries
 
 async def main(name, user_prompt):
     # from rai.data.utilities.text_data import schedule_text

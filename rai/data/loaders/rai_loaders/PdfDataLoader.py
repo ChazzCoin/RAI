@@ -6,7 +6,7 @@ from F.LOG import Log
 
 from rai.base.BaseLoaders import register_loader
 from rai.data.loaders.rai_loaders.BaseLoad import RaiLoaderDocument
-from rai.data.parsers.Pdf_v2 import RaiPdfMiner
+from rai.data.parsers.PdfMiner import RaiPdfMiner
 
 Log = Log("PdfDataLoader")
 

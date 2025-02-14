@@ -1,6 +1,7 @@
 
 
 import io
+import uuid
 from io import BytesIO
 import pytesseract
 from PIL import Image
@@ -22,6 +23,8 @@ def only_spaces_and_newlines(text):
     return not text.strip()
 
 class RaiPdfMiner(RaiDocCreator):
+        document_id = str(uuid.uuid4())
+        page_id = str(uuid.uuid4())
         pages = []
         page_count = 0
 
@@ -176,7 +179,9 @@ class RaiPdfMiner(RaiDocCreator):
                     content=body_text,
                     file=self.file_path,
                     file_type='pdf',
-                    page_count=str(self.page_count)
+                    parent_id=self.document_id,
+                    page_id=self.page_id,
+                    page_number=str(self.page_count),
                 )
                 page.author = "RaiPdfMiner"
                 page.title = self.file_path if self.file_path else "bytes"
@@ -190,6 +195,7 @@ class RaiPdfMiner(RaiDocCreator):
                 self.pages.append(page)
                 self.to_documents(page)
                 self.page_count += 1
+                self.page_id = str(uuid.uuid4())
 
             # Clean up
             fp.close()

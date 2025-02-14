@@ -1,11 +1,12 @@
+import base64
+import mimetypes
 import os
 from abc import ABC, abstractmethod, abstractproperty
-from typing import Optional, Dict, Type, Any
+from typing import Optional, Dict, Type, Any, List
 import ollama
 from ollama import ChatResponse, EmbedResponse
 from openai import OpenAI, AsyncOpenAI, Audio
 from pydantic import BaseModel
-import openai
 from rai import app
 from rai.agents.Tools import find_RaiFunction
 from rai.assistant.ai_models import AiModels
@@ -14,11 +15,67 @@ import math
 import tempfile
 from pydub import AudioSegment
 
+
+def get_image_data_url(image_input, mime_type=None):
+
+    # Step 1: Determine and read the image bytes
+    try:
+        if isinstance(image_input, bytes):
+            image_bytes = image_input
+            # If MIME type wasn't provided, default to JPEG for raw bytes
+            if mime_type is None:
+                mime_type = 'image/jpeg'
+        elif isinstance(image_input, str):
+            # Assume a file path; verify it exists
+            if not os.path.isfile(image_input):
+                raise FileNotFoundError(f"File not found: {image_input}")
+            with open(image_input, 'rb') as file_obj:
+                image_bytes = file_obj.read()
+            # If MIME type wasn't provided, try to infer from the file extension
+            if mime_type is None:
+                mime_type, _ = mimetypes.guess_type(image_input)
+                if mime_type is None:
+                    mime_type = 'image/jpeg'  # Fallback default
+        elif hasattr(image_input, 'read'):
+            # File-like object; read its bytes
+            image_bytes = image_input.read()
+            # If MIME type wasn't provided, default to JPEG
+            if mime_type is None:
+                mime_type = 'image/jpeg'
+        else:
+            raise TypeError("Invalid image input type. Must be bytes, a file path, or a file-like object.")
+    except Exception as e:
+        print(f"Error reading image input: {e}")
+        return None
+
+    # Step 2: Base64 encode the image bytes
+    try:
+        base64_encoded = base64.b64encode(image_bytes).decode("utf-8")
+    except Exception as e:
+        print(f"Error encoding image bytes to Base64: {e}")
+        return None
+
+    # Step 3: Construct the data URL
+    data_url = f"data:{mime_type};base64,{base64_encoded}"
+    return data_url
+
+
+class FusedResult(BaseModel):
+    success: bool
+    message: str
+    images: List[Any]
+    function: str
+    format: Optional[Any]
+
+
 open_ai_key = os.getenv("OPENAI_API_KEY")
 class FusedAI(ABC):
     engines: Dict[str, Type['FusedAI']] = {}
+    MODEL_OVERRIDE = None
     DEFAULT_MODEL: str = AiModels.DEFAULT_OLLAMA
     DEFAULT_EMBEDDING_MODEL: str = AiModels.DEFAULT_OLLAMA
+    DEFAULT_FUNCTION_MODEL: str = AiModels.DEFAULT_OLLAMA
+    DEFAULT_FORMAT_MODEL: str = AiModels.DEFAULT_OLLAMA
     KEY: str = ""
     TEMPERATURE: float = 0.5
     TOP_K: int = 10
@@ -33,20 +90,32 @@ class FusedAI(ABC):
             raise ValueError("Subclasses must define an 'engine' name.")
         cls.engine = engine
         FusedAI.engines[engine] = cls
-    @property
-    def default_model(self) -> str:
-        if self.engine == "openai":
-            return AiModels.DEFAULT_OPENAI
-        return AiModels.DEFAULT_OLLAMA
+    # @property
+    # def default_model(self) -> str:
+    #     if self.engine == "openai":
+    #         return AiModels.DEFAULT_OPENAI
+    #     return AiModels.DEFAULT_OLLAMA
     @property
     def default_embedding_model(self) -> str:
         if self.engine == "openai":
             return AiModels.DEFAULT_OPENAI_EMBEDDING
         return AiModels.DEFAULT_OLLAMA_EMBEDDING
+    @property
+    def default_function_model(self) -> str:
+        if self.engine == "openai":
+            return AiModels.DEFAULT_OPENAI_FUNCTION
+        return AiModels.DEFAULT_OLLAMA_FUNCTION
+    @property
+    def default_format_model(self) -> str:
+        if self.engine == "openai":
+            return AiModels.DEFAULT_OPENAI_FORMAT
+        return AiModels.DEFAULT_OLLAMA_FORMAT
 
+    @abstractmethod
+    def engine_model(self) -> str: pass
     """ SYNC """
     @abstractmethod
-    def generate(self, user: str, system: str):pass
+    def generate(self, user: str, system: str, image=None):pass
     @abstractmethod
     def generate_chat(self, messages:[{}]): pass
     @abstractmethod
@@ -68,10 +137,39 @@ class FusedAI(ABC):
     async def generate_function_async(self, user: str, system: str, functions: [dict]): pass
 
 """
-
     OPENAI ENGINE
-
+{
+    "type": "image_url",
+    "image_url": {
+        "url": "",
+    },
+},
 """
+MESSAGE_SYSTEM = lambda system: { "role": "developer", "content": str(system) }
+MESSAGE_USER = lambda user: { "role": "user", "content": str(user) }
+MESSAGE_IMAGE = lambda user, img: {
+    "role": "user",
+    "content": [
+        {"type": "text", "text": user},
+        {
+            "type": "image_url",
+            "image_url": {
+                "url": get_image_data_url(img),
+            }
+        },
+    ],
+}
+
+def buildMessage(user:str, system:str, image=None) -> Any:
+    if image is None:
+        return [
+            MESSAGE_SYSTEM(system),
+            MESSAGE_USER(user),
+        ]
+    return [
+        MESSAGE_IMAGE(user, image)
+    ]
+
 class OpenAiEngine(FusedAI, engine="openai"):
     O: OpenAI = None
     OAsync: AsyncOpenAI = None
@@ -80,14 +178,15 @@ class OpenAiEngine(FusedAI, engine="openai"):
         self.O = OpenAI(api_key=open_ai_key, timeout=20, max_retries=3)
         self.OAsync = AsyncOpenAI(api_key=open_ai_key, timeout=20, max_retries=3)
 
-    def generate(self, user:str, system:str):
+    def engine_model(self):
+        if self.MODEL_OVERRIDE: return self.MODEL_OVERRIDE
+        return AiModels.DEFAULT_OPENAI
+
+    def generate(self, user:str, system:str, image=None):
         try:
             response = self.O.chat.completions.create(
-                model=self.default_model,
-                messages=[
-                    { "role": "developer", "content": system },
-                    { "role": "user", "content": user },
-                ]
+                model=self.engine_model(),
+                messages=buildMessage(user, system, image)
             )
             response = response.choices[0].message.content
             return response
@@ -98,7 +197,7 @@ class OpenAiEngine(FusedAI, engine="openai"):
         print("Generating Chat - OpenAI")
         try:
             response = self.O.chat.completions.create(
-                model=self.default_model,
+                model=self.engine_model(),
                 messages=messages
             )
             response = response.choices[0].message.content
@@ -117,14 +216,11 @@ class OpenAiEngine(FusedAI, engine="openai"):
         except Exception as e:
             print(f"Failed to embed text with openai: {e}")
             return []
-    def generate_format(self, user: str, system: str, format: BaseModel):
+    def generate_format(self, user: str, system: str, format: BaseModel, image=None):
         try:
             completion = self.O.beta.chat.completions.parse(
-                model=self.default_model,
-                messages=[
-                    {"role": "developer", "content": system},
-                    {"role": "user", "content": user}
-                ],
+                model=self.default_format_model,
+                messages=buildMessage(user, system, image),
                 response_format=format,
             )
             response = completion.choices[0].message
@@ -138,14 +234,11 @@ class OpenAiEngine(FusedAI, engine="openai"):
         except Exception as e:
             print(e)
             return f"Uh oh. Something has gone wrong!: {e}"
-    def generate_function(self, user: str, system: str, functions: [dict]):
+    def generate_function(self, user: str, system: str, functions: [dict], image=None):
         try:
             completion = self.O.chat.completions.create(
-                model=self.default_model,
-                messages=[
-                    {"role": "developer", "content": "Which functions should I call based on the Context (Youth Soccer Club) or Topic of the Users Prompt?"},
-                    {"role": "user", "content": str(user)}
-                ],
+                model=self.default_function_model,
+                messages=buildMessage(user, system, image),
                 tools=functions,
             )
             response = completion.choices[0].message.tool_calls
@@ -160,24 +253,21 @@ class OpenAiEngine(FusedAI, engine="openai"):
             print(e)
             return None
     """ ASYNC FUNCTIONS"""
-    async def generate_async(self, user: str, system: str):
+    async def generate_async(self, user: str, system: str, image=None):
         try:
             completion = await self.OAsync.chat.completions.create(
-                model=self.default_model,
-                messages=[
-                    {"role": "developer", "content": system},
-                    {"role": "user", "content": user}
-                ]
+                model=self.engine_model(),
+                messages=buildMessage(user, system, image),
             )
             response = completion.choices[0].message.content
             return response
         except Exception as e:
             print(e)
             return None
-    async def generate_chat_async(self, messages: [{}]):
+    async def generate_chat_async(self, messages: [{}], image=None):
         try:
             completion = await self.OAsync.chat.completions.create(
-                model=self.default_model,
+                model=self.engine_model(),
                 messages=messages
             )
             response = completion.choices[0].message.content
@@ -195,14 +285,11 @@ class OpenAiEngine(FusedAI, engine="openai"):
         except Exception as e:
             print(f"Failed to embed text with openai: {e}")
             return []
-    async def generate_format_async(self, user: str, system: str, format: Type[BaseModel]):
+    async def generate_format_async(self, user: str, system: str, format: Type[BaseModel], image=None):
         try:
             completion = await self.OAsync.beta.chat.completions.parse(
-                model=self.default_model,
-                messages=[
-                    {"role": "developer", "content": system},
-                    {"role": "user", "content": user}
-                ],
+                model=self.default_format_model,
+                messages=buildMessage(user, system, image),
                 response_format=format,
             )
             response = completion.choices[0].message
@@ -216,14 +303,11 @@ class OpenAiEngine(FusedAI, engine="openai"):
         except Exception as e:
             print(e)
             return None
-    async def generate_function_async(self, user: str, system: str, functions: [dict]):
+    async def generate_function_async(self, user: str, system: str, functions: [dict], image=None):
         try:
             completion = await self.OAsync.chat.completions.create(
-                model=self.default_model,
-                messages=[
-                    {"role": "developer", "content": system},
-                    {"role": "user", "content": user}
-                ],
+                model=self.default_function_model,
+                messages=buildMessage(user, system, image),
                 tools=functions,
             )
             response = completion.choices[0].message.tool_calls
@@ -250,15 +334,19 @@ class OllamaEngine(FusedAI, engine="ollama"):
         self.O = ollama.Client(host=app.state.config.OLLAMA_HOST)
         self.OAsync = ollama.AsyncClient(host=app.state.config.OLLAMA_HOST)
 
+    def engine_model(self):
+        if self.MODEL_OVERRIDE: return self.MODEL_OVERRIDE
+        return AiModels.DEFAULT_OLLAMA
+
     def download_ollama_model(self, model_name: str):
         yield self.O.pull(model=model_name)
 
     """ SYNC """
-    def generate(self, user: str, system: str):
+    def generate(self, user: str, system: str, image=None):
         print("Generating Async Chat - Ollama")
         try:
             data: ChatResponse = self.O.generate(
-                model=self.default_model,
+                model=self.engine_model(),
                 prompt=user,
                 system=system
             )
@@ -266,11 +354,11 @@ class OllamaEngine(FusedAI, engine="ollama"):
         except Exception as e:
             print(e)
             return None
-    def generate_chat(self, messages:[{}]):
+    def generate_chat(self, messages:[{}], image=None):
         print("Generating Async Chat - Ollama")
         try:
             data: ChatResponse = self.O.chat(
-                model=self.default_model,
+                model=self.engine_model(),
                 messages=messages
             )
             return data.message.content
@@ -287,13 +375,13 @@ class OllamaEngine(FusedAI, engine="ollama"):
         except Exception as e:
             print(e)
             return None
-    def generate_format(self, user:str, system:str, format: BaseModel):
+    def generate_format(self, user:str, system:str, format: BaseModel, image=None):
         try:
             data: ChatResponse = self.O.chat(
-                model=self.default_model,
+                model=self.engine_model(),
                 messages=[
                     {"role": "system", "content": system},
-                    {"role": "user", "content": user, "images": []},
+                    {"role": "user", "content": user },
                 ],
                 format=format.model_json_schema()
             )
@@ -302,13 +390,13 @@ class OllamaEngine(FusedAI, engine="ollama"):
         except Exception as e:
             print(e)
             return None
-    def generate_function(self, user:str, system:str, functions: [dict]):
+    def generate_function(self, user:str, system:str, functions: [dict], image=None):
         try:
             data: ChatResponse = self.O.chat(
-                model=self.default_model,
+                model=self.default_function_model,
                 messages=[
                     {"role": "system", "content": system},
-                    {"role": "user", "content": user, "images": []},
+                    {"role": "user", "content": user },
                 ],
                 tools=functions
             )
@@ -324,20 +412,20 @@ class OllamaEngine(FusedAI, engine="ollama"):
     async def generate_chat_async(self, messages: [{}]):
         try:
             data: ChatResponse = await self.OAsync.chat(
-                model=self.default_model,
+                model=self.engine_model(),
                 messages=messages
             )
             return data.message.content
         except Exception as e:
             print(e)
             return None
-    async def generate_async(self, user:str, system:str):
+    async def generate_async(self, user:str, system:str, image=None):
         try:
             data: ChatResponse = await self.OAsync.chat(
-                model=self.default_model,
+                model=self.engine_model(),
                 messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user, "images": []},
+                    {"role": "system", "content": system },
+                    {"role": "user", "content": user },
                 ]
             )
             return data.message.content
@@ -354,13 +442,13 @@ class OllamaEngine(FusedAI, engine="ollama"):
         except Exception as e:
             print(e)
             return None
-    async def generate_format_async(self, user:str, system:str, format: BaseModel):
+    async def generate_format_async(self, user:str, system:str, format: BaseModel, image=None):
         try:
             data: ChatResponse = await self.OAsync.chat(
-                model=self.default_model,
+                model=self.default_format_model,
                 messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user, "images": []},
+                    { "role": "system", "content": system },
+                    { "role": "user", "content": user },
                 ],
                 format=format.model_json_schema()
             )
@@ -369,13 +457,13 @@ class OllamaEngine(FusedAI, engine="ollama"):
         except Exception as e:
             print(e)
             return None
-    async def generate_function_async(self, user:str, system:str, functions: [dict]):
+    async def generate_function_async(self, user:str, system:str, functions: [dict], image=None):
         try:
             data: ChatResponse = await self.OAsync.chat(
-                model=self.default_model,
+                model=self.default_function_model,
                 messages=[
                     { "role": "system", "content": system },
-                    { "role": "user", "content": user, "images": [] },
+                    { "role": "user", "content": user },
                 ],
                 tools=functions
             )
@@ -389,18 +477,6 @@ class OllamaEngine(FusedAI, engine="ollama"):
             return None
 
 
-def transcribe_audio(audio_path):
-    """
-    Transcribes an audio file using OpenAI's Whisper API.
-    """
-    O = OpenAI(api_key=open_ai_key, timeout=20, max_retries=3)
-    with open(audio_path, "rb") as audio_file:
-        response = O.audio.transcriptions.with_raw_response.create(
-            file=audio_file,
-            model="whisper-1",
-            response_format="text"  # Other options: "json", "srt", "verbose_json"
-        )
-    return response.content
 
 
 
@@ -470,26 +546,7 @@ def transcribe_audio_to_file(audio_path, output_path="transcript.txt", chunk_len
 
     return full_transcript
 
-def transcribe_audio_to_file1(audio_path, output_path="transcript.txt"):
-    """
-    Transcribes an audio file using OpenAI's Whisper API and saves the response to a .txt file.
-    """
-    O = OpenAI(api_key=open_ai_key, timeout=20, max_retries=3)
 
-    with open(audio_path, "rb") as audio_file:
-        response = O.audio.transcriptions.with_raw_response.create(
-            file=audio_file,
-            model="whisper-1",
-            response_format="text"  # Other options: "json", "srt", "verbose_json"
-        )
-
-    # Save the transcription to a text file
-    with open(output_path, "w", encoding="utf-8") as f:
-        f.write(response.content)
-
-    print(f"Transcription saved to {output_path}")
-
-    return response.content  # Optionally return the conten
 
 
 if __name__ == '__main__':

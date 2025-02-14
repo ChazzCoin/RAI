@@ -30,4 +30,9 @@ def complete_tokenization_v2(*content, toList=True):
     if toList:
         return tokens + bi_grams + tri_grams + quad_grams
     else:
-        return {"tokens": tokens, "bi_grams": bi_grams, "tri_grams": tri_grams, "quad_grams": quad_grams}
+        return {
+            "tokens": tokens,
+            "bi_grams": bi_grams,
+            "tri_grams": tri_grams,
+            "quad_grams": quad_grams
+        }

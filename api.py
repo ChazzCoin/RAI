@@ -25,7 +25,8 @@ import imghdr
 
 from rai.models.models import AIModelData
 
-
+from typing import List, Optional
+from pydantic import BaseModel
 Log = Log("RAI API Bruno Canary")
 app = Quart(__name__)
 app = cors(app, allow_origin="*")
@@ -71,6 +72,39 @@ def decode_base64_to_file(base64_string):
             raise ValueError("Unsupported file type: the base64 string does not represent a JPEG, PNG, or PDF file.")
     return file_data
 
+
+
+class DocMetadata(BaseModel):
+    name: str
+    value: str
+
+class SearchResponseDoc(BaseModel):
+    id: str
+    metadata: List[DocMetadata]
+
+class CorpusKey(BaseModel):
+    corpusId: str
+    customerId: str
+    dim: List[str]
+
+class SearchResponseResult(BaseModel):
+    text: str
+
+class SearchResponseSummary(BaseModel):
+    text: Optional[str] = None
+    status: Optional[str] = None
+
+class SearchResponse(BaseModel):
+    document: List[SearchResponseDoc]
+    generated: List[SearchResponseSummary]
+    response: List[SearchResponseResult]
+
+class CombinedResult(BaseModel):
+    document: SearchResponseDoc
+    generated: SearchResponseSummary
+    response: SearchResponseResult
+
+
 class UserRequest:
     chat_id: str = "guest"
     user_id: str = "guest"
@@ -95,6 +129,29 @@ class UserRequest:
             "user_email": self.user_email,
             "user_role": self.user_role
         }
+@app.route('/v1/query/{idx}', methods=['POST', 'OPTIONS'])
+@app.route('/v1/query', methods=['POST', 'OPTIONS'])
+async def query(idx:Optional[int]=None):
+    data = await request.get_data(as_text=True)
+    query = json.loads(json.dumps(data))
+    # query_results = await RaiRagAgent.pipeline_async(
+    #     name='base',
+    #     prefix="pcsc2025.4",
+    #     user_prompt=query
+    # )
+    # Validate and serialize the response using Pydantic
+    documents: List[SearchResponseDoc] = [SearchResponseDoc(
+        id="dsadokapsfd",
+        metadata=[]
+    )]
+    generated: List[SearchResponseSummary] = [SearchResponseSummary(
+        text="YOOOOO",
+        status="live"
+    )]
+    response: List[SearchResponseResult] = [SearchResponseResult(
+        text="YOOO"
+    )]
+    return jsonify({"status": 200, "data": "yooooo"})
 
 
 @app.route('/api/chat/{idx}', methods=['POST', 'OPTIONS'])
@@ -113,6 +170,8 @@ async def chat_completion(idx:Optional[int]=None):
     jbody: dict = json.loads(data.decode('utf-8'))
 
     """     GET CHAT SEQUENCE DETAILS      """
+    all_messages = jbody.get('messages', [])
+
     MessageContext = ChatSequence(jbody)
     MessageContext.ai_response = "Something Seems to have gone wrong."
 
@@ -460,7 +519,15 @@ class ChatSequence:
             rai_model=rai_model,
             ai_model=ai_model
         )
-
+    """
+    
+    {
+        "type": "image_url",
+        "image_url": {
+            "url":  f"data:image/jpeg;base64,{image_content}"
+        },
+    },
+    """
     """ Back To User """
     def stream_response(self, ai_response:str=None, done=False):
         return {
@@ -471,6 +538,7 @@ class ChatSequence:
                 "role": "assistant",
                 "content": ai_response if ai_response else self.ai_response,
             },
+
             "options": self.options,
             "done": done
         }

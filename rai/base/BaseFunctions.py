@@ -120,6 +120,98 @@ class BaseFunctionLaw(RaiBaseFunctions):
         }
     def sub_functions(self) -> dict: return {}
 
+@register_functions("text_sentiment")
+class BaseFunctionSentiment(RaiBaseFunctions):
+    def type(self):
+        return "no_args"
+
+    def functions(self) -> dict:
+        return {
+            "extremely_positive": "Exuberant tone with high enthusiasm and optimism.",
+            "positive": "Clearly favorable sentiment reflecting optimism and satisfaction.",
+            "mildly_positive": "Subtly optimistic with a gentle, positive undertone.",
+            "neutral": "Balanced tone without strong emotional cues.",
+            "mildly_negative": "Slightly pessimistic sentiment with subtle discontent.",
+            "negative": "Clearly unfavorable sentiment with noticeable dissatisfaction.",
+            "extremely_negative": "Overwhelmingly negative tone with intense disapproval.",
+            "mixed": "Conveys conflicting sentiments, blending both positive and negative elements."
+        }
+
+    def sub_functions(self) -> dict: return {}
+
+@register_functions("document_type")
+class BaseFunctionDocumentContent(RaiBaseFunctions):
+    def sub_functions(self) -> dict:
+        pass
+
+    def type(self):
+        return "no_args"
+
+    def functions(self) -> dict:
+        return {
+            "pdf": (
+                "User Prompt Context Involves processing PDF documents. "
+                "This includes extracting text layers, handling embedded images, "
+                "annotations, and metadata. It supports both native PDFs and scanned "
+                "documents by integrating OCR to accurately extract text from image-based content."
+            ),
+            "webpage": (
+                "User Prompt Context Involves parsing webpage content. "
+                "It extracts main text, metadata (such as title, description, and keywords), "
+                "structured data (e.g., schema.org annotations), and embedded media. "
+                "The process filters out navigational elements and advertisements to ensure content integrity."
+            ),
+            "image": (
+                "User Prompt Context Involves processing image files for content extraction. "
+                "This may include applying OCR to extract any embedded text, analyzing EXIF metadata, "
+                "and detecting visual elements (e.g., diagrams, charts) to index images for context-aware retrieval."
+            ),
+            "scanned_document": (
+                "User Prompt Context Involves handling scanned documents. "
+                "Advanced OCR techniques are used alongside noise reduction and layout analysis "
+                "to reconstruct the text accurately and preserve the original formatting of the document."
+            ),
+            "word_document": (
+                "User Prompt Context Involves processing Microsoft Word documents (.doc/.docx). "
+                "This includes extracting rich text content, preserving formatting, handling embedded objects, "
+                "and capturing metadata such as authorship and revision history for comprehensive content querying."
+            ),
+            "spreadsheet": (
+                "User Prompt Context Involves processing spreadsheet files (e.g., Excel). "
+                "It extracts structured tabular data, including formulas, cell formatting, and multiple sheets, "
+                "transforming the data into a query-friendly format while preserving relational context."
+            ),
+            "presentation": (
+                "User Prompt Context Involves processing presentation files (e.g., PowerPoint). "
+                "This includes extracting text from slides, speaker notes, embedded media, and slide layouts, "
+                "ensuring that the narrative flow is maintained for effective content retrieval."
+            ),
+            "email": (
+                "User Prompt Context Involves processing email communications. "
+                "It extracts email headers (sender, recipient, subject), body text, attachments, and conversation threading, "
+                "maintaining context for query purposes."
+            ),
+            "json": (
+                "User Prompt Context Involves processing JSON documents. "
+                "This function parses nested structures, normalizes key-value pairs, and extracts data "
+                "to support flexible and precise querying of semi-structured content."
+            ),
+            "xml": (
+                "User Prompt Context Involves processing XML documents. "
+                "It parses hierarchical data, extracts element text and attributes, and converts structured information "
+                "into a format that is conducive to effective query operations."
+            ),
+            "audio_transcript": (
+                "User Prompt Context Involves processing transcripts generated from audio sources. "
+                "This includes handling time-coded text, speaker segmentation, and contextual markers, "
+                "ensuring that the spoken content is accurately represented for retrieval."
+            ),
+            "video_caption": (
+                "User Prompt Context Involves processing video caption files. "
+                "It extracts caption text along with timing information and speaker identification, "
+                "facilitating precise indexing and context-aware retrieval of video content."
+            ),
+        }
 
 
 @register_functions("topic_sports")

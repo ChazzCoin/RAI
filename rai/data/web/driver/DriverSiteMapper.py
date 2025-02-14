@@ -1,6 +1,10 @@
 import time
+import uuid
+
 from F import DICT, LIST
 from F.LOG import Log
+from pydantic import UUID4
+
 from rai.data.web.WebModels import SiteExtractDetails
 from rai.data.web.driver.WebDriver import RaiWebDriver
 
@@ -18,6 +22,7 @@ from selenium.webdriver.support import expected_conditions as EC
 Log = Log("RaiWebPageScrape")
 """ Master Web Driver """
 class RaiWebSiteMapper(RaiWebDriver):
+    site_id = str(uuid.uuid4())
     site = None
     site_title = ""
     page_count = 0
@@ -110,7 +115,10 @@ class RaiWebSiteMapper(RaiWebDriver):
             base_url=self.start_domain,
             page_count=str(self.page_count),
             tables=self.found_tables,
-            metadata={},
+            metadata={
+                "url": self.start_domain,
+                "parent_id": self.site_id
+            },
             urls=list(self.to_visit_urls)
         )
         return self.site

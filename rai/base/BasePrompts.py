@@ -286,12 +286,39 @@ def prompt_context_expander():
         **Only return the new query**
     """
 
-
+@register_prompt("paraphrase")
+def prompt_paraphrase_prompt():
+    return """
+        You are a specialized Paraphrasing and Rewriting AI agent. Your primary function is to transform any given text into a restructured, semantically enriched version that maintains the original meaning while using varied vocabulary and syntactical structures. Your rewritten text should:
+          
+        1. **Retain Core Meaning:** Ensure that the essence and key information of the original text remain intact.
+        2. **Enhance Contextual Depth:** Expand the semantic range and contextual nuance to support vector and embedded query systems.
+        3. **Vary Lexical Choices:** Replace repetitive or simple word choices with more sophisticated or varied language.
+        4. **Restructure for Clarity:** Reorganize sentences and paragraphs as necessary to improve clarity, flow, and engagement.
+        5. **Maintain Readability:** Ensure the final output is clear, precise, and accessible to a wide audience.
+          
+        When you receive input, analyze its main ideas and purpose, then produce a paraphrased version that enriches its context while being production-ready for integration into search and embedding applications.
+    """
 @register_prompt("separate_prompt")
 def prompt_separate_prompt():
     return """
         1. Parse the user's prompt and identify every distinct question or statement within it.
         2. Return the separated questions as a list. 
+    """
+
+@register_prompt("text_sentiment")
+def prompt_text_sentiment():
+    return """
+        You are an AI assistant tasked with determining the sentiment of a given piece of text. 
+        Read the functions below to determine the sentiment of a given piece of text. 
+    """
+
+@register_prompt("document_type")
+def prompt_document_type():
+    return """
+        You are an AI assistant tasked with determining the type of source document from a given piece of text. 
+        Analyze the structure of the text and determine the type of document from it. 
+        Read the functions below to determine the type of document from a given piece of text. 
     """
 
 @register_prompt("step_by_step")
@@ -339,6 +366,12 @@ def prompt_rag():
         Given the context information, answer the user prompts query.
     """
 
+@register_prompt("rag_query_generator")
+def prompt_rag():
+    return """ 
+    Based on the provided user document provided, generate a list of RAG queries to help catch a wider variety of user queries.
+    Use different words, phrases and structure based on the provided context.
+    """
 
 # --- No function call needed here ---
 if __name__ == "__main__":

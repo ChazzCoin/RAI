@@ -1,4 +1,6 @@
 import time
+import uuid
+
 from F.LOG import Log
 from rai.data.loaders.rai_loaders.BaseLoad import RaiDocCreator
 from rai.data.web.driver.DriverExtractor import WebBaseExtract
@@ -10,6 +12,8 @@ from selenium.webdriver.support import expected_conditions as EC
 Log = Log("RaiWebPageScrape")
 """ Master Web Driver """
 class RaiWebDriver(WebBaseExtract, RaiDocCreator):
+    site_id = None
+    page_id = None
     site = None
     site_title = ""
     page_count = 0
@@ -20,6 +24,7 @@ class RaiWebDriver(WebBaseExtract, RaiDocCreator):
 
     def __init__(self, open_url: str = None, username=None, password=None):
         super().__init__()
+        self.site_id = str(uuid.uuid4())
         if open_url: self.open(open_url, username, password)
 
     @classmethod
@@ -40,3 +45,4 @@ class RaiWebDriver(WebBaseExtract, RaiDocCreator):
         time.sleep(1)
         self.do_infinite_scroll_up()
         time.sleep(1)
+        self.page_id = str(uuid.uuid4())

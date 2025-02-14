@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
 
 
@@ -66,7 +66,7 @@ class QuestionAnswer(BaseModel):
 
 @register_format("faq")
 class ListOfQuestionAnswers(BaseModel):
-    holder: List[QuestionAnswer]
+    faqs: List[QuestionAnswer]
 
 @register_format("is_event")
 class IsEventModel(BaseModel):
@@ -87,6 +87,13 @@ class UrlsModel(BaseModel):
 class SeparatePromptFormat(BaseModel):
     prompts: List[str]
 
+@register_format("rag_query_generator")
+class RagQueryGeneratorFormat(BaseModel):
+    queries: List[str]
+
+@register_format("image_table_extractor")
+class ImageTableExtractorFormat(BaseModel):
+    objects: List[Dict[str, Any]] = None
 
 @register_format("herb")
 class HerbFormat(BaseModel):
@@ -101,7 +108,7 @@ class HerbFormat(BaseModel):
 
 @register_format("herbal")
 class HerbFormat(BaseModel):
-    holder: List[HerbFormat]
+    herbs: List[HerbFormat]
 
 @register_format("text")
 class TextModel(BaseModel):
@@ -111,14 +118,14 @@ class SubjectModel(BaseModel):
     subject: str
 @register_format("contextual_groups")
 class TextsModel(BaseModel):
-    holder: List[TextModel]
+    groups: List[TextModel]
 
 @register_format("step")
 class StepModel(BaseModel):
     answer: str
 @register_format("step_by_step")
 class BaseEvents(BaseModel):
-    holder: List[StepModel]
+    steps: List[StepModel]
 
 @register_format("event")
 class BaseEvent(BaseModel):
@@ -138,7 +145,7 @@ class BaseEvent(BaseModel):
 
 @register_format("events")
 class BaseEvents(BaseModel):
-    holder: List[BaseEvent]
+    events: List[BaseEvent]
 
 @register_format("location")
 class BaseLocation(BaseModel):

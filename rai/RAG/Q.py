@@ -69,20 +69,21 @@ class Q(ChromaClient):
         else:
             return "\nDOCUMENT\n".join(unwrapped_results[:k])
 
-    def queryThreaded(self, *collections, user_prompt:str, k:int=5):
+    def queryThreaded(self, *collections, user_prompt:str, k:int=5, where:dict=None):
         query_results = {}
 
-        def query_db(collection, user_prompt):
+        def query_db(collection, user_prompt, where):
             query_results[collection] = self.querySingleCollection(
                 collection,
                 user_message=user_prompt,
-                k=k
+                k=k,
+                where=where
             )
 
         # Create and start a thread for each collection
         threads = []
         for collection in collections:
-            thread = threading.Thread(target=query_db, args=(collection, user_prompt))
+            thread = threading.Thread(target=query_db, args=(collection, user_prompt, where))
             threads.append(thread)
             thread.start()
         for thread in threads:
@@ -90,10 +91,10 @@ class Q(ChromaClient):
 
         return query_results
 
-    def querySingleCollection(self, collection, user_message: str, k: int = 5):
+    def querySingleCollection(self, collection, user_message: str, k: int = 5, where:dict=None):
         try:
             print("User Query:", user_message)
-            results = self.base_query_doc_vector(collection, query=user_message, embedding_function=generate_embeddings, k=k)
+            results = self.base_query_doc_vector(collection, query=user_message, embedding_function=generate_embeddings, k=k, where=where)
             return self.merge_sort_query_results([results.model_dump()], k=k)
         except Exception as e:
             Log.e("Failed to query", e)
@@ -200,12 +201,13 @@ class Q(ChromaClient):
                 pass
         return self.merge_and_sort_query_results(results, k=k)
 
-    def base_query_doc_vector(self, collection_name: str, query: str, embedding_function, k: int):
+    def base_query_doc_vector(self, collection_name: str, query: str, embedding_function, k: int, where:dict=None):
         try:
             result = self.search_vector(
                 collection_name=collection_name,
                 vectors=[embedding_function(query)],
                 limit=k,
+                where=where,
             )
             print("result", result)
             print(f"query_doc:result {result}")

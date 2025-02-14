@@ -41,6 +41,7 @@ class WebBaseQueue(WebBaseHelper):
         filtered_links = []
         for link in new_links:
             if str(link).endswith('.css'): continue
+            if str(link).endswith('.ico'): continue
             if str(link).endswith('.js'): continue
             if str(link).endswith('.json'): continue
             if str(link).endswith('.svg'): continue

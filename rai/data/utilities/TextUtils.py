@@ -154,8 +154,8 @@ class TextProcessor(DictComparator, StringComparator):
         'Dir\.',  # Add any additional titles as necessary
     ]) + r')\b')
     text_splitter_web = RecursiveCharacterTextSplitter(
-        chunk_size=1200,
-        chunk_overlap=500,
+        chunk_size=5000,
+        chunk_overlap=1000,
         add_start_index=True,
     )
     text_splitter_pdf = RecursiveCharacterTextSplitter(
@@ -168,7 +168,6 @@ class TextProcessor(DictComparator, StringComparator):
         chunk_overlap=0,
         add_start_index=True,
     )
-
     def split_web_docs(self, docs: []): return self.text_splitter_web.split_documents(docs)
     def split_pdf_docs(self, docs: []): return self.text_splitter_pdf.split_documents(docs)
     def split_table_docs(self, docs: []): return self.text_splitter_table.split_documents(docs)

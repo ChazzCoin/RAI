@@ -2,10 +2,18 @@
 
 
 class AiModels:
+
     DEFAULT_OPENAI_EMBEDDING = "text-embedding-3-large"
     DEFAULT_OLLAMA_EMBEDDING = "nomic-embed-text"
+
     DEFAULT_OPENAI = "gpt-4o"
-    DEFAULT_OLLAMA = "llama3.2"
+    DEFAULT_OLLAMA = "llama3.2:latest"
+
+    DEFAULT_OPENAI_FUNCTION = "o3-mini"
+    DEFAULT_OLLAMA_FUNCTION = "llama3.2:latest"
+
+    DEFAULT_OPENAI_FORMAT = "o3-mini"
+    DEFAULT_OLLAMA_FORMAT = "llama3.2:latest"
 
     class OpenAi:
         # GPT-4 Series
@@ -20,6 +28,8 @@ class AiModels:
         # o1 Series
         O1_PREVIEW = "o1-preview"
         O1_MINI = "o1-mini"
+        O3_HIGH = "o3-high"
+        O3_MINI = "o3-mini"
 
         class Embed:
             DEFAULT = "text-embedding-ada-002"
@@ -40,6 +50,7 @@ class AiModels:
         GEMMA7B = "gemma:7b"        # 7B parameter model :contentReference[oaicite:7]{index=7}
         # Qwen2 Math Series
         QWEN2_MATH = "qwen2-math"   # Specialized math language model :contentReference[oaicite:8]{index=8}
+        DEEPSEEK_R1_7B = "deepseek-r1:7b"
 
         class Embed:
             DEFAULT = "nomic-embed-text"

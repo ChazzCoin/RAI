@@ -117,13 +117,33 @@ class PageExtractDetails(BaseModel):
     title: Optional[str] = None
     author: Optional[str] = None
     date: Optional[str] = None
+
+    page_image_bytes: Optional[bytes] = None
     content: Optional[str] = None
     page_count: Optional[str] = None
+
+    character_count: Optional[int] = None
+    word_count: Optional[int] = None
+    sentence_count: Optional[int] = None
+    paragraph_count: Optional[int] = None
+
+    top_words: Optional[List[str]] = None
+    words: Optional[List[str]] = None
+    bi_words: Optional[List[str]] = None
+    tri_words: Optional[List[str]] = None
+    quad_words: Optional[List[str]] = None
+
+    sentiment: Optional[List[str]] = None
+    queries: Optional[List[str]] = None
+    paraphrase: Optional[str] = None
+    document_type: Optional[List[str]] = None
 
     # FILE
     file: Optional[str] = None
     file_image: Optional[str] = None
     lines: List[TextLineDetail] = Field(default_factory=list)
+    sentences: List[str] = Field(default_factory=list)
+    paragraphs: List[str] = Field(default_factory=list)
 
     # WEB
     url: Optional[str] = None
@@ -135,12 +155,13 @@ class PageExtractDetails(BaseModel):
 
     # Universal
     summary: Optional[str] = None
-    urls: List[UrlModel] = Field(default_factory=list)
+    urls: List[str] = Field(default_factory=list)
     tags: List[str] = Field(default_factory=list)
     images: List[str] = Field(default_factory=list)
     images_content: List[str] = Field(default_factory=list)
     contacts: List[RaiContactFormat] = Field(default_factory=list)
     locations: List[BaseLocation] = Field(default_factory=list)
+    addresses: List[str] = Field(default_factory=list)
     tables: List[Dict[str, Any]] = Field(default_factory=list)
     events: List[BaseEvent] = Field(default_factory=list)
     context_groups: List[TextModel] = Field(default_factory=list)
