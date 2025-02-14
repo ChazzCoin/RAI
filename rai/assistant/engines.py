@@ -117,24 +117,24 @@ class FusedAI(ABC):
     @abstractmethod
     def generate(self, user: str, system: str, image=None):pass
     @abstractmethod
-    def generate_chat(self, messages:[{}]): pass
+    def generate_chat(self, messages:[{}], image=None): pass
     @abstractmethod
     def generate_embeddings(self, content: str): pass
     @abstractmethod
-    def generate_format(self, user: str, system: str, format: Type[BaseModel]): pass
+    def generate_format(self, user: str, system: str, format: Type[BaseModel], image=None): pass
     @abstractmethod
-    def generate_function(self, user: str, system: str, functions: [dict]): pass
+    def generate_function(self, user: str, system: str, functions: [dict], image=None): pass
     """ ASYNC """
     @abstractmethod
-    async def generate_async(self, user: str, system: str): pass
+    async def generate_async(self, user: str, system: str, image=None): pass
     @abstractmethod
-    async def generate_chat_async(self, messages: [{}]): pass
+    async def generate_chat_async(self, messages: [{}], image=None): pass
     @abstractmethod
     async def generate_embeddings_async(self, content): pass
     @abstractmethod
-    async def generate_format_async(self, user: str, system: str, format: Type[BaseModel]): pass
+    async def generate_format_async(self, user: str, system: str, format: Type[BaseModel], image=None): pass
     @abstractmethod
-    async def generate_function_async(self, user: str, system: str, functions: [dict]): pass
+    async def generate_function_async(self, user: str, system: str, functions: [dict], image=None): pass
 
 """
     OPENAI ENGINE

@@ -107,28 +107,28 @@ class RaiBaseAgent(ABC, RaiAi, TextProcessor):
     def get_registry(cls): return AGENT_REGISTRY
 
     @classmethod
-    def pipeline(cls, name: str, user_prompt: str, system_prompt: str=None, sub=False):
+    def pipeline(cls, name: str, user_prompt: str="", system_prompt: str=None, image=None, sub=False):
         agent_classes = AGENT_REGISTRY.get(name)
         if not agent_classes: return None
         cls.name = name
         agent_cls = agent_classes[0]
         agent_instance = agent_cls()
-        return agent_instance.run(user_prompt=user_prompt, system_prompt=system_prompt, sub=sub)
+        return agent_instance.run(user_prompt=user_prompt, system_prompt=system_prompt, image=image, sub=sub)
 
     @classmethod
-    async def pipeline_async(cls, name: str, user_prompt: str, system_prompt: str=None, sub=False):
+    async def pipeline_async(cls, name: str, user_prompt: str, system_prompt: str=None, image=None, sub=False):
         agent_classes = AGENT_REGISTRY.get(name)
         if not agent_classes: return None
         cls.name = name
         agent_cls = agent_classes[0]
         agent_instance = agent_cls()
-        return await agent_instance.run_async(user_prompt=user_prompt, system_prompt=system_prompt, sub=sub)
+        return await agent_instance.run_async(user_prompt=user_prompt, system_prompt=system_prompt, image=image, sub=sub)
 
     @classmethod
-    def pipelines(cls, *names: str, user_prompt: str, system_prompt: str=None):
+    def pipelines(cls, *names: str, user_prompt: str, system_prompt: str=None, image=None):
         pipe_results = {}
 
-        def thread_runner(user_prompt, name, system_prompt):
+        def thread_runner(user_prompt, name, system_prompt, image):
             agent_classes = AGENT_REGISTRY.get(name)
             if not agent_classes:
                 pipe_results[name] = None
@@ -136,12 +136,12 @@ class RaiBaseAgent(ABC, RaiAi, TextProcessor):
             cls.name = name
             agent_cls = agent_classes[0]
             agent_instance = agent_cls()
-            pipe_results[name] = agent_instance.run(user_prompt=user_prompt, system_prompt=system_prompt)
+            pipe_results[name] = agent_instance.run(user_prompt=user_prompt, system_prompt=system_prompt, image=image)
 
         # Create and start a thread for each collection
         threads = []
         for name in names:
-            thread = threading.Thread(target=thread_runner, args=(user_prompt, name, system_prompt))
+            thread = threading.Thread(target=thread_runner, args=(user_prompt, name, system_prompt, image))
             threads.append(thread)
             thread.start()
         for thread in threads:
@@ -163,7 +163,7 @@ class RaiBaseAgent(ABC, RaiAi, TextProcessor):
     def context(self): return DICT.get("context", self.agent_context(), "")
     def prompter(self, user_prompt): return f"USER PROMPT:\n{user_prompt}\n{self.context()}"
 
-    def run(self, user_prompt, system_prompt=None, sub=False):
+    def run(self, user_prompt, system_prompt=None, image=None, sub=False):
         try:
             if self.type() == "format":
                 return self.parse(self.engine.generate_format(
@@ -182,11 +182,17 @@ class RaiBaseAgent(ABC, RaiAi, TextProcessor):
                     user=user_prompt,
                     system=self.system_prompt() if not system_prompt else system_prompt
                 ))
+            elif self.type() == "image":
+                return self.parse(self.engine.generate(
+                    user=user_prompt,
+                    system=self.system_prompt() if not system_prompt else system_prompt,
+                    image=image
+                ))
         except Exception as e:
             print(f"Error: {e}")
             return None
 
-    async def run_async(self, user_prompt, system_prompt=None, sub=False):
+    async def run_async(self, user_prompt, system_prompt=None, image=None, sub=False):
         try:
             if self.type() == "format":
                 return self.parse(await self.engine.generate_format_async(
@@ -205,6 +211,12 @@ class RaiBaseAgent(ABC, RaiAi, TextProcessor):
                     user=user_prompt,
                     system=self.system_prompt() if not system_prompt else system_prompt
                 ))
+            elif self.type() == "image":
+                return self.parse(self.engine.generate_async(
+                    user=user_prompt,
+                    system=self.system_prompt() if not system_prompt else system_prompt,
+                    image=image
+                ))
         except Exception as e:
             print(f"Error: {e}")
             return None
@@ -219,6 +231,11 @@ What they do, how they do it...what they need...etc...
 @register_agent("generate")
 class AgentConfigGenerate(RaiBaseAgent):
     def type(self): return "base"
+    def parse(self, result): return result
+
+@register_agent("image_text_extractor")
+class AgentImageTextExtractor(RaiBaseAgent):
+    def type(self): return "image"
     def parse(self, result): return result
 
 @register_agent("rag")
@@ -398,7 +415,8 @@ def mains(*names:str, user_prompt):
     # from rai.data.utilities.text_data import schedule_text
     results = RaiBaseAgent.pipelines(
             *names,
-            user_prompt=user_prompt
+            user_prompt=user_prompt,
+            image="/Users/chazzromeo/Desktop/soccer.png"
         )
     print(user_prompt)
     if type(results) in [list, tuple]:
@@ -412,8 +430,8 @@ def mains(*names:str, user_prompt):
 
 if __name__ == "__main__":
     # from rai.data.utilities.text_data import schedule_text
-    user_prompt = "How do I register my child?"
-    mains("separate_prompt", user_prompt=user_prompt)
+    user_prompt = ""
+    mains("image_text_extractor", user_prompt=user_prompt)
     # asyncio.run(
     #     main(
     #         name="objective",

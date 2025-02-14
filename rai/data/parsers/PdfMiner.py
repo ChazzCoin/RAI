@@ -13,7 +13,7 @@ from pdfminer.layout import (
     LAParams, LTTextBox, LTTextLine, LTChar, LTFigure, LTImage, LTLine, LTCurve, LTRect,
 )
 from pdfminer.converter import PDFPageAggregator
-from rai.composers.TextAnalysisAgent import TextAnalysisAgent
+from rai.composers.DocumentAnalysisAgent import DocumentAnalysisAgent
 from rai.data.loaders.rai_loaders.BaseLoad import RaiDocCreator, RaiLoaderDocument
 from rai.data.web.WebModels import TextLineClassification, TextLineDetail
 
@@ -175,8 +175,9 @@ class RaiPdfMiner(RaiDocCreator):
                 body_text = "\n".join(body)
 
                 """ Page Extraction Model """
-                page = TextAnalysisAgent.analyze_text_async(
+                page = DocumentAnalysisAgent.analyze_text_async(
                     content=body_text,
+                    image=page_image_bytes,
                     file=self.file_path,
                     file_type='pdf',
                     parent_id=self.document_id,
@@ -329,6 +330,6 @@ def extract_everything_from_pdf(file_path=None, file_data=None, file_bytes=None)
 if __name__ == '__main__':
     from F import OS
     cwd = OS.get_cwd()
-    file = "/Users/chazzromeo/Desktop/pcsc2024/general/Park City Soccer Club LTADM.pdf"
+    file = "/Users/chazzromeo/Desktop/pcsc2024/general/USSoccerPositionNumbersandProfilespdf.pdf"
     result = RaiPdfMiner(file_path=file).run()
     print(result)

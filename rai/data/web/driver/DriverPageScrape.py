@@ -9,9 +9,9 @@ from F.LOG import Log
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 
-from rai.composers.TextAnalysisAgent import TextAnalysisAgent
+from rai.composers.DocumentAnalysisAgent import DocumentAnalysisAgent
 from rai.data.DataImport import RaiDataImporter
-from rai.data.web.WebModels import PageExtractDetails
+from rai.data.web.WebModels import FullDocumentPageAnalysisModel
 from rai.data.web.driver.AsyncCrawler import RaiQuickCrawler
 from rai.data.web.driver.DriverSiteMapper import RaiWebSiteMapper
 from rai.data.web.soup.BodyExtractor import WebBodyExtractor
@@ -188,7 +188,7 @@ class RaiWebPageScrape(RaiWebSiteMapper):
                 dont_stop = False
         return self.pages
 
-    def page_extract(self, url: str) -> Optional[PageExtractDetails]:
+    def page_extract(self, url: str) -> Optional[FullDocumentPageAnalysisModel]:
         try:
             header_content = f"PAGE HEADER:\n{url}\n{self.page_title}\n"
             body_content = "PAGE BODY:\n"
@@ -248,7 +248,7 @@ class RaiWebPageScrape(RaiWebSiteMapper):
             self.add_update_crawler_queue(LIST.merge_lists(urls, urls2))
 
             """ Page Extraction Model """
-            page = TextAnalysisAgent.analyze_text_async(
+            page = DocumentAnalysisAgent.analyze_text_async(
                 content=final_content,
                 url=self.driver.current_url,
                 page_title=self.page_title,

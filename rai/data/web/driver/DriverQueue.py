@@ -2,7 +2,7 @@ from typing import Set, List
 
 from F.LOG import Log
 from collections import deque
-from rai.data.web.WebModels import PageExtractDetails
+from rai.data.web.WebModels import FullDocumentPageAnalysisModel
 from rai.data.web.driver.DriverHelper import WebBaseHelper
 from urllib.parse import urlparse
 Log = Log("WebMaster")
@@ -17,7 +17,7 @@ class WebBaseQueue(WebBaseHelper):
     scrape_count = 0
     current_url = ""
     current_site_name = ""
-    pages: [PageExtractDetails] = []
+    pages: [FullDocumentPageAnalysisModel] = []
 
     @property
     def irrelevant_domains(self):

@@ -168,6 +168,14 @@ class TextProcessor(DictComparator, StringComparator):
         chunk_overlap=0,
         add_start_index=True,
     )
+
+    content_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=5000,
+        chunk_overlap=2500,
+        add_start_index=True,
+    )
+
+
     def split_web_docs(self, docs: []): return self.text_splitter_web.split_documents(docs)
     def split_pdf_docs(self, docs: []): return self.text_splitter_pdf.split_documents(docs)
     def split_table_docs(self, docs: []): return self.text_splitter_table.split_documents(docs)

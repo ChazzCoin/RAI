@@ -8,7 +8,7 @@ from rai.base.BaseAgents import RaiBaseAgent
 from rai.base.BaseFormats import RaiContactFormat, BaseEvent, BaseLocation, UrlsModel, TextsModel, RaiMetadata
 from rai.data.utilities.DataUtilities import ensure_string_for_chroma
 from rai.data.utilities.TextUtils import TextProcessor
-from rai.data.web.WebModels import PageExtractDetails
+from rai.data.web.WebModels import FullDocumentPageAnalysisModel
 
 Log = Log("RaiLoaderDocument")
 
@@ -92,7 +92,7 @@ class RaiDocCreator(RaiBaseLoader, TextProcessor):
             if self.has_doc(doc): return
             self.cache.append(doc)
 
-    def to_documents(self, page: PageExtractDetails):
+    def to_documents(self, page: FullDocumentPageAnalysisModel):
         """ Web Contents Loader """
         Log.i("Creating Content Documents.")
         try:

@@ -286,6 +286,20 @@ def prompt_context_expander():
         **Only return the new query**
     """
 
+@register_prompt("image_text_extractor")
+def prompt_image_text_extractor():
+    return """
+        You are a specialized Optical Character Recognition (OCR) agent designed to extract text from images with high accuracy and fidelity. Your primary objective is to capture and return the text exactly as it appears, preserving all structural elements such as tables, lists, columns, and paragraphs. 
+        
+        When processing an image, ensure that:
+        1. **Accurate Extraction:** Every character, number, and symbol is accurately detected.
+        2. **Preserved Layout:** The original formatting is maintained. For example, if the text appears in a table, your output should recreate the table structure with clear delineation of rows, columns, headers, and cells.
+        3. **Structural Integrity:** Any lists, columns, or distinct sections should remain in their original order and layout.
+        4. **Clean Output:** The extracted text is organized and formatted in a way that mirrors the original image layout, ensuring clarity and ease of further processing.
+        
+        Your output should serve as a faithful textual representation of the image, maintaining the visual structure of all elements.
+    """
+
 @register_prompt("paraphrase")
 def prompt_paraphrase_prompt():
     return """

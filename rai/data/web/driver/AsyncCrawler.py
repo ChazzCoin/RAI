@@ -15,7 +15,7 @@ __output__ = os.path.join(__location__, "output")
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
-from rai.composers.TextAnalysisAgent import TextAnalysisAgent
+from rai.composers.DocumentAnalysisAgent import DocumentAnalysisAgent
 from rai.data.DataImport import RaiDataImporter
 from rai.data.loaders.rai_loaders.BaseLoad import RaiDocCreator
 
@@ -140,7 +140,7 @@ class RaiQuickCrawler(RaiDocCreator):
         count = 1
         for k, v in self.raw_pages.items():
             try:
-                page = TextAnalysisAgent.analyze_text_async(
+                page = DocumentAnalysisAgent.analyze_text_async(
                     content=self.TEXT_CLEANER(v.markdown),
                     url=k,
                     page_title=k,
@@ -168,7 +168,7 @@ class RaiQuickCrawler(RaiDocCreator):
     def to_page(self, url, result:CrawlResult):
 
         try:
-            page = TextAnalysisAgent.analyze_text_async(
+            page = DocumentAnalysisAgent.analyze_text_async(
                 content=self.TEXT_CLEANER(result.markdown),
                 url=url,
                 page_title=url,
@@ -227,7 +227,7 @@ class RaiQuickCrawler(RaiDocCreator):
             verbose=False,  # corrected from 'verbos=False'
             extra_args=["--disable-gpu", "--disable-dev-shm-usage", "--no-sandbox"],
         )
-        crawl_config = CrawlerRunConfig(cache_mode=CacheMode.BYPASS)
+        crawl_config = CrawlerRunConfig(cache_mode=CacheMode.BYPASS, screenshot=True)
 
         # Create the crawler instance
         crawler = AsyncWebCrawler(config=browser_config)
@@ -363,7 +363,7 @@ async def main():
         print(f"Found {len(urls)} URLs to crawl")
         await crawler.url_recon("https://www.birminghamunited.com")
         for item in crawler.pages:
-            TextAnalysisAgent.analyze_text_async(item.markdown)
+            DocumentAnalysisAgent.analyze_text_async(content=item.markdown, image=item.screenshot)
         # await crawler.crawl_parallel(urls, max_concurrent=50)
         # crawler.to_chroma(prefix="busa2025.1")
     else:

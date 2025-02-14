@@ -1,3 +1,4 @@
+import uuid
 from typing import List, Dict, Optional, Any
 from pydantic import BaseModel, Field
 
@@ -112,20 +113,24 @@ class SiteExtractDetails(BaseModel):
     metadata: Optional[Dict[str, Any]] = None
     urls: List[str] = Field(default_factory=list)
 
-class PageExtractDetails(BaseModel):
 
+class BasePageModel(BaseModel):
+    id: Optional[str] = str(uuid.uuid4())
     title: Optional[str] = None
     author: Optional[str] = None
     date: Optional[str] = None
-
-    page_image_bytes: Optional[bytes] = None
-    content: Optional[str] = None
+    url: Optional[str] = None
+    file_name: Optional[str] = None
     page_count: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
 
-    character_count: Optional[int] = None
-    word_count: Optional[int] = None
-    sentence_count: Optional[int] = None
-    paragraph_count: Optional[int] = None
+class TextNLPModel(BaseModel):
+    sentences: List[str] = Field(default_factory=list)
+    paragraphs: List[str] = Field(default_factory=list)
+    tags: List[str] = Field(default_factory=list)
+    addresses: List[str] = Field(default_factory=list)
+    urls: List[str] = Field(default_factory=list)
+    lines: List[TextLineDetail] = Field(default_factory=list)
 
     top_words: Optional[List[str]] = None
     words: Optional[List[str]] = None
@@ -133,39 +138,49 @@ class PageExtractDetails(BaseModel):
     tri_words: Optional[List[str]] = None
     quad_words: Optional[List[str]] = None
 
+    character_count: Optional[int] = None
+    word_count: Optional[int] = None
+    sentence_count: Optional[int] = None
+    paragraph_count: Optional[int] = None
+
+class TextNLPAgentModel(BaseModel):
+    summary: Optional[str] = None
     sentiment: Optional[List[str]] = None
     queries: Optional[List[str]] = None
     paraphrase: Optional[str] = None
     document_type: Optional[List[str]] = None
+    context_groups: List[TextModel] = Field(default_factory=list)
 
-    # FILE
-    file: Optional[str] = None
-    file_image: Optional[str] = None
-    lines: List[TextLineDetail] = Field(default_factory=list)
-    sentences: List[str] = Field(default_factory=list)
-    paragraphs: List[str] = Field(default_factory=list)
-
-    # WEB
+class TextImageModel(BaseModel):
+    image_bytes: Optional[bytes] = None
     url: Optional[str] = None
-    body: Optional[WebBodyModel] = None
-    actions: Optional[WebActionModel] = None
-    pdfs: List[str] = Field(default_factory=list)
-    
-    pdfs_content: List[str] = Field(default_factory=list)
+    file_name: Optional[str] = None
+    mime_type: Optional[str] = None
+    content: Optional[str] = None
+    tables: List[Dict[str, Any]] = Field(default_factory=list)
 
-    # Universal
-    summary: Optional[str] = None
-    urls: List[str] = Field(default_factory=list)
-    tags: List[str] = Field(default_factory=list)
-    images: List[str] = Field(default_factory=list)
-    images_content: List[str] = Field(default_factory=list)
+
+class PageAnalysisModel(BaseModel):
+
+    details: BasePageModel = Field(default_factory=BasePageModel)
+
+    content: Optional[str] = None
+    sub_content: Optional[List[str]] = None
+
+    nlp: Optional[TextNLPModel] = None
+    nlp_agent: Optional[TextNLPAgentModel] = None
+    images: Optional[List[ImageData]] = None
+
     contacts: List[RaiContactFormat] = Field(default_factory=list)
     locations: List[BaseLocation] = Field(default_factory=list)
-    addresses: List[str] = Field(default_factory=list)
     tables: List[Dict[str, Any]] = Field(default_factory=list)
     events: List[BaseEvent] = Field(default_factory=list)
-    context_groups: List[TextModel] = Field(default_factory=list)
-    # For metadata, we can store arbitrary key/value pairs
-    metadata: Optional[Dict[str, Any]] = None
+
+class DocumentAnalysisModel(BaseModel):
+
+    details: BasePageModel = Field(default_factory=BasePageModel)
+    pages: Optional[List[PageAnalysisModel]] = None
+
+
 
 
