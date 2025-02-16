@@ -65,13 +65,14 @@ async def get_chat_completion(system_prompt, user_input, model:str=None):
 def truncate_text(text, max_length):
     """Truncate text to a maximum number of characters."""
     return text[:max_length] if len(text) > max_length else text
-def generate_embeddings(text):
+def generate_embeddings(text, response_only=False):
     print('Embedding Model:', AiModels.DEFAULT_OPENAI_EMBEDDING)
     try:
         response = getClient().embeddings.create(
             input=text,
             model=AiModels.DEFAULT_OPENAI_EMBEDDING
         )
+        if response_only: return response
         return response.data[0].embedding
     except Exception as e:
         print(f"Failed to embed text with openai: {e}")

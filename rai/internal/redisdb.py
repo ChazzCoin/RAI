@@ -32,6 +32,18 @@ class RedisClient:
         except Exception as e:
             Log.e(e)
 
+    def ping(self):
+        return self.redis_client.ping()
+
+    def is_connected(self):
+        return self.ping()
+
+    def get_keys_by_prefix(self, prefix):
+        return self.keys(f"{prefix}*")
+
+    def keys(self, query):
+        return self.redis_client.keys(query)
+
     def connect(self):
         """Establish a connection to the Redis server."""
         try:

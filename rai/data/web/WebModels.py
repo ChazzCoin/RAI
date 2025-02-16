@@ -1,5 +1,5 @@
 import uuid
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Tuple
 from pydantic import BaseModel, Field
 
 from rai.base.BaseFormats import BaseLocation, RaiContactFormat, BaseEvent, TextModel, UrlModel
@@ -124,7 +124,7 @@ class BasePageModel(BaseModel):
     page_count: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
 
-class TextNLPModel(BaseModel):
+class FNLPAssistantModel(BaseModel):
     sentences: List[str] = Field(default_factory=list)
     paragraphs: List[str] = Field(default_factory=list)
     tags: List[str] = Field(default_factory=list)
@@ -167,7 +167,7 @@ class PageAnalysisModel(BaseModel):
     content: Optional[str] = None
     sub_content: Optional[List[str]] = None
 
-    nlp: Optional[TextNLPModel] = None
+    nlp: Optional[FNLPAssistantModel] = None
     nlp_agent: Optional[TextNLPAgentModel] = None
     images: Optional[List[ImageData]] = None
 
@@ -184,3 +184,16 @@ class DocumentAnalysisModel(BaseModel):
 
 
 
+class NLPAssistantModel(BaseModel):
+    tokens: List[str] = Field(default_factory=list)
+    bigrams: List[str] = Field(default_factory=list)
+    sentences: List[str] = Field(default_factory=list)
+    paragraphs: List[str] = Field(default_factory=list)
+    pos_tags: List[Tuple[str, str]] = Field(default_factory=list)
+    named_entities: List[Tuple[str, str]] = Field(default_factory=list)
+    lemmas: List[str] = Field(default_factory=list)
+    dependency_parse: List[Tuple[str, str, str]] = Field(default_factory=list)
+    frequency_distribution: Dict[str, int] = Field(default_factory=dict)
+    urls: List[str] = Field(default_factory=list)
+    sentiment: Dict[str, float] = Field(default_factory=dict)
+    summary: Dict[str, Any] = Field(default_factory=dict)
