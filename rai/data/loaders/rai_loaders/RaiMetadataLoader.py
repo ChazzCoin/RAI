@@ -7,7 +7,7 @@ from F.CLASS import Flass
 from F.LOG import Log
 
 from rai.assistant.connectors import RaiAi
-from rai.data.DataAgent import RaiBaseAgent
+from rai.data.DataAgent import RaiBaseTextAgent
 from rai.data.loaders.rai_loaders.BaseLoad import RaiLoaderDocument
 
 Log = Log("RaiMetadataLoader")
@@ -143,7 +143,7 @@ class RaiMetadataLoader:
                 temp = text
             else:
                 return self.default_metadata()
-            meta_result = RaiBaseAgent.pipeline(name="metadata", user_prompt=temp)
+            meta_result = RaiBaseTextAgent.generate(name="metadata", user_prompt=temp)
             if meta_result:
                 meta_dict = json.loads(meta_result)
                 final_meta = {}

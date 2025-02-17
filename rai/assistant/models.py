@@ -1,8 +1,5 @@
 import json
 from typing import List, Optional
-from pydantic import BaseModel
-
-from rai.base.BaseFormats import register_format
 
 """
     -> These are Structured Response Models

@@ -1,11 +1,8 @@
 import asyncio
 from abc import ABC
 
-from F import DICT, LIST
-
-from rai.base.BaseAgents import RaiBaseAgent
+from rai.base.BaseTextAgents.BaseTextAgent import RaiBaseTextAgent
 from rai.assistant.connectors import RaiAi
-from rai.base.BaseFunctions import RaiBaseFunctions
 from rai.data.utilities.TextUtils import TextProcessor
 
 
@@ -27,7 +24,7 @@ class RaiContinuousAgent(ABC, RaiAi, TextProcessor):
                 f_prompt = user_prompt
                 if self.run_count >= 1:
                     f_prompt = f"ORIGINAL PROMPT:\n {u_prompt} \nI want you to continue generating the following...\n{str(r_prompt)}"
-                r_prompt = await RaiBaseAgent.pipeline_async(name=name, user_prompt=f_prompt)
+                r_prompt = await RaiBaseTextAgent.generate_async(name=name, user_prompt=f_prompt)
                 print(r_prompt)
                 self.responses.append(r_prompt)
                 self.run_count = self.run_count + 1

@@ -2,7 +2,7 @@ import uuid
 from typing import List, Dict, Optional, Any, Tuple
 from pydantic import BaseModel, Field
 
-from rai.base.BaseFormats import BaseLocation, RaiContactFormat, BaseEvent, TextModel, UrlModel
+from rai.base.BaseTextAgents.BaseTextFormats import BaseLocation, RaiContactFormat, BaseEvent, TextModel
 
 
 class ImageData(BaseModel):
@@ -124,6 +124,20 @@ class BasePageModel(BaseModel):
     page_count: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
 
+class NLPAssistantModel(BaseModel):
+    tokens: List[str] = Field(default_factory=list)
+    bigrams: List[str] = Field(default_factory=list)
+    sentences: List[str] = Field(default_factory=list)
+    paragraphs: List[str] = Field(default_factory=list)
+    pos_tags: List[Tuple[str, str]] = Field(default_factory=list)
+    named_entities: List[Tuple[str, str]] = Field(default_factory=list)
+    lemmas: List[str] = Field(default_factory=list)
+    dependency_parse: List[Tuple[str, str, str]] = Field(default_factory=list)
+    frequency_distribution: Dict[str, int] = Field(default_factory=dict)
+    urls: List[str] = Field(default_factory=list)
+    sentiment: Dict[str, float] = Field(default_factory=dict)
+    summary: Dict[str, Any] = Field(default_factory=dict)
+
 class FNLPAssistantModel(BaseModel):
     sentences: List[str] = Field(default_factory=list)
     paragraphs: List[str] = Field(default_factory=list)
@@ -165,9 +179,11 @@ class PageAnalysisModel(BaseModel):
     details: BasePageModel = Field(default_factory=BasePageModel)
 
     content: Optional[str] = None
+    content_extended: Optional[str] = None
     sub_content: Optional[List[str]] = None
 
-    nlp: Optional[FNLPAssistantModel] = None
+    nlp: Optional[NLPAssistantModel] = None
+    fnlp: Optional[FNLPAssistantModel] = None
     nlp_agent: Optional[TextNLPAgentModel] = None
     images: Optional[List[ImageData]] = None
 
@@ -182,18 +198,3 @@ class DocumentAnalysisModel(BaseModel):
     pages: Optional[List[PageAnalysisModel]] = None
 
 
-
-
-class NLPAssistantModel(BaseModel):
-    tokens: List[str] = Field(default_factory=list)
-    bigrams: List[str] = Field(default_factory=list)
-    sentences: List[str] = Field(default_factory=list)
-    paragraphs: List[str] = Field(default_factory=list)
-    pos_tags: List[Tuple[str, str]] = Field(default_factory=list)
-    named_entities: List[Tuple[str, str]] = Field(default_factory=list)
-    lemmas: List[str] = Field(default_factory=list)
-    dependency_parse: List[Tuple[str, str, str]] = Field(default_factory=list)
-    frequency_distribution: Dict[str, int] = Field(default_factory=dict)
-    urls: List[str] = Field(default_factory=list)
-    sentiment: Dict[str, float] = Field(default_factory=dict)
-    summary: Dict[str, Any] = Field(default_factory=dict)

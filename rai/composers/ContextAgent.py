@@ -1,6 +1,6 @@
 import asyncio
 from abc import ABC
-from rai.base.BaseAgents import RaiBaseAgent
+from rai.base.BaseTextAgents.BaseTextAgent import RaiBaseTextAgent
 from rai.assistant.connectors import RaiAi
 from rai.base.BaseContexts import RaiBaseContexts
 from rai.data.utilities.TextUtils import TextProcessor
@@ -16,7 +16,7 @@ class RaiContextAgent(ABC, RaiAi, TextProcessor):
     async def run_async(self, user_prompt:str, context:str) -> [str]:
         try:
             context_prompt = RaiBaseContexts.pipeline(context)
-            expanded = await RaiBaseAgent.pipeline_async(name="context_expander", user_prompt=user_prompt, system_prompt=context_prompt)
+            expanded = await RaiBaseTextAgent.generate_async(name="context_expander", user_prompt=user_prompt, system_prompt=context_prompt)
             return expanded
         except Exception as e:
             print(f"Error: {e}")

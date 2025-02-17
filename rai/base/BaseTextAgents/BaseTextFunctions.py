@@ -18,7 +18,7 @@ class RaiBaseFunctions(ABC):
         return BASE_FUNCTIONS
 
     @classmethod
-    def pipeline(cls, name: str, sub=False):
+    def function(cls, name: str, sub=False):
         agent_classes = BASE_FUNCTIONS.get(name)
         if not agent_classes:
             raise ValueError(f"No agent found with name '{name}'")
@@ -323,4 +323,4 @@ class BaseFunctionObjective(RaiBaseFunctions):
 
 
 if __name__ == "__main__":
-    print(RaiBaseFunctions.pipeline("categorize_sports", sub=True))
+    print(RaiBaseFunctions.function("categorize_sports", sub=True))

@@ -1,5 +1,4 @@
-import threading
-from typing import Any, List, Optional
+from typing import Optional
 
 from F import DICT, DATE, LIST
 import nlp.Tokenizer
@@ -7,11 +6,9 @@ import nlp.Paragraphs
 import nlp.Re
 import nlp.Keywords
 from nlp.ext import NLPAssistant
-from rai.base.BaseAgents import RaiBaseAgent
-from rai.base.BaseFormats import TextsModel
+from rai.base.BaseTextAgents.BaseTextAgent import RaiBaseTextAgent
 from rai.data.utilities.TextUtils import to_sentences, TextProcessor
-from rai.data.web.WebModels import TextNLPAgentModel, PageAnalysisModel, FNLPAssistantModel, TextImageModel, \
-    DocumentAnalysisModel, NLPAssistantModel
+from rai.data.web.WebModels import TextNLPAgentModel, PageAnalysisModel, FNLPAssistantModel, NLPAssistantModel
 
 DOC_SPLIT_SIZE = 10000
 
@@ -32,7 +29,6 @@ DOC_SPLIT_SIZE = 10000
      5. Semantic Role Labeling
      6. Contextual Metadata Tagging
      7. Paraphrasing & Rewriting
-
 
      ANALYZE IMAGE VIA AI
  """
@@ -106,135 +102,49 @@ class DocumentAnalysisAgent(NLPAssistant):
     # Pipeline plans based on content size
     # -------------------------------
 
-    def plan_0(self):
+    def plan_0(self) -> PageAnalysisModel:
         """
-        Plan 0: Tiny content – treat as a title or small snippet.
+            Plan 0: Tiny content – treat as a title or small snippet.
         Minimal NLP processing is performed.
         """
         page_model = PageAnalysisModel()
         page_model.content = self.cleaned_content.strip()
-        # Use first 50 characters as a title
-        page_model.details.title = self.cleaned_content.strip()[:50]
-        # Basic NLP (tokenization, sentence splitting) is enough here.
-        page_model.nlp = self.nlp(self.cleaned_content)
-        return page_model
-
-    def plan_1(self):
-        """
-        Plan 1: Slightly larger content – basic NLP and metadata extraction.
-        """
-        page_model = PageAnalysisModel()
-        page_model.content = self.cleaned_content
-        # Use first line as title (up to 50 chars)
-        page_model.details.title = self.cleaned_content.split('\n')[0][:50]
+        try:
+            page_model.details.title = self.cleaned_content.strip()[:50]
+        except:
+            page_model.details.title = self.cleaned_content.strip()
         page_model.nlp = self.nlp(self.cleaned_content)
         page_model.details.metadata = self.metadata_agent()
         return page_model
 
-    def plan_2(self):
-        """
-        Plan 2: Moderate content – add an enhanced NLP agent run (e.g., summarization, sentiment).
-        """
-        page_model = PageAnalysisModel()
-        page_model.content = self.cleaned_content
-        page_model.details.title = self.cleaned_content.split('\n')[0][:50]
-        page_model.nlp = self.nlp(self.cleaned_content)
+    def plan_1(self) -> PageAnalysisModel:
+        return self.plan_0()
+
+    def plan_2(self) -> PageAnalysisModel:
+        page_model = self.plan_1()
+        page_model.fnlp = self.fnlp(self.cleaned_content)
         page_model.nlp_agent = self.nlp_agent()
-        page_model.details.metadata = self.metadata_agent()
         return page_model
 
-    def plan_3(self):
-        """
-        Plan 3: Increased content – include sentiment, document type, and morphological analysis.
-        """
-        page_model = PageAnalysisModel()
-        page_model.content = self.cleaned_content
-        page_model.details.title = self.cleaned_content.split('\n')[0][:50]
-        page_model.nlp = self.nlp(self.cleaned_content)
-        # Run the enhanced NLP agent pipeline for summarization, sentiment, etc.
-        agent_model = self.nlp_agent()
-        # Perform additional morphological analysis (e.g., lemmatization)
-        morpho = self.morphological_analysis(self.cleaned_content)
-        meta = self.metadata_agent()
-        meta.update({"morphological_analysis": morpho})
-        page_model.details.metadata = meta
-        page_model.nlp_agent = agent_model
-        return page_model
+    def plan_3(self) -> PageAnalysisModel:
+        return self.plan_2()
 
-    def plan_4(self):
-        """
-        Plan 4: More comprehensive analysis – add syntactic parsing, NER, and POS tagging.
-        """
-        page_model = PageAnalysisModel()
-        page_model.content = self.cleaned_content
-        page_model.details.title = self.cleaned_content.split('\n')[0][:50]
-        page_model.nlp = self.nlp(self.cleaned_content)
-        agent_model = self.nlp_agent()
-        # Additional processing: coreference resolution and POS tagging
-        coref = self.coreference_resolution(self.cleaned_content)
-        pos_tags = self.pos_tagging(self.cleaned_content)
-        meta = self.metadata_agent()
-        meta.update({"coreference": coref, "pos_tags": pos_tags})
-        page_model.details.metadata = meta
-        page_model.nlp_agent = agent_model
-        return page_model
+    def plan_4(self) -> PageAnalysisModel:
+        return self.plan_3()
 
-    def plan_5(self):
-        """
-        Plan 5: Extensive analysis – include summarization, paraphrasing, semantic role labeling,
-        and text classification.
-        """
-        page_model = PageAnalysisModel()
-        page_model.content = self.cleaned_content
-        page_model.details.title = self.cleaned_content.split('\n')[0][:50]
-        page_model.nlp = self.nlp(self.cleaned_content)
-        agent_model = self.nlp_agent()
-        # Additional enhancements
-        srl = self.semantic_role_labeling(self.cleaned_content)
-        text_class = self.text_classification(self.cleaned_content)
-        meta = self.metadata_agent()
-        meta.update({"semantic_role": srl, "text_classification": text_class})
-        page_model.details.metadata = meta
-        page_model.nlp_agent = agent_model
-        return page_model
+    def plan_5(self) -> PageAnalysisModel:
+        return self.plan_4()
 
-    def plan_6(self):
-        """
-        Plan 6: Full document analysis – for very large documents.
-        Process the document in chunks and aggregate the results.
-        Also perform image analysis if an image is provided.
-        """
-        pages = []
-        original_content = self.cleaned_content
-        # Process each chunk using the plan_5 pipeline (which is already very comprehensive)
-        for chunk in self.split_content:
-            self.cleaned_content = chunk
-            chunk_page = self.plan_5()
-            pages.append(chunk_page)
-        self.cleaned_content = original_content  # revert to full content
-        # Aggregate into a full DocumentAnalysisModel
-        doc_model = DocumentAnalysisModel()
-        doc_model.pages = pages
-        doc_model.details.metadata = self.metadata_agent()
-        # If an image was provided, add image analysis results
-        if self.image:
-            image_result = self.image_agent()
-            if "images" not in doc_model.details.metadata:
-                doc_model.details.metadata["images"] = []
-            doc_model.details.metadata["images"].append(image_result)
-        return doc_model
+    def plan_6(self) -> PageAnalysisModel:
+        page_model = self.plan_5()
+        # todo: run sub-documents
+        return page_model
 
     # -------------------------------
-    # NLP & Enhancement Methods
+    # FairNLP/NLTK/SpaCy/AI & Enhancement Methods
     # -------------------------------
 
     def fnlp(self, content: str) -> FNLPAssistantModel:
-        """
-        Basic NLP pipeline:
-          - Tokenization (uni-grams, bi-grams, etc.)
-          - Sentence and paragraph segmentation
-          - Keyword extraction and URL/address detection
-        """
         grams = nlp.Tokenizer.complete_tokenization_v2(content, toList=False)
         words = DICT.get("tokens", grams, [])
         bi_words = DICT.get("bi_grams", grams, [])
@@ -284,7 +194,7 @@ class DocumentAnalysisAgent(NLPAssistant):
             "document_type",
             "paraphrase"
         ]
-        results_dict = RaiBaseAgent.pipelines(*pipeline_names, user_prompt=self.cleaned_content)
+        results_dict = RaiBaseTextAgent.generates(*pipeline_names, user_prompt=self.cleaned_content)
         context_groups = LIST.remove_duplicates(results_dict["contextual_groups"])
         summarize = results_dict["summarize"]
         raq_queries = results_dict["rag_query_generator"]
@@ -301,40 +211,17 @@ class DocumentAnalysisAgent(NLPAssistant):
         )
 
     def metadata_agent(self):
-        """
-        Merge metadata generated from the content with any provided metadata.
-        """
-        result = RaiBaseAgent.pipeline("metadata", self.cleaned_content).model_dump()
+        result = RaiBaseTextAgent.generate("metadata", self.cleaned_content).model_dump()
         meta = DICT.lazy_merge_dicts(result, self.metadata)
         return meta
 
     def image_agent(self) -> str:
-        """
-        Analyze image content via an AI pipeline.
-        """
-        return RaiBaseAgent.pipeline(name="image_text_extractor", image=self.image)
+        return RaiBaseTextAgent.generate(name="image_text_extractor", image=self.image)
 
     # -------------------------------
     # Master methods to run the analysis
     # -------------------------------
 
     def analyze(self):
-        """
-        Run the chosen pipeline plan based on the content size.
-        Returns a PageAnalysisModel or a DocumentAnalysisModel.
-        """
         return self.pipeline_plan()
 
-    def run_full_analysis(self):
-        """
-        For consistency, always return a DocumentAnalysisModel.
-        For smaller documents, wrap the single page result in a list.
-        """
-        if self.content_size < 6:
-            page = self.pipeline_plan()
-            doc_model = DocumentAnalysisModel()
-            doc_model.pages = [page]
-            doc_model.details.metadata = self.metadata_agent()
-            return doc_model
-        else:
-            return self.pipeline_plan()

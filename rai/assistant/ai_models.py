@@ -9,10 +9,10 @@ class AiModels:
     DEFAULT_OPENAI = "gpt-4o"
     DEFAULT_OLLAMA = "llama3.2:latest"
 
-    DEFAULT_OPENAI_FUNCTION = "o3-mini"
+    DEFAULT_OPENAI_FUNCTION = "gpt-4o"
     DEFAULT_OLLAMA_FUNCTION = "llama3.2:latest"
 
-    DEFAULT_OPENAI_FORMAT = "o3-mini"
+    DEFAULT_OPENAI_FORMAT = "gpt-4o"
     DEFAULT_OLLAMA_FORMAT = "llama3.2:latest"
 
     class OpenAi:

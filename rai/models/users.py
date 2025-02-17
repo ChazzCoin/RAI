@@ -80,7 +80,7 @@ class UsersTable:
         )
         """
         try:
-            self.client.cursor.execute(create_table_query)
+            self.client.cursor.generate(create_table_query)
             self.client.connection.commit()
             print("User table created or already exists.")
         except Exception as e:
@@ -134,7 +134,7 @@ class UsersTable:
         """
 
         try:
-            self.client.cursor.execute(insert_query)
+            self.client.cursor.generate(insert_query)
             self.client.connection.commit()
 
             # If you need a UserModel, you can construct it or fetch it back from DB.
@@ -148,7 +148,7 @@ class UsersTable:
     def get_user_by_id(self, id: str) -> Optional[UserModel]:
         try:
             query = f"SELECT * FROM \"user\" WHERE id = %s"
-            self.client.cursor.execute(query, (id,))
+            self.client.cursor.generate(query, (id,))
             row = self.client.cursor.fetchone()
             return row_to_usermodel(row)
         except Exception as e:
@@ -158,7 +158,7 @@ class UsersTable:
     def get_user_by_api_key(self, api_key: str) -> Optional[UserModel]:
         try:
             query = f"SELECT * FROM \"user\" WHERE api_key = %s"
-            self.client.cursor.execute(query, (api_key,))
+            self.client.cursor.generate(query, (api_key,))
             row = self.client.cursor.fetchone()
             return row_to_usermodel(row)
         except Exception as e:
@@ -168,7 +168,7 @@ class UsersTable:
     def get_user_by_email(self, email: str) -> Optional[UserModel]:
         try:
             query = f"SELECT * FROM \"user\" WHERE email = %s"
-            self.client.cursor.execute(query, (email,))
+            self.client.cursor.generate(query, (email,))
             row = self.client.cursor.fetchone()
             return row_to_usermodel(row)
         except Exception as e:
@@ -178,7 +178,7 @@ class UsersTable:
     def get_user_by_oauth_sub(self, sub: str) -> Optional[UserModel]:
         try:
             query = f"SELECT * FROM \"user\" WHERE oauth_sub = %s"
-            self.client.cursor.execute(query, (sub,))
+            self.client.cursor.generate(query, (sub,))
             row = self.client.cursor.fetchone()
             return row_to_usermodel(row)
         except Exception as e:
@@ -189,7 +189,7 @@ class UsersTable:
         # For now, skip/limit commented out, but can be easily added to query
         try:
             query = "SELECT * FROM \"user\""
-            self.client.cursor.execute(query)
+            self.client.cursor.generate(query)
             rows = self.client.cursor.fetchall()
             return [row_to_usermodel(row) for row in rows if row]
         except Exception as e:
@@ -199,7 +199,7 @@ class UsersTable:
     def get_num_users(self) -> Optional[int]:
         try:
             query = "SELECT COUNT(*) FROM \"user\""
-            self.client.cursor.execute(query)
+            self.client.cursor.generate(query)
             (count,) = self.client.cursor.fetchone()
             return count
         except Exception as e:
@@ -209,7 +209,7 @@ class UsersTable:
     def get_first_user(self) -> Optional[UserModel]:
         try:
             query = "SELECT * FROM \"user\" ORDER BY created_at LIMIT 1"
-            self.client.cursor.execute(query)
+            self.client.cursor.generate(query)
             row = self.client.cursor.fetchone()
             return row_to_usermodel(row)
         except Exception as e:
@@ -219,7 +219,7 @@ class UsersTable:
     def update_user_role_by_id(self, id: str, role: str) -> Optional[UserModel]:
         try:
             query = "UPDATE \"user\" SET role = %s WHERE id = %s"
-            self.client.cursor.execute(query, (role, id))
+            self.client.cursor.generate(query, (role, id))
             self.client.connection.commit()
             return self.get_user_by_id(id)
         except Exception as e:
@@ -230,7 +230,7 @@ class UsersTable:
     def update_user_profile_image_url_by_id(self, id: str, profile_image_url: str) -> Optional[UserModel]:
         try:
             query = "UPDATE \"user\" SET profile_image_url = %s WHERE id = %s"
-            self.client.cursor.execute(query, (profile_image_url, id))
+            self.client.cursor.generate(query, (profile_image_url, id))
             self.client.connection.commit()
             return self.get_user_by_id(id)
         except Exception as e:
@@ -242,7 +242,7 @@ class UsersTable:
         try:
             now = int(time.time())
             query = "UPDATE \"user\" SET last_active_at = %s WHERE id = %s"
-            self.client.cursor.execute(query, (now, id))
+            self.client.cursor.generate(query, (now, id))
             self.client.connection.commit()
             return self.get_user_by_id(id)
         except Exception as e:
@@ -253,7 +253,7 @@ class UsersTable:
     def update_user_oauth_sub_by_id(self, id: str, oauth_sub: str) -> Optional[UserModel]:
         try:
             query = "UPDATE \"user\" SET oauth_sub = %s WHERE id = %s"
-            self.client.cursor.execute(query, (oauth_sub, id))
+            self.client.cursor.generate(query, (oauth_sub, id))
             self.client.connection.commit()
             return self.get_user_by_id(id)
         except Exception as e:
@@ -271,7 +271,7 @@ class UsersTable:
         query = f"UPDATE \"user\" SET {set_clause} WHERE id = %s"
 
         try:
-            self.client.cursor.execute(query, values)
+            self.client.cursor.generate(query, values)
             self.client.connection.commit()
             return self.get_user_by_id(id)
         except Exception as e:
@@ -285,7 +285,7 @@ class UsersTable:
             result = self.Chats.delete_chats_by_user_id(id)
             if result:
                 query = "DELETE FROM \"user\" WHERE id = %s"
-                self.client.cursor.execute(query, (id,))
+                self.client.cursor.generate(query, (id,))
                 self.client.connection.commit()
                 return True
             else:
@@ -298,7 +298,7 @@ class UsersTable:
     def update_user_api_key_by_id(self, id: str, api_key: str) -> bool:
         try:
             query = "UPDATE \"user\" SET api_key = %s WHERE id = %s"
-            self.client.cursor.execute(query, (api_key, id))
+            self.client.cursor.generate(query, (api_key, id))
             self.client.connection.commit()
             return self.client.cursor.rowcount == 1
         except Exception as e:
@@ -309,7 +309,7 @@ class UsersTable:
     def get_user_api_key_by_id(self, id: str) -> Optional[str]:
         try:
             query = "SELECT api_key FROM \"user\" WHERE id = %s"
-            self.client.cursor.execute(query, (id,))
+            self.client.cursor.generate(query, (id,))
             row = self.client.cursor.fetchone()
             if row:
                 return row[0]

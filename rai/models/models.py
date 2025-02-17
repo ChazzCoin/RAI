@@ -102,7 +102,7 @@ class ModelsTable:
         );
         """
         try:
-            self.client.cursor.execute(create_table_query)
+            self.client.cursor.generate(create_table_query)
             self.client.connection.commit()
             print("ai_model table created or already exists.")
         except Exception as e:
@@ -176,7 +176,7 @@ class ModelsTable:
             );
         """
         try:
-            self.client.cursor.execute(insert_query)
+            self.client.cursor.generate(insert_query)
             self.client.connection.commit()
             return True
         except Exception as e:
@@ -187,7 +187,7 @@ class ModelsTable:
     def get_ai_model_by_id(self, id: str) -> Optional[AIModelData]:
         query = f"SELECT * FROM ai_model WHERE id = '{id}';"
         try:
-            self.client.cursor.execute(query)
+            self.client.cursor.generate(query)
             row = self.client.cursor.fetchone()
             return row_to_aimodel(row)
         except Exception as e:
@@ -197,7 +197,7 @@ class ModelsTable:
     def get_all_ai_models(self) -> List[AIModelData]:
         query = "SELECT * FROM ai_model;"
         try:
-            self.client.cursor.execute(query)
+            self.client.cursor.generate(query)
             rows = self.client.cursor.fetchall()
             return [m for m in (row_to_aimodel(row) for row in rows) if m is not None]
         except Exception as e:
@@ -207,7 +207,7 @@ class ModelsTable:
     def get_ai_model_by_name(self, model_name:str) -> List[AIModelData]:
         query = f"SELECT * FROM ai_model WHERE model = '{model_name}' OR name = '{model_name}';"
         try:
-            self.client.cursor.execute(query)
+            self.client.cursor.generate(query)
             row = self.client.cursor.fetchone()
             return row_to_aimodel(row)
         except Exception as e:
@@ -255,7 +255,7 @@ class ModelsTable:
         query = f"UPDATE ai_model SET {set_clause} WHERE id = '{id}' RETURNING *;"
 
         try:
-            self.client.cursor.execute(query)
+            self.client.cursor.generate(query)
             updated_row = self.client.cursor.fetchone()
             self.client.connection.commit()
             return row_to_aimodel(updated_row)
@@ -267,7 +267,7 @@ class ModelsTable:
     def delete_ai_model(self, id: str) -> bool:
         query = f"DELETE FROM ai_model WHERE id = '{id}';"
         try:
-            self.client.cursor.execute(query)
+            self.client.cursor.generate(query)
             self.client.connection.commit()
             return self.client.cursor.rowcount > 0
         except Exception as e:

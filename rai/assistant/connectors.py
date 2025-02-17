@@ -1,6 +1,7 @@
-from typing import Dict
+from typing import Dict, Type
 
 from F import DICT
+from pydantic import BaseModel
 
 from rai.assistant.engines import OllamaEngine, OpenAiEngine, AiModels, FusedAI
 
@@ -45,12 +46,16 @@ class RaiAi:
     def generate(self, user: str, system: str, image=None):
         return self.engine.generate(user, system, image)
 
-    def generate_function(self, user: str, system: str, functions: [dict]):
-        result = self.engine.generate_function(user, system, functions)
+    def generate_function(self, user: str, system: str, functions: [dict], image=None):
+        result = self.engine.generate_function(user, system, functions, image)
         return self.parse_function_names(result)
 
-    async def generate_function_async(self, user: str, system: str, functions: [dict]):
-        result = await self.engine.generate_function_async(user, system, functions)
+    def generate_format(self, user: str, system: str, format: Type[BaseModel], image=None):
+        result = self.engine.generate_format(user, system, format, image)
+        return result
+
+    async def generate_function_async(self, user: str, system: str, functions: [dict], image=None):
+        result = await self.engine.generate_function_async(user, system, functions, image)
         return self.parse_function_names(result)
 
     @staticmethod

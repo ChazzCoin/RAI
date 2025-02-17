@@ -1,11 +1,10 @@
 import asyncio
 from abc import ABC
 
-from F import DICT, LIST
+from F import LIST
 
-from rai.base.BaseAgents import RaiBaseAgent
+from rai.base.BaseTextAgents.BaseTextAgent import RaiBaseTextAgent
 from rai.assistant.connectors import RaiAi
-from rai.base.BaseFunctions import RaiBaseFunctions
 from rai.data.utilities.TextUtils import TextProcessor
 
 
@@ -16,10 +15,10 @@ class RaiCategoryAgent(ABC, RaiAi, TextProcessor):
         agent_instance = cls()
         return await agent_instance.run_async(user_prompt=user_prompt)
 
-    async def run_async(self, user_prompt:str) -> [str]:
+    async def run_async(self, user_prompt:str):
         try:
-            industries:[str] = await RaiBaseAgent.pipeline_async(name="industry", user_prompt=user_prompt)
-            category_results = RaiBaseAgent.pipelines(*LIST.flatten(industries), user_prompt=user_prompt)
+            industries:[str] = await RaiBaseTextAgent.generate_async(name="industry", user_prompt=user_prompt)
+            category_results = RaiBaseTextAgent.generates(*LIST.flatten(industries), user_prompt=user_prompt)
             categories = []
             topic_agents = []
             topics = []
@@ -27,7 +26,7 @@ class RaiCategoryAgent(ABC, RaiAi, TextProcessor):
                 categories.extend(v)
                 topic_agents.append(f"topic_{k}")
             if topic_agents:
-                topic_results = RaiBaseAgent.pipelines(*topic_agents, user_prompt=user_prompt)
+                topic_results = RaiBaseTextAgent.generates(*topic_agents, user_prompt=user_prompt)
                 if topic_agents:
                     for k, v in topic_results.items():
                         topics.extend(v)

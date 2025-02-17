@@ -98,7 +98,7 @@ class ChatArchiveTable:
         )
         """
         try:
-            self.client.cursor.execute(create_table_query)
+            self.client.cursor.generate(create_table_query)
             self.client.connection.commit()
             print("Chat table created or already exists.")
         except Exception as e:
@@ -129,7 +129,7 @@ class ChatArchiveTable:
         RETURNING *
         """
         try:
-            self.client.cursor.execute(query, (new_id, user_id, title, form_data.chat_id, form_data.request, form_data.response, form_data.rai_model, form_data.ai_model, now, now))
+            self.client.cursor.generate(query, (new_id, user_id, title, form_data.chat_id, form_data.request, form_data.response, form_data.rai_model, form_data.ai_model, now, now))
             row = self.client.cursor.fetchone()
             self.client.connection.commit()
             return row_to_chatmodel(row)
@@ -146,7 +146,7 @@ class ChatArchiveTable:
             query = 'SELECT * FROM "chat" WHERE user_id = %s AND archived = FALSE ORDER BY updated_at DESC'
             params = (user_id,)
         try:
-            self.client.cursor.execute(query, params)
+            self.client.cursor.generate(query, params)
             rows = self.client.cursor.fetchall()
             return [cm for cm in (row_to_chatmodel(r) for r in rows) if cm]
         except Exception:
@@ -166,7 +166,7 @@ class ChatArchiveTable:
             if skip:
                 query += f" OFFSET {skip}"
 
-            self.client.cursor.execute(query, tuple(params))
+            self.client.cursor.generate(query, tuple(params))
             rows = self.client.cursor.fetchall()
             # rows = [(id, title, updated_at, created_at), ...]
             return [
@@ -188,7 +188,7 @@ class ChatArchiveTable:
             return []
         query = 'SELECT * FROM "chat" WHERE id = ANY(%s) AND archived = FALSE ORDER BY updated_at DESC'
         try:
-            self.client.cursor.execute(query, (chat_ids,))
+            self.client.cursor.generate(query, (chat_ids,))
             rows = self.client.cursor.fetchall()
             return [cm for cm in (row_to_chatmodel(r) for r in rows) if cm]
         except Exception:
@@ -197,7 +197,7 @@ class ChatArchiveTable:
     def get_chat_by_id(self, id: str) -> Optional[ChatModel]:
         query = 'SELECT * FROM "chat" WHERE id = %s'
         try:
-            self.client.cursor.execute(query, (id,))
+            self.client.cursor.generate(query, (id,))
             row = self.client.cursor.fetchone()
             return row_to_chatmodel(row)
         except Exception:
@@ -207,7 +207,7 @@ class ChatArchiveTable:
         # If a chat exists with this share_id, return get_chat_by_id(id)
         query = 'SELECT * FROM "chat" WHERE share_id = %s'
         try:
-            self.client.cursor.execute(query, (id,))
+            self.client.cursor.generate(query, (id,))
             row = self.client.cursor.fetchone()
             if row:
                 # id here is the same string we searched by share_id
@@ -219,7 +219,7 @@ class ChatArchiveTable:
     def get_chat_by_id_and_user_id(self, id: str, user_id: str) -> Optional[ChatModel]:
         query = 'SELECT * FROM "chat" WHERE id = %s AND user_id = %s'
         try:
-            self.client.cursor.execute(query, (id, user_id))
+            self.client.cursor.generate(query, (id, user_id))
             row = self.client.cursor.fetchone()
             return row_to_chatmodel(row)
         except Exception:
@@ -228,7 +228,7 @@ class ChatArchiveTable:
     def get_chats(self, skip: int = 0, limit: int = 50) -> List[ChatModel]:
         query = 'SELECT * FROM "chat" ORDER BY updated_at DESC'
         try:
-            self.client.cursor.execute(query)
+            self.client.cursor.generate(query)
             rows = self.client.cursor.fetchall()
             return [cm for cm in (row_to_chatmodel(r) for r in rows) if cm]
         except Exception:
@@ -237,7 +237,7 @@ class ChatArchiveTable:
     def get_chats_by_user_id(self, user_id: str) -> List[ChatModel]:
         query = 'SELECT * FROM "chat" WHERE user_id = %s ORDER BY updated_at DESC'
         try:
-            self.client.cursor.execute(query, (user_id,))
+            self.client.cursor.generate(query, (user_id,))
             rows = self.client.cursor.fetchall()
             return [cm for cm in (row_to_chatmodel(r) for r in rows) if cm]
         except Exception:
@@ -246,7 +246,7 @@ class ChatArchiveTable:
     def get_archived_chats_by_user_id(self, user_id: str) -> List[ChatModel]:
         query = 'SELECT * FROM "chat" WHERE user_id = %s AND archived = TRUE ORDER BY updated_at DESC'
         try:
-            self.client.cursor.execute(query, (user_id,))
+            self.client.cursor.generate(query, (user_id,))
             rows = self.client.cursor.fetchall()
             return [cm for cm in (row_to_chatmodel(r) for r in rows) if cm]
         except Exception:
@@ -255,7 +255,7 @@ class ChatArchiveTable:
     def delete_chat_by_id(self, id: str) -> bool:
         query = 'DELETE FROM "chat" WHERE id = %s'
         try:
-            self.client.cursor.execute(query, (id,))
+            self.client.cursor.generate(query, (id,))
             self.client.connection.commit()
             # also delete shared version
             return True and self.delete_shared_chat_by_chat_id(id)
@@ -266,7 +266,7 @@ class ChatArchiveTable:
     def delete_chat_by_id_and_user_id(self, id: str, user_id: str) -> bool:
         query = 'DELETE FROM "chat" WHERE id = %s AND user_id = %s'
         try:
-            self.client.cursor.execute(query, (id, user_id))
+            self.client.cursor.generate(query, (id, user_id))
             self.client.connection.commit()
             # also delete shared version
             return True and self.delete_shared_chat_by_chat_id(id)
@@ -280,7 +280,7 @@ class ChatArchiveTable:
             self.delete_shared_chats_by_user_id(user_id)
 
             query = 'DELETE FROM "chat" WHERE user_id = %s'
-            self.client.cursor.execute(query, (user_id,))
+            self.client.cursor.generate(query, (user_id,))
             self.client.connection.commit()
             return True
         except Exception:
@@ -291,7 +291,7 @@ class ChatArchiveTable:
         # Get all chat ids for this user
         try:
             select_query = 'SELECT id FROM "chat" WHERE user_id = %s'
-            self.client.cursor.execute(select_query, (user_id,))
+            self.client.cursor.generate(select_query, (user_id,))
             rows = self.client.cursor.fetchall()
             chat_ids = [r[0] for r in rows]
 
@@ -303,7 +303,7 @@ class ChatArchiveTable:
 
             # Delete all chats where user_id in shared_user_ids
             delete_query = 'DELETE FROM "chat" WHERE user_id = ANY(%s)'
-            self.client.cursor.execute(delete_query, (shared_user_ids,))
+            self.client.cursor.generate(delete_query, (shared_user_ids,))
             self.client.connection.commit()
             return True
         except Exception as e:

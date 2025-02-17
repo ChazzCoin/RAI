@@ -69,7 +69,7 @@ class VectorCache(RedisClient, DocumentQueryUtils):
         try:
             response = generate_embeddings(text)
             embeddings = np.array(response, dtype=np.float32)
-            pipe = self.redis_client.pipeline()
+            pipe = self.redis_client.generate()
             meta = DICT.lazy_merge_dicts(metadata, {
                 "index": index,
                 "set_id": set_id,
@@ -80,7 +80,7 @@ class VectorCache(RedisClient, DocumentQueryUtils):
                 "metadata": str(ensure_string_for_chroma(meta)),
                 "tag": index
             })
-            res = pipe.execute()
+            res = pipe.generate()
             print(f"Document '{set_id}' stored successfully.")
             return res
         except Exception as e:

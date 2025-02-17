@@ -1,12 +1,11 @@
 import threading
 from abc import ABC, abstractmethod
 from datetime import datetime
-from F import DICT, LIST, DATE
+from F import DICT, LIST
 
-from rai.base.BaseAgents import RaiBaseAgent
+from rai.base.BaseTextAgents.BaseTextAgent import RaiBaseTextAgent
 from rai.assistant.connectors import RaiAi
-from rai.base.BaseContexts import RaiBaseContexts, context_soccer
-from rai.data.loaders.rai_loaders.BaseLoad import RaiLoaderDocument
+from rai.base.BaseContexts import RaiBaseContexts
 from rai.data.utilities.TextUtils import TextProcessor
 from rai.internal.connectors import VECTOR_DB_CLIENT
 OBJECTIVE_PROMPT_REGISTRY = {}
@@ -49,7 +48,8 @@ class RaiRagAgent(ABC, RaiAi, TextProcessor):
         "pdfs": 3,
         "contacts": 2,
         "locations": 2,
-        "lines": 3
+        "agent": 1,
+        "nlp": 3
     }
 
     @classmethod
@@ -66,10 +66,10 @@ class RaiRagAgent(ABC, RaiAi, TextProcessor):
     def system(self, name:str): return OBJECTIVE_PROMPT_REGISTRY.get(name)
     def user(self, user_prompt:str, data:str):
         return f"""
-            REAL-TIME DATA:
-            {self.real_time_data()}
             KNOWLEDGE LIBRARY:
             {data}
+            REAL-TIME DATA:
+            {self.real_time_data()}
             USER PROMPT:
             {user_prompt}
         """
@@ -199,7 +199,7 @@ class RagAgentBaseRunner(RaiRagAgent):
         try:
             # self.switch_engine('ollama')
             collection_list = [f"{prefix}.{c}" for c in self.collections]
-            results = RaiBaseAgent.pipelines(
+            results = RaiBaseTextAgent.generates(
                 "context_expander", "objective",
                 user_prompt=user_prompt
             )
@@ -230,13 +230,13 @@ class RagAgentBreakdownRunner(RaiRagAgent):
             context_prompt = RaiBaseContexts.pipeline('soccer')
             prompts = []
             responses = []
-            is_question = await RaiBaseAgent.pipeline_async(
+            is_question = await RaiBaseTextAgent.generate_async(
                 name='is_true',
                 user_prompt=user_prompt,
                 system_prompt='Is the following User Prompt asking a Question?'
             )
             if is_question:
-                each_question = await RaiBaseAgent.pipeline_async(
+                each_question = await RaiBaseTextAgent.generate_async(
                     name='separate_prompt',
                     user_prompt=user_prompt
                 )
@@ -249,7 +249,7 @@ class RagAgentBreakdownRunner(RaiRagAgent):
             count = 1
 
             def thread_runner(prompt, user_prompt, context_prompt, count):
-                results = RaiBaseAgent.pipelines(
+                results = RaiBaseTextAgent.generates(
                     "context_expander", "objective",
                     user_prompt=user_prompt,
                     system_prompt=context_prompt
@@ -350,13 +350,13 @@ def create():
         **ALWAYS BE DATE/TIME AWARE AND INCLUDE WARNINGS FOR OLD/PAST DATES**
     """
 
-class AgentConfigRAG(RaiBaseAgent):
+class AgentConfigRAG(RaiBaseTextAgent):
     def type(self): return "base"
     def parse(self, result): return result
 
 async def main(name, user_prompt):
     # from rai.data.utilities.text_data import schedule_text
-    results = await RaiBaseAgent.pipeline_async(
+    results = await RaiBaseTextAgent.generate_async(
             name=name,
             user_prompt=user_prompt
         )
@@ -371,7 +371,7 @@ async def main(name, user_prompt):
 
 def mains(*names:str, user_prompt):
     # from rai.data.utilities.text_data import schedule_text
-    results = RaiBaseAgent.pipelines(
+    results = RaiBaseTextAgent.generates(
             *names,
             user_prompt=user_prompt
         )

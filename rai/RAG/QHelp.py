@@ -2,14 +2,8 @@ import os
 import threading
 from typing import Optional, List, Dict, Any
 
-from FNLP.Regex import Re
-from langchain.prompts import PromptTemplate
-from langchain.chains.llm import LLMChain
 from F import DICT, LIST
 from typing_extensions import Any  # noqa: F401
-from rai.RAG.models import QueryCollectionsForm
-from rai.assistant.openai_client import generate_embeddings
-from rai.internal.chromadb import ChromaClient
 from F.LOG import Log
 
 Log = Log("Rai Data Loader")
@@ -20,14 +14,7 @@ open_ai_key = os.getenv("OPENAI_API_KEY")
 #             Document-Based Functions & Re-Ranking Utilities                 #
 ###############################################################################
 class DocumentQueryUtils:
-    """
-    Contains static and instance functions for processing and merging
-    document-based query results, as well as refining queries and condensing context.
-    This can be used separately (e.g. for re-ranking in your VectorCache class).
-    """
 
-    def __init__(self, llm):
-        self.llm = llm
 
     @staticmethod
     def unwrap_results(results: dict) -> List:
@@ -112,31 +99,7 @@ class DocumentQueryUtils:
         }
         return result
 
-    def refine_query(self, user_query: str) -> str:
-        query_refinement_prompt = PromptTemplate(
-            input_variables=["query"],
-            template="You are a helpful assistant improving user search queries. "
-                     "Original query: {query}\n"
-                     "Refined query: Make it clearer, more specific, and suitable for retrieval."
-        )
-        query_chain = LLMChain(llm=self.llm, prompt=query_refinement_prompt)
-        refined_query = query_chain.run(query=user_query)
-        return refined_query.strip()
 
-    def condense_context(self, retrieved_chunks) -> str:
-        combined_context = ""
-        if isinstance(retrieved_chunks, (list, tuple)):
-            combined_context = "\n".join(retrieved_chunks)
-        elif isinstance(retrieved_chunks, str):
-            combined_context = retrieved_chunks
-        context_summary_prompt = PromptTemplate(
-            input_variables=["context"],
-            template="You are an assistant summarizing information for relevance. "
-                     "Here is the context:\n{context}\n\n"
-                     "Summarize the key points clearly and concisely."
-        )
-        summarization_chain = LLMChain(llm=self.llm, prompt=context_summary_prompt)
-        condensed_summary = summarization_chain.run(context=combined_context)
-        return condensed_summary.strip()
+
 
 

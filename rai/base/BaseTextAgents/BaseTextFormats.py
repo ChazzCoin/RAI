@@ -16,12 +16,21 @@ def register_format(name: str):
         return cls
     return decorator
 
-class RaiBaseFormats(ABC):
+class RaiBaseTextFormats(ABC):
     @classmethod
     def get_registry(cls): return BASE_MODELS
     @classmethod
-    def pipeline(cls, name: str): return BASE_MODELS.get(name)
+    def format(cls, name: str): return BASE_MODELS.get(name)
 
+# Model for Form Extraction
+class FormField(BaseModel):
+    label: Optional[str]
+    inputType: Optional[str]
+
+@register_format("form_extractor")
+class FormExtractionModel(BaseModel):
+    formTitle: Optional[str]
+    fields: List[FormField]
 
 @register_format("contact")
 class RaiContactFormat(BaseModel):
@@ -183,6 +192,6 @@ class BaseLocations(BaseModel):
 if __name__ == "__main__":
 
     # Fetch a specific model object by name
-    model_instance = RaiBaseFormats.pipeline("metadata")
+    model_instance = RaiBaseTextFormats.format("metadata")
     print(model_instance)
     # Example output: title='My Model Title' category='Sample Category' ...

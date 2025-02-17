@@ -58,7 +58,7 @@ class FilesTable:
         )
         """
         try:
-            self.client.cursor.execute(create_table_query)
+            self.client.cursor.generate(create_table_query)
             self.client.connection.commit()
             print("File table created or already exists.")
         except Exception as e:
@@ -87,7 +87,7 @@ class FilesTable:
     def get_file_by_id(self, id: str) -> Optional[FileModel]:
         try:
             query = 'SELECT * FROM "file" WHERE id = %s'
-            self.client.cursor.execute(query, (id,))
+            self.client.cursor.generate(query, (id,))
             row = self.client.cursor.fetchone()
             return row_to_filemodel(row)
         except Exception as e:
@@ -97,7 +97,7 @@ class FilesTable:
     def get_files(self) -> list[FileModel]:
         try:
             query = 'SELECT * FROM "file"'
-            self.client.cursor.execute(query)
+            self.client.cursor.generate(query)
             rows = self.client.cursor.fetchall()
             return [row_to_filemodel(row) for row in rows if row]
         except Exception as e:
@@ -107,7 +107,7 @@ class FilesTable:
     def get_files_by_user_id(self, user_id: str) -> list[FileModel]:
         try:
             query = 'SELECT * FROM "file" WHERE user_id = %s'
-            self.client.cursor.execute(query, (user_id,))
+            self.client.cursor.generate(query, (user_id,))
             rows = self.client.cursor.fetchall()
             return [row_to_filemodel(row) for row in rows if row]
         except Exception as e:
@@ -117,7 +117,7 @@ class FilesTable:
     def delete_file_by_id(self, id: str) -> bool:
         try:
             query = 'DELETE FROM "file" WHERE id = %s'
-            self.client.cursor.execute(query, (id,))
+            self.client.cursor.generate(query, (id,))
             self.client.connection.commit()
             return self.client.cursor.rowcount > 0
         except Exception as e:
@@ -128,7 +128,7 @@ class FilesTable:
     def delete_all_files(self) -> bool:
         try:
             query = 'DELETE FROM "file"'
-            self.client.cursor.execute(query)
+            self.client.cursor.generate(query)
             self.client.connection.commit()
             return True
         except Exception as e:

@@ -47,7 +47,7 @@ class PromptsTable:
         )
         """
         try:
-            self.client.cursor.execute(create_table_query)
+            self.client.cursor.generate(create_table_query)
             self.client.connection.commit()
             print("Prompt table created or already exists.")
         except Exception as e:
@@ -71,7 +71,7 @@ class PromptsTable:
         query = f"INSERT INTO \"prompt\" ({columns}) VALUES ({placeholders}) RETURNING *"
 
         try:
-            self.client.cursor.execute(query, record)
+            self.client.cursor.generate(query, record)
             row = self.client.cursor.fetchone()
             self.client.connection.commit()
             return row_to_promptmodel(row)
@@ -83,7 +83,7 @@ class PromptsTable:
     def get_prompt_by_command(self, command: str) -> Optional[PromptModel]:
         query = 'SELECT * FROM "prompt" WHERE command = %s'
         try:
-            self.client.cursor.execute(query, (command,))
+            self.client.cursor.generate(query, (command,))
             row = self.client.cursor.fetchone()
             return row_to_promptmodel(row)
         except Exception as e:
@@ -93,7 +93,7 @@ class PromptsTable:
     def get_prompts(self) -> list[PromptModel]:
         query = 'SELECT * FROM "prompt"'
         try:
-            self.client.cursor.execute(query)
+            self.client.cursor.generate(query)
             rows = self.client.cursor.fetchall()
             return [pm for pm in (row_to_promptmodel(row) for row in rows) if pm]
         except Exception as e:
@@ -111,7 +111,7 @@ class PromptsTable:
             RETURNING *
         """
         try:
-            self.client.cursor.execute(query, (form_data.title, form_data.content, now, command))
+            self.client.cursor.generate(query, (form_data.title, form_data.content, now, command))
             row = self.client.cursor.fetchone()
             self.client.connection.commit()
             return row_to_promptmodel(row)
@@ -123,7 +123,7 @@ class PromptsTable:
     def delete_prompt_by_command(self, command: str) -> bool:
         query = 'DELETE FROM "prompt" WHERE command = %s'
         try:
-            self.client.cursor.execute(query, (command,))
+            self.client.cursor.generate(query, (command,))
             self.client.connection.commit()
             return self.client.cursor.rowcount > 0
         except Exception as e:

@@ -19,7 +19,7 @@ open_ai_key = os.getenv("OPENAI_API_KEY")
 ###############################################################################
 #                Chroma (Vector-Based) Query Handler                          #
 ###############################################################################
-class ChromaQueryHandler(ChromaClient, DocumentQueryUtils):
+class VectorStore(ChromaClient, DocumentQueryUtils):
     """
     Contains all functions that perform vector-based (Chroma) queries.
     """
@@ -46,7 +46,7 @@ class ChromaQueryHandler(ChromaClient, DocumentQueryUtils):
         if results:
             for item in results.keys():
                 if Re.contains(name, item):
-                    return ChromaQueryHandler.get_documents(item, results)
+                    return VectorStore.get_documents(item, results)
         return None
 
     def get_all(self, collection):
@@ -222,7 +222,7 @@ class ChromaQueryHandler(ChromaClient, DocumentQueryUtils):
 ###############################################################################
 if __name__ == "__main__":
     # Instantiate the Chroma query handler
-    chroma_handler = ChromaQueryHandler()
+    chroma_handler = VectorStore()
 
     # Example: threaded query across several collections.
     results = chroma_handler.queryThreaded(

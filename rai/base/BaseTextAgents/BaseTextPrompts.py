@@ -286,6 +286,17 @@ def prompt_context_expander():
         **Only return the new query**
     """
 
+@register_prompt("form_extractor")
+def prompt_image_text_extractor():
+    return """
+        You are an advanced OCR extraction engine specialized in form recognition. 
+        Given an image of a form, extract every form element with high accuracy, including form title, field labels, input types, placeholders, default values, and options where applicable. 
+
+        -GOAL-
+        **Retain input fields and their key attributes**
+        **Format and Label the extracted text for an AI to structure into a json_response object.**
+    """
+
 @register_prompt("image_text_extractor")
 def prompt_image_text_extractor():
     return """

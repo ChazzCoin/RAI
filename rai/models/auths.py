@@ -96,7 +96,7 @@ class AuthsTable:
         )
         """
         try:
-            self.client.cursor.execute(create_table_query)
+            self.client.cursor.generate(create_table_query)
             self.client.connection.commit()
             print("Auth table created or already exists.")
         except Exception as e:
@@ -122,7 +122,7 @@ class AuthsTable:
         RETURNING id
         """
         try:
-            self.client.cursor.execute(insert_auth_query, (auth.id, auth.email, auth.password, auth.active))
+            self.client.cursor.generate(insert_auth_query, (auth.id, auth.email, auth.password, auth.active))
             # Insert the corresponding user
             user = self.users.insert_new_user(
                 id=auth.id,
@@ -149,7 +149,7 @@ class AuthsTable:
         log.info(f"authenticate_user: {email}")
         query = 'SELECT id, password FROM "auth" WHERE email = %s AND active = TRUE LIMIT 1'
         try:
-            self.client.cursor.execute(query, (email,))
+            self.client.cursor.generate(query, (email,))
             row = self.client.cursor.fetchone()
             if not row:
                 return None
@@ -179,7 +179,7 @@ class AuthsTable:
         log.info(f"authenticate_user_by_trusted_header: {email}")
         query = 'SELECT id FROM "auth" WHERE email = %s AND active = TRUE LIMIT 1'
         try:
-            self.client.cursor.execute(query, (email,))
+            self.client.cursor.generate(query, (email,))
             row = self.client.cursor.fetchone()
             if not row:
                 return None
@@ -193,7 +193,7 @@ class AuthsTable:
     def update_user_password_by_id(self, id: str, new_password: str) -> bool:
         query = 'UPDATE "auth" SET password = %s WHERE id = %s'
         try:
-            self.client.cursor.execute(query, (new_password, id))
+            self.client.cursor.generate(query, (new_password, id))
             self.client.connection.commit()
             return self.client.cursor.rowcount == 1
         except Exception as e:
@@ -204,7 +204,7 @@ class AuthsTable:
     def update_email_by_id(self, id: str, email: str) -> bool:
         query = 'UPDATE "auth" SET email = %s WHERE id = %s'
         try:
-            self.client.cursor.execute(query, (email, id))
+            self.client.cursor.generate(query, (email, id))
             self.client.connection.commit()
             return self.client.cursor.rowcount == 1
         except Exception as e:
@@ -218,7 +218,7 @@ class AuthsTable:
             result = self.users.delete_user_by_id(id)
             if result:
                 query = 'DELETE FROM "auth" WHERE id = %s'
-                self.client.cursor.execute(query, (id,))
+                self.client.cursor.generate(query, (id,))
                 self.client.connection.commit()
                 return True
             else:

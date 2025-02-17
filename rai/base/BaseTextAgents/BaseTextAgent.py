@@ -5,9 +5,9 @@ from abc import abstractmethod, ABC
 from F import DICT
 
 from rai.assistant.connectors import RaiAi
-from rai.base.BaseFormats import RaiBaseFormats
-from rai.base.BaseFunctions import RaiBaseFunctions
-from rai.base.BasePrompts import RaiBasePrompts
+from rai.base.BaseTextAgents.BaseTextFormats import RaiBaseTextFormats
+from rai.base.BaseTextAgents.BaseTextFunctions import RaiBaseFunctions
+from rai.base.BaseTextAgents.BaseTextPrompts import RaiBasePrompts
 from rai.data.utilities.TextUtils import TextProcessor
 
 AGENT_REGISTRY = {}
@@ -100,35 +100,35 @@ def register_agent(name: str):
     return decorator
 
 
-class RaiBaseAgent(ABC, RaiAi, TextProcessor):
+class RaiBaseTextAgent(ABC, RaiAi, TextProcessor):
     name = None
 
     @classmethod
     def get_registry(cls): return AGENT_REGISTRY
 
     @classmethod
-    def pipeline(cls, name: str, user_prompt: str="", system_prompt: str=None, image=None, sub=False):
+    def generate(cls, name: str, user_prompt: str= "", system_prompt: str=None, sub=False):
         agent_classes = AGENT_REGISTRY.get(name)
         if not agent_classes: return None
         cls.name = name
         agent_cls = agent_classes[0]
         agent_instance = agent_cls()
-        return agent_instance.run(user_prompt=user_prompt, system_prompt=system_prompt, image=image, sub=sub)
+        return agent_instance.run(user_prompt=user_prompt, system_prompt=system_prompt, sub=sub)
 
     @classmethod
-    async def pipeline_async(cls, name: str, user_prompt: str, system_prompt: str=None, image=None, sub=False):
+    async def generate_async(cls, name: str, user_prompt: str, system_prompt: str=None, sub=False):
         agent_classes = AGENT_REGISTRY.get(name)
         if not agent_classes: return None
         cls.name = name
         agent_cls = agent_classes[0]
         agent_instance = agent_cls()
-        return await agent_instance.run_async(user_prompt=user_prompt, system_prompt=system_prompt, image=image, sub=sub)
+        return await agent_instance.run_async(user_prompt=user_prompt, system_prompt=system_prompt, sub=sub)
 
     @classmethod
-    def pipelines(cls, *names: str, user_prompt: str, system_prompt: str=None, image=None):
+    def generates(cls, *names: str, user_prompt: str, system_prompt: str=None):
         pipe_results = {}
 
-        def thread_runner(user_prompt, name, system_prompt, image):
+        def thread_runner(user_prompt, name, system_prompt):
             agent_classes = AGENT_REGISTRY.get(name)
             if not agent_classes:
                 pipe_results[name] = None
@@ -136,12 +136,12 @@ class RaiBaseAgent(ABC, RaiAi, TextProcessor):
             cls.name = name
             agent_cls = agent_classes[0]
             agent_instance = agent_cls()
-            pipe_results[name] = agent_instance.run(user_prompt=user_prompt, system_prompt=system_prompt, image=image)
+            pipe_results[name] = agent_instance.run(user_prompt=user_prompt, system_prompt=system_prompt)
 
         # Create and start a thread for each collection
         threads = []
         for name in names:
-            thread = threading.Thread(target=thread_runner, args=(user_prompt, name, system_prompt, image))
+            thread = threading.Thread(target=thread_runner, args=(user_prompt, name, system_prompt))
             threads.append(thread)
             thread.start()
         for thread in threads:
@@ -169,24 +169,18 @@ class RaiBaseAgent(ABC, RaiAi, TextProcessor):
                 return self.parse(self.engine.generate_format(
                     user=self.prompter(user_prompt),
                     system=self.system_prompt() if not system_prompt else system_prompt,
-                    format=RaiBaseFormats.pipeline(self.name)
+                    format=RaiBaseTextFormats.format(self.name)
                 ))
             elif self.type() == "function":
                 return self.parse(self.engine.generate_function(
                     user=self.prompter(user_prompt),
                     system=self.system_prompt() if not system_prompt else system_prompt,
-                    functions=RaiBaseFunctions.pipeline(self.name, sub=sub)
+                    functions=RaiBaseFunctions.function(self.name, sub=sub)
                 ))
-            elif self.type() == "base":
+            elif self.type() == "generate":
                 return self.parse(self.engine.generate(
                     user=user_prompt,
                     system=self.system_prompt() if not system_prompt else system_prompt
-                ))
-            elif self.type() == "image":
-                return self.parse(self.engine.generate(
-                    user=user_prompt,
-                    system=self.system_prompt() if not system_prompt else system_prompt,
-                    image=image
                 ))
         except Exception as e:
             print(f"Error: {e}")
@@ -198,15 +192,15 @@ class RaiBaseAgent(ABC, RaiAi, TextProcessor):
                 return self.parse(await self.engine.generate_format_async(
                     user=self.prompter(user_prompt),
                     system=self.system_prompt() if not system_prompt else system_prompt,
-                    format=RaiBaseFormats.pipeline(self.name)
+                    format=RaiBaseTextFormats.format(self.name)
                 ))
             elif self.type() == "function":
                 return self.parse(await self.engine.generate_function_async(
                     user=self.prompter(user_prompt),
                     system=self.system_prompt() if not system_prompt else system_prompt,
-                    functions=RaiBaseFunctions.pipeline(self.name, sub=sub)
+                    functions=RaiBaseFunctions.function(self.name, sub=sub)
                 ))
-            elif self.type() == "base":
+            elif self.type() == "generate":
                 return self.parse(await self.engine.generate_async(
                     user=user_prompt,
                     system=self.system_prompt() if not system_prompt else system_prompt
@@ -229,176 +223,181 @@ What they do, how they do it...what they need...etc...
 - 
 """
 @register_agent("generate")
-class AgentConfigGenerate(RaiBaseAgent):
-    def type(self): return "base"
+class AgentConfigGenerate(RaiBaseTextAgent):
+    def type(self): return "generate"
     def parse(self, result): return result
 
 @register_agent("image_text_extractor")
-class AgentImageTextExtractor(RaiBaseAgent):
+class AgentImageTextExtractor(RaiBaseTextAgent):
     def type(self): return "image"
     def parse(self, result): return result
 
 @register_agent("rag")
-class AgentConfigRAG(RaiBaseAgent):
-    def type(self): return "base"
+class AgentConfigRAG(RaiBaseTextAgent):
+    def type(self): return "generate"
     def parse(self, result): return result
 
 @register_agent("paraphrase")
-class AgentConfigParaphrase(RaiBaseAgent):
-    def type(self): return "base"
+class AgentConfigParaphrase(RaiBaseTextAgent):
+    def type(self): return "generate"
     def parse(self, result): return result
 
 @register_agent("summarize")
-class AgentConfigSummarize(RaiBaseAgent):
-    def type(self): return "base"
+class AgentConfigSummarize(RaiBaseTextAgent):
+    def type(self): return "generate"
     def parse(self, result): return result
 
 @register_agent("objective")
-class AgentConfigObjective(RaiBaseAgent):
+class AgentConfigObjective(RaiBaseTextAgent):
     def type(self): return "function"
     def parse(self, result): return self.parse_function_names(result)
 
 @register_agent("text_sentiment")
-class AgentConfigTextSentiment(RaiBaseAgent):
+class AgentConfigTextSentiment(RaiBaseTextAgent):
     def type(self): return "function"
     def parse(self, result): return self.parse_function_names(result)
 
 @register_agent("document_type")
-class AgentConfigDocumentType(RaiBaseAgent):
+class AgentConfigDocumentType(RaiBaseTextAgent):
     def type(self): return "function"
     def parse(self, result): return self.parse_function_names(result)
 
 @register_agent("categorize_sports")
-class AgentConfigCategorizeSports(RaiBaseAgent):
+class AgentConfigCategorizeSports(RaiBaseTextAgent):
     def type(self): return "function"
     def parse(self, result): return self.parse_function_names(result)
 @register_agent("industry")
-class AgentConfigCategorizeIndustry(RaiBaseAgent):
+class AgentConfigCategorizeIndustry(RaiBaseTextAgent):
     def type(self): return "function"
     def parse(self, result): return self.parse_function_names(result)
 
 @register_agent("sports")
-class AgentConfigCategorizeSports(RaiBaseAgent):
+class AgentConfigCategorizeSports(RaiBaseTextAgent):
     def type(self): return "function"
     def parse(self, result): return self.parse_function_names(result)
 
 @register_agent("medical")
-class AgentConfigCategorizeMedical(RaiBaseAgent):
+class AgentConfigCategorizeMedical(RaiBaseTextAgent):
     def type(self): return "function"
     def parse(self, result): return self.parse_function_names(result)
 
 @register_agent("law")
-class AgentConfigCategorizeLaw(RaiBaseAgent):
+class AgentConfigCategorizeLaw(RaiBaseTextAgent):
     def type(self): return "function"
     def parse(self, result): return self.parse_function_names(result)
 
 @register_agent("topic_sports")
-class AgentConfigTopicSports(RaiBaseAgent):
+class AgentConfigTopicSports(RaiBaseTextAgent):
     def type(self): return "function"
     def parse(self, result): return self.parse_function_names(result)
 
 @register_agent("topic_medical")
-class AgentConfigTopicMedical(RaiBaseAgent):
+class AgentConfigTopicMedical(RaiBaseTextAgent):
     def type(self): return "function"
     def parse(self, result): return self.parse_function_names(result)
 
 @register_agent("topic_law")
-class AgentConfigTopicLaw(RaiBaseAgent):
+class AgentConfigTopicLaw(RaiBaseTextAgent):
     def type(self): return "function"
     def parse(self, result): return self.parse_function_names(result)
 
 
 @register_agent("context_expander")
-class AgentConfigPromptExpander(RaiBaseAgent):
+class AgentConfigPromptExpander(RaiBaseTextAgent):
     def type(self): return "format"
     def parse(self, result): return result.query
 
 @register_agent("metadata")
-class AgentConfigMetadata(RaiBaseAgent):
+class AgentConfigMetadata(RaiBaseTextAgent):
     def type(self): return "format"
     def parse(self, result): return result
 
 
+@register_agent("form_extractor")
+class AgentConfigFormExtractor(RaiBaseTextAgent):
+    def type(self): return "format"
+    def parse(self, result): return result
+
 @register_agent("herbal")
-class AgentConfigHerbal(RaiBaseAgent):
+class AgentConfigHerbal(RaiBaseTextAgent):
     def type(self): return "format"
     def parse(self, result):
         try: return result.herbs
         except: return result
 @register_agent("urls")
-class AgentConfigUrls(RaiBaseAgent):
+class AgentConfigUrls(RaiBaseTextAgent):
     def type(self): return "format"
     def parse(self, result):
         try: return result.urls
         except: return result
 @register_agent("contextual_groups")
-class AgentConfigContextualGroups(RaiBaseAgent):
+class AgentConfigContextualGroups(RaiBaseTextAgent):
     def type(self): return "format"
     def parse(self, result):
         try: return result.groups
         except: return result
 @register_agent("faq")
-class AgentConfigQuestionAnswer(RaiBaseAgent):
+class AgentConfigQuestionAnswer(RaiBaseTextAgent):
     def type(self): return "format"
     def parse(self, result):
         try: return result.faqs
         except: return result
 @register_agent("is_event")
-class AgentConfigIsEvent(RaiBaseAgent):
+class AgentConfigIsEvent(RaiBaseTextAgent):
     def type(self): return "format"
     def parse(self, result): return result.answer
 
 @register_agent("is_true")
-class AgentConfigIsTrue(RaiBaseAgent):
+class AgentConfigIsTrue(RaiBaseTextAgent):
     def type(self): return "format"
     def parse(self, result): return result.answer
 
 @register_agent("events")
-class AgentConfigEvents(RaiBaseAgent):
+class AgentConfigEvents(RaiBaseTextAgent):
     def type(self): return "format"
     def parse(self, result):
         try: return result.events
         except: return result
 
 @register_agent("contacts")
-class AgentConfigContacts(RaiBaseAgent):
+class AgentConfigContacts(RaiBaseTextAgent):
     def type(self): return "format"
     def parse(self, result):
         try: return result.contacts
         except: return result
 @register_agent("locations")
-class AgentConfigLocations(RaiBaseAgent):
+class AgentConfigLocations(RaiBaseTextAgent):
     def type(self): return "format"
     def parse(self, result):
         try: return result.locations
         except: return result
 @register_agent("step_by_step")
-class AgentConfigStepByStep(RaiBaseAgent):
+class AgentConfigStepByStep(RaiBaseTextAgent):
     def type(self): return "format"
     def parse(self, result):
         try: return result.steps
         except: return result
 
 @register_agent("separate_prompt")
-class AgentConfigSeparatePrompt(RaiBaseAgent):
+class AgentConfigSeparatePrompt(RaiBaseTextAgent):
     def type(self): return "format"
     def parse(self, result):
         try: return result.prompts
         except: return result
 
 @register_agent("subject")
-class AgentConfigSubject(RaiBaseAgent):
+class AgentConfigSubject(RaiBaseTextAgent):
     def type(self): return "format"
     def parse(self, result): return result.subject
 
 @register_agent("rag_query_generator")
-class AgentConfigRagQueryGenerator(RaiBaseAgent):
+class AgentConfigRagQueryGenerator(RaiBaseTextAgent):
     def type(self): return "format"
     def parse(self, result): return result.queries
 
 async def main(name, user_prompt):
     # from rai.data.utilities.text_data import schedule_text
-    results = await RaiBaseAgent.pipeline_async(
+    results = await RaiBaseTextAgent.generate_async(
             name=name,
             user_prompt=user_prompt
         )
@@ -413,7 +412,7 @@ async def main(name, user_prompt):
 
 def mains(*names:str, user_prompt):
     # from rai.data.utilities.text_data import schedule_text
-    results = RaiBaseAgent.pipelines(
+    results = RaiBaseTextAgent.generates(
             *names,
             user_prompt=user_prompt,
             image="/Users/chazzromeo/Desktop/soccer.png"

@@ -4,11 +4,11 @@ from typing import List
 from F import LIST
 from F.LOG import Log
 
-from rai.base.BaseAgents import RaiBaseAgent
-from rai.base.BaseFormats import RaiContactFormat, BaseEvent, BaseLocation, UrlsModel, TextsModel, RaiMetadata
+from rai.base.BaseTextAgents.BaseTextAgent import RaiBaseTextAgent
+from rai.base.BaseTextAgents.BaseTextFormats import RaiMetadata
 from rai.data.utilities.DataUtilities import ensure_string_for_chroma
 from rai.data.utilities.TextUtils import TextProcessor
-from rai.data.web.WebModels import FullDocumentPageAnalysisModel
+from rai.data.web.WebModels import PageAnalysisModel
 
 Log = Log("RaiLoaderDocument")
 
@@ -62,7 +62,7 @@ class RaiDocCreator(RaiBaseLoader, TextProcessor):
 
     def generate_metadata(self, content:str) -> dict:
         Log.i("Generating Metadata.")
-        metadata: RaiMetadata = RaiBaseAgent.pipeline(name='metadata', user_prompt=content)
+        metadata: RaiMetadata = RaiBaseTextAgent.generate(name='metadata', user_prompt=content)
         return metadata.model_dump()
 
     def are_docs_identical(self, doc1: RaiLoaderDocument, doc2: RaiLoaderDocument) -> bool:
@@ -92,7 +92,7 @@ class RaiDocCreator(RaiBaseLoader, TextProcessor):
             if self.has_doc(doc): return
             self.cache.append(doc)
 
-    def to_documents(self, page: FullDocumentPageAnalysisModel):
+    def to_documents(self, page: PageAnalysisModel):
         """ Web Contents Loader """
         Log.i("Creating Content Documents.")
         try:

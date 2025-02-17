@@ -23,7 +23,7 @@ class PromptModel(PostgresClient):
         """
         try:
             with self.connection.cursor() as cursor:
-                cursor.execute(create_table_query)
+                cursor.generate(create_table_query)
                 self.connection.commit()
                 print("chat_prompts table is ready.")
         except Exception as e:
@@ -38,7 +38,7 @@ class PromptModel(PostgresClient):
         """
         try:
             with self.connection.cursor() as cursor:
-                cursor.execute(insert_query, {
+                cursor.generate(insert_query, {
                     'prompt': prompt,
                     'type': prompt_type,
                     'category': category,
@@ -58,7 +58,7 @@ class PromptModel(PostgresClient):
         query = "SELECT * FROM chat_prompts WHERE id = %s"
         try:
             with self.connection.cursor() as cursor:
-                cursor.execute(query, (prompt_id,))
+                cursor.generate(query, (prompt_id,))
                 prompt_record = cursor.fetchone()
                 if prompt_record:
                     return self.format_prompt_record(prompt_record)
@@ -82,7 +82,7 @@ class PromptModel(PostgresClient):
         """
         try:
             with self.connection.cursor() as cursor:
-                cursor.execute(update_query, {
+                cursor.generate(update_query, {
                     'prompt': prompt,
                     'type': prompt_type,
                     'category': category,
@@ -101,7 +101,7 @@ class PromptModel(PostgresClient):
         delete_query = "DELETE FROM chat_prompts WHERE id = %s"
         try:
             with self.connection.cursor() as cursor:
-                cursor.execute(delete_query, (prompt_id,))
+                cursor.generate(delete_query, (prompt_id,))
                 self.connection.commit()
                 print(f"Prompt with ID {prompt_id} deleted successfully.")
         except Exception as e:
@@ -113,7 +113,7 @@ class PromptModel(PostgresClient):
         query = f"SELECT * FROM chat_prompts ORDER BY dateCreated DESC LIMIT {limit}"
         try:
             with self.connection.cursor() as cursor:
-                cursor.execute(query)
+                cursor.generate(query)
                 records = cursor.fetchall()
                 return [self.format_prompt_record(record) for record in records]
         except Exception as e:
