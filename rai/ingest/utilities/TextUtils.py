@@ -184,6 +184,7 @@ class TextProcessor(DictComparator, StringComparator):
     def TEXT_CLEANER(text): return TextProcessor.clean_text_for_openai_embedding(text)
     @staticmethod
     def NORMALIZE_NEW_LINES(text: str) -> str:
+        if text is None: return ""
         cleaned_text = re.sub(r'\n+', '\n', text).strip()
         return cleaned_text
     @staticmethod

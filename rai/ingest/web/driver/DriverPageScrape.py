@@ -252,7 +252,7 @@ class RaiWebPageScrape(RaiWebSiteMapper):
                 page_number=f"{len(self.pages) + 1}",
             )
             page.title = self.page_title
-            page.url = url
+            page.source = url
             page.author = "RaiWebPageScrape"
             page.events = LIST.merge_lists(page.events, events)
             page.body = body

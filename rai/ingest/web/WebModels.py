@@ -1,5 +1,7 @@
 import uuid
-from typing import List, Dict, Optional, Any, Tuple
+from typing import List, Dict, Optional, Any, Tuple, Type
+
+from crawl4ai import CrawlResult
 from pydantic import BaseModel, Field
 
 from rai.raigents.base.BaseTextAgents.BaseTextFormats import TextModel, RaiContactFormat, BaseLocation, BaseEvent
@@ -165,21 +167,58 @@ class TextNLPAgentModel(BaseModel):
     document_type: Optional[List[str]] = None
     context_groups: List[TextModel] = Field(default_factory=list)
 
-class TextImageModel(BaseModel):
-    image_bytes: Optional[bytes] = None
-    url: Optional[str] = None
-    file_name: Optional[str] = None
+class TextMediaModel(BaseModel):
+    bytes: Optional[bytes] = None
+    source: Optional[str] = None
+    type: Optional[str] = None
     mime_type: Optional[str] = None
     content: Optional[str] = None
-    tables: List[Dict[str, Any]] = Field(default_factory=list)
+    screenshot: Optional[str] = None
 
+"""
+ p = {
+    "source": key,
+    "success": TextProcessor.content_is_valid(content),
+    "content": content,
+    "screenshot": crawl_result.screenshot,
+    "image": validate_and_prepare_screenshot(crawl_result.screenshot),
+    "pdf": crawl_result.pdf,
+    "crawl_result": crawl_result,
+}
+"""
+
+
+class PageOutlineModel(BaseModel):
+    id: Optional[str] = str(uuid.uuid4())
+
+    success: bool = False
+
+    source: str = ""
+    original_content: str = ""
+    content: str = ""
+
+    images: Optional[List[ImageData]] = None
+    pdfs: List[Any] = Field(default_factory=list)
+    docxs: List[Any] = Field(default_factory=list)
+    pptxs: List[Any] = Field(default_factory=list)
+    excels: List[Any] = Field(default_factory=list)
+    csvs: List[Any] = Field(default_factory=list)
+    jsons: List[Any] = Field(default_factory=list)
+    jsonls: List[Any] = Field(default_factory=list)
+
+    page_screenshot: Optional[Any] = None
+    page_pdf: Optional[Any] = None
+    crawl_result: Type[CrawlResult] = None
 
 class PageAnalysisModel(BaseModel):
     id: Optional[str] = str(uuid.uuid4())
     details: BasePageModel = Field(default_factory=BasePageModel)
 
-    content: Optional[str] = None
+    outline: Optional[PageOutlineModel] = None
+
     content_extended: Optional[str] = None
+    agent_content: Optional[str] = None
+    embedded_content: Optional[Any] = None
     sub_content: Optional[List[str]] = None
 
     nlp: Optional[NLPAssistantModel] = None
@@ -191,6 +230,7 @@ class PageAnalysisModel(BaseModel):
     locations: List[BaseLocation] = Field(default_factory=list)
     tables: List[Dict[str, Any]] = Field(default_factory=list)
     events: List[BaseEvent] = Field(default_factory=list)
+
 
 class DocumentAnalysisModel(BaseModel):
     id: Optional[str] = str(uuid.uuid4())

@@ -8,20 +8,22 @@ import psutil
 import asyncio
 from PIL import Image
 from abc import abstractmethod
-from rai.ingest.parsers.PdfDiver import RaiPdfDiver
 from rai.ingest.utilities.TextUtils import TextProcessor
-from typing import List
+from typing import List, Optional
 from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode, CrawlResult
 
 # Append parent directory to system path
 __location__ = os.path.dirname(os.path.abspath(__file__))
 __output__ = os.path.join(__location__, "output")
+
+from rai.ingest.web.WebModels import PageOutlineModel
+
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(parent_dir)
 
 
-def validate_and_prepare_screenshot(screenshot_str: str) -> bytes:
-
+def validate_and_prepare_screenshot(screenshot_str: str) -> Optional[bytes]:
+    if screenshot_str is None: return None
     screenshot_bytes = None
 
     # Case 1: Check if the string is a literal representation of a bytes object.
@@ -61,6 +63,11 @@ def register_web_config(name: str):
 
 class WebCrawlerConfig:
     # Minimal browser config
+
+    @staticmethod
+    @abstractmethod
+    def max_concurrent() -> int: pass
+
     @staticmethod
     @abstractmethod
     def browser() -> BrowserConfig: pass
@@ -70,8 +77,8 @@ class WebCrawlerConfig:
     def crawl() -> CrawlerRunConfig: pass
 
 
-
 class RaiWebAgent:
+    config: WebCrawlerConfig
     parent_id = str(uuid.uuid4())
     start_url = ""
     raw_pages = {str:CrawlResult}
@@ -83,24 +90,30 @@ class RaiWebAgent:
     def get_registry(cls): return WEB_CONFIG_REGISTRY
 
     @staticmethod
-    def get_config(name): return WEB_CONFIG_REGISTRY.get(name)
+    def get_config(name): return WEB_CONFIG_REGISTRY.get(name)[0]
 
     @classmethod
-    def load_url(cls, url: str) -> 'RaiWebAgent':
+    async def execute_async(cls, name, url: str) -> 'RaiWebAgent':
         self = cls()
         self.start_url = url
+        self.config = self.get_config(name)
+        await self.run()
         return self
 
-    async def execute(self):
-        # Sets to manage URLs
-        to_visit = set()  # Each element is a tuple of URLs to crawl in parallel.
-        visited = set()  # Tracks URLs already visited or scheduled.
+    @classmethod
+    def load_url(cls, url: str, config:WebCrawlerConfig=None) -> 'RaiWebAgent':
+        self = cls()
+        self.start_url = url
+        self.config = config
+        return self
 
-        # Initialize result storage
+    async def run(self):
+        to_visit = set()
+        visited = set()
+
         self.all_links = []
-        self.pages = []  # Ensure self.pages is defined for storing CrawlResult objects.
+        self.pages = []
 
-        # Validate and enqueue the initial URL
         if not self.start_url:
             print("Provided URL is empty or None. Exiting crawl.")
             return
@@ -109,12 +122,7 @@ class RaiWebAgent:
             to_visit.add((self.start_url,))
             self.all_links.append(self.start_url)
 
-        run_count = 0
-        max_runs = 1  # Prevent infinite loops by capping iterations
-
         while to_visit:
-            run_count += 1
-            print(f"Run {run_count}: Processing {len(to_visit)} URL group(s) in queue.")
 
             try:
                 # Pop one group (tuple) of URLs for parallel crawling
@@ -153,17 +161,29 @@ class RaiWebAgent:
 
                     content = crawl_result.markdown
 
-                    p = {
-                        "source": key,
-                        "success": TextProcessor.content_is_valid(content),
-                        "content": content,
-                        "screenshot": crawl_result.screenshot,
-                        "image": validate_and_prepare_screenshot(crawl_result.screenshot),
-                        "pdf": crawl_result.pdf,
-                        "crawl_result": crawl_result,
+                    try:
+                        page = PageOutlineModel(
+                            source=str(key),
+                            success= TextProcessor.content_is_valid(content),
+                            original_content=str(content),
+                            content=TextProcessor.NORMALIZE_NEW_LINES(content),
+                            page_screenshot=validate_and_prepare_screenshot(crawl_result.screenshot),
+                            page_pdf=crawl_result.pdf
+                        )
+                        self.pages.append(page)
+                    except Exception as e:
+                        print("Failed to process page, falling back", e)
+                        try:
+                            page = PageOutlineModel(
+                                source=str(key),
+                                success=False,
+                                original_content=str(content),
+                                content=TextProcessor.NORMALIZE_NEW_LINES(content),
+                            )
+                            self.pages.append(page)
+                        except Exception as e:
+                            print("Failed to process page, completely", e)
 
-                    }
-                    self.pages.append(p)
             except Exception as proc_exc:
                 print("Error processing crawl results.", proc_exc)
 
@@ -173,16 +193,12 @@ class RaiWebAgent:
                 # Queue the newly discovered links as a new group (tuple)
                 to_visit.add(tuple(new_links))
 
-        if run_count >= max_runs:
-            print("Maximum run count reached; terminating crawling to avoid potential infinite loop.")
-
-        print(
-            f"Crawling completed after {run_count} iterations. Total unique URLs discovered: {len(self.all_links)}")
-
+        print("Crawling finished. Pages Extracted:", len(self.pages))
         # Ensure all_links contains only unique URLs
         self.all_links = list(set(self.all_links))
 
         return self.pages
+
     def should_add_link(self, link) -> bool:
         if str(link).endswith('.css'): return False
         if str(link).endswith('.ico'): return False
@@ -200,19 +216,6 @@ class RaiWebAgent:
         if str(link).endswith('.xlsx'): return False
         return True
 
-
-    def print_results(self):
-        for k,v in self.raw_pages.items():
-            if v:
-                print("URL:", v.url, "\n")
-                print(v.markdown)
-                print("\n--------------\n")
-                print(v.markdown_v2.raw_markdown)
-                print("\n--------------\n")
-                print(v.markdown_v2.references_markdown)
-                print("\n--------------\n")
-                print(v.markdown_v2.markdown_with_citations)
-
     async def crawl_parallel(self, urls: List[str], max_concurrent: int = 3):
         print("\n=== Parallel Crawling with Browser Reuse + Memory Check ===")
         self.start_url = urls[0]
@@ -225,24 +228,11 @@ class RaiWebAgent:
             current_mem = process.memory_info().rss  # in bytes
             if current_mem > peak_memory:
                 peak_memory = current_mem
-            print(
-                f"{prefix} Current Memory: {current_mem // (1024 * 1024)} MB, Peak: {peak_memory // (1024 * 1024)} MB")
+            print(f"{prefix} Current Memory: {current_mem // (1024 * 1024)} MB, Peak: {peak_memory // (1024 * 1024)} MB")
 
         # Minimal browser config
-        browser_config = BrowserConfig(
-            headless=True,
-            verbose=False,  # corrected from 'verbos=False'
-            extra_args=["--disable-gpu", "--disable-dev-shm-usage", "--no-sandbox"],
-        )
-        crawl_config = CrawlerRunConfig(
-            cache_mode=CacheMode.BYPASS,
-            scan_full_page=True,
-            pdf=True,
-            screenshot=True,
-            screenshot_wait_for=5,
-            prettiify=True,
-            wait_for_images=True,
-        )
+        browser_config = self.config.browser()
+        crawl_config = self.config.crawl()
 
         # Create the crawler instance
         crawler = AsyncWebCrawler(config=browser_config)
@@ -277,9 +267,6 @@ class RaiWebAgent:
                         print(f"Error crawling {url}: {result}")
                         fail_count += 1
                     elif result.success:
-                        # self.to_page(url, result)
-                        # if type(result) not in [CrawlResult]:
-                        #     continue
                         self.raw_pages[url] = result
                         success_count += 1
                     else:
@@ -299,6 +286,10 @@ class RaiWebAgent:
 
 @register_web_config(name="speed")
 class WebCrawlerPlanDeep(WebCrawlerConfig):
+
+    @staticmethod
+    def max_concurrent() -> int: return 100
+
     @staticmethod
     def browser() -> BrowserConfig:
         return BrowserConfig(
@@ -323,6 +314,9 @@ class WebCrawlerPlanDeep(WebCrawlerConfig):
 
 @register_web_config(name="deep")
 class WebCrawlerPlanDeep(WebCrawlerConfig):
+    @staticmethod
+    def max_concurrent() -> int: return 100
+
     @staticmethod
     def browser() -> BrowserConfig:
         return BrowserConfig(
@@ -349,15 +343,8 @@ async def main():
     urls = ["https://www.birminghamunited.com"]
     if urls:
         print(f"Found {len(urls)} URLs to crawl")
-        crawler = RaiWebAgent.load_url("https://www.birminghamunited.com")
-        await crawler.execute()
-        for p in crawler.pages:
-            img = p["image"]
-            pdf = p["pdf"]
-            pdr = RaiPdfDiver.load_pdf(pdf)
-            book = pdr.run()
-            Image.open(io.BytesIO(img)).show()
-        print("Finished")
+        crawler = await RaiWebAgent.execute_async("speed", "https://www.birminghamunited.com")
+        print("Finished", len(crawler.pages))
     else:
         print("No URLs found to crawl")
 
