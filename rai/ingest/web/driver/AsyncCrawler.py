@@ -1,12 +1,15 @@
+import ast
+import base64
+import io
 import os
 import random
 import sys
 import time
 import uuid
-
 import psutil
 import asyncio
 import requests
+from PIL import Image
 from xml.etree import ElementTree
 
 __location__ = os.path.dirname(os.path.abspath(__file__))
@@ -15,29 +18,62 @@ __output__ = os.path.join(__location__, "output")
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
-from rai.raigents.composers import IngestContentAgent
+from rai.ingest.parsers.PdfDiver import RaiPdfDiver
+from rai.ingest.utilities.TextUtils import TextProcessor
 from rai.ingest.DataImport import RaiDataImporter
-from rai.ingest.loaders.rai_loaders.BaseLoad import RaiDocCreator
 
 # Append parent directory to system path
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(parent_dir)
 
-from typing import List
+from typing import List, Tuple
 from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode, CrawlResult
 
 
-class RaiQuickCrawler(RaiDocCreator):
+def validate_and_prepare_screenshot(screenshot_str: str) -> bytes:
+
+    screenshot_bytes = None
+
+    # Case 1: Check if the string is a literal representation of a bytes object.
+    if screenshot_str.startswith("b'") or screenshot_str.startswith('b"'):
+        try:
+            # Safely evaluate the literal to get a bytes object.
+            screenshot_bytes = ast.literal_eval(screenshot_str)
+            if not isinstance(screenshot_bytes, bytes):
+                raise ValueError("Evaluated value is not of type bytes")
+        except Exception as e:
+            raise ValueError("Failed to convert byte string representation to bytes") from e
+    else:
+        # Case 2: Assume the screenshot is a base64 encoded string.
+        try:
+            screenshot_bytes = base64.b64decode(screenshot_str)
+        except Exception as e:
+            raise ValueError("Failed to decode base64 screenshot string") from e
+
+    # Validate that the bytes represent a valid image.
+    try:
+        with Image.open(io.BytesIO(screenshot_bytes)) as img:
+            img.verify()  # Will raise an exception if the image is invalid.
+    except Exception as e:
+        raise ValueError("The resulting bytes do not represent a valid image") from e
+
+    return screenshot_bytes
+
+class RaiWebAgent:
     parent_id = str(uuid.uuid4())
     start_url = ""
     raw_pages = {str:CrawlResult}
+    book = {}
     pages = []
     all_links = []
 
-    def __init__(self, file_path: str=""):
-        super().__init__(file_path)
+    @classmethod
+    def load_url(cls, url: str) -> 'RaiWebAgent':
+        self = cls()
+        self.start_url = url
+        return self
 
-    async def url_recon(self, url: str):
+    async def execute(self):
         # Sets to manage URLs
         to_visit = set()  # Each element is a tuple of URLs to crawl in parallel.
         visited = set()  # Tracks URLs already visited or scheduled.
@@ -47,18 +83,18 @@ class RaiQuickCrawler(RaiDocCreator):
         self.pages = []  # Ensure self.pages is defined for storing CrawlResult objects.
 
         # Validate and enqueue the initial URL
-        if not url:
+        if not self.start_url:
             print("Provided URL is empty or None. Exiting crawl.")
             return
-        if url not in visited:
-            visited.add(url)
-            to_visit.add((url,))
-            self.all_links.append(url)
+        if self.start_url not in visited:
+            visited.add(self.start_url)
+            to_visit.add((self.start_url,))
+            self.all_links.append(self.start_url)
 
         run_count = 0
         max_runs = 1  # Prevent infinite loops by capping iterations
 
-        while to_visit and run_count < max_runs:
+        while to_visit:
             run_count += 1
             print(f"Run {run_count}: Processing {len(to_visit)} URL group(s) in queue.")
 
@@ -96,7 +132,20 @@ class RaiQuickCrawler(RaiDocCreator):
                             visited.add(temp_url)
                             new_links.append(temp_url)
                             self.all_links.append(temp_url)
-                            self.pages.append(crawl_result)
+
+                    content = crawl_result.markdown
+
+                    p = {
+                        "source": key,
+                        "success": TextProcessor.content_is_valid(content),
+                        "content": content,
+                        "screenshot": crawl_result.screenshot,
+                        "image": validate_and_prepare_screenshot(crawl_result.screenshot),
+                        "pdf": crawl_result.pdf,
+                        "crawl_result": crawl_result,
+
+                    }
+                    self.pages.append(p)
             except Exception as proc_exc:
                 print("Error processing crawl results.", proc_exc)
 
@@ -115,7 +164,7 @@ class RaiQuickCrawler(RaiDocCreator):
         # Ensure all_links contains only unique URLs
         self.all_links = list(set(self.all_links))
 
-        return self.all_links
+        return self.pages
     def should_add_link(self, link) -> bool:
         if str(link).endswith('.css'): return False
         if str(link).endswith('.ico'): return False
@@ -132,67 +181,7 @@ class RaiQuickCrawler(RaiDocCreator):
         if str(link).endswith('.xls'): return False
         if str(link).endswith('.xlsx'): return False
         return True
-    def to_chroma(self, prefix):
-        RaiDataImporter.import_web_docs(prefix, self.start_url, self.cache)
 
-    def to_pages(self):
-        parent_id = str(uuid.uuid4())
-        count = 1
-        for k, v in self.raw_pages.items():
-            try:
-                page = DocumentAnalysisAgent.analyze_text_async(
-                    content=self.TEXT_CLEANER(v.markdown),
-                    url=k,
-                    page_title=k,
-                    parent_id=parent_id,
-                    page_id=str(uuid.uuid4()),
-                    page_number=str(count),
-                )
-                page.title = ""
-                page.url = k
-                page.author = "RaiWebPageScrape"
-                page.events = []
-                page.body = v.markdown
-                page.images = []
-                page.images_content = []
-                page.pdfs = []
-                page.pdfs_content = []
-                page.tables = []
-
-                self.to_documents(page)
-                count = count + 1
-            except Exception as e:
-                print(e)
-                continue
-
-    def to_page(self, url, result:CrawlResult):
-
-        try:
-            page = DocumentAnalysisAgent.analyze_text_async(
-                content=self.TEXT_CLEANER(result.markdown),
-                url=url,
-                page_title=url,
-                parent_id=self.parent_id,
-                page_id=str(uuid.uuid4()),
-                page_number=str(0),
-            )
-            page.title = ""
-            page.url = url
-            page.author = "RaiWebPageScrape"
-            page.events = []
-            page.body = result.markdown
-            page.images = []
-            page.images_content = []
-            page.pdfs = []
-            page.pdfs_content = []
-            page.tables = []
-
-            self.raw_pages[url] = result
-            self.pages.append(page)
-            self.to_documents(page)
-        except Exception as e:
-            print(e)
-            return None
 
     def print_results(self):
         for k,v in self.raw_pages.items():
@@ -227,7 +216,15 @@ class RaiQuickCrawler(RaiDocCreator):
             verbose=False,  # corrected from 'verbos=False'
             extra_args=["--disable-gpu", "--disable-dev-shm-usage", "--no-sandbox"],
         )
-        crawl_config = CrawlerRunConfig(cache_mode=CacheMode.BYPASS, screenshot=True)
+        crawl_config = CrawlerRunConfig(
+            cache_mode=CacheMode.BYPASS,
+            scan_full_page=True,
+            pdf=True,
+            screenshot=True,
+            screenshot_wait_for=5,
+            prettiify=True,
+            wait_for_images=True,
+        )
 
         # Create the crawler instance
         crawler = AsyncWebCrawler(config=browser_config)
@@ -282,90 +279,19 @@ class RaiQuickCrawler(RaiDocCreator):
             print(f"\nPeak memory usage (MB): {peak_memory // (1024 * 1024)}")
         return self.raw_pages
 
-
-SITEMAP_URL = "https://birminghamunited.com"
-
-# List of common browser User-Agents to rotate
-USER_AGENTS = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (iPhone; CPU iPhone OS 16_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.2 Mobile/15E148 Safari/604.1",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-]
-
-def get_urls():
-    """
-    Fetches all URLs from the provided sitemap.xml, avoiding 403 errors.
-    Uses dynamic User-Agent headers and retries.
-
-    Returns:
-        List[str]: List of extracted URLs
-    """
-    session = requests.Session()
-
-    # Retry strategy to handle transient failures
-    retries = Retry(
-        total=5,
-        backoff_factor=1,
-        status_forcelist=[500, 502, 503, 504, 403],  # Retry on these errors
-        allowed_methods=["GET"]
-    )
-    session.mount("https://", HTTPAdapter(max_retries=retries))
-
-    headers = {
-        "User-Agent": random.choice(USER_AGENTS),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Accept-Language": "en-US,en;q=0.5",
-        "Connection": "keep-alive",
-        "Referer": "https://www.google.com/"
-    }
-
-    try:
-        print(f"Fetching sitemap from {SITEMAP_URL}")
-        response = session.get(SITEMAP_URL, headers=headers, timeout=10)
-
-        # Handle 403 errors by trying a different User-Agent
-        if response.status_code == 403:
-            print("403 Forbidden! Retrying with a different User-Agent...")
-            headers["User-Agent"] = random.choice(USER_AGENTS)
-            time.sleep(random.uniform(1, 3))  # Add a slight delay before retry
-            response = session.get(SITEMAP_URL, headers=headers, timeout=10)
-
-        response.raise_for_status()
-
-        # Parse XML
-        try:
-            root = ElementTree.fromstring(response.content)
-        except ElementTree.ParseError as e:
-            print(f"Error parsing sitemap XML: {e}")
-            return []
-
-        # Auto-detect namespace
-        namespace = None
-        if root.tag.startswith("{"):
-            namespace = {"ns": root.tag.split("}")[0].strip("{")}
-
-        # Extract URLs
-        urls = [loc.text for loc in root.findall(".//ns:loc", namespace)] if namespace else []
-        print(f"Successfully fetched {len(urls)} URLs from sitemap.")
-
-        return urls
-
-    except requests.RequestException as e:
-        print(f"Error fetching sitemap: {e}")
-        return []
-
 async def main():
-    crawler = RaiQuickCrawler()
     urls = ["https://www.birminghamunited.com"]
     if urls:
         print(f"Found {len(urls)} URLs to crawl")
-        await crawler.url_recon("https://www.birminghamunited.com")
-        for item in crawler.pages:
-            DocumentAnalysisAgent.analyze_text_async(content=item.markdown, image=item.screenshot)
-        # await crawler.crawl_parallel(urls, max_concurrent=50)
-        # crawler.to_chroma(prefix="busa2025.1")
+        crawler = RaiWebAgent.load_url("https://www.birminghamunited.com")
+        await crawler.execute()
+        for p in crawler.pages:
+            img = p["image"]
+            pdf = p["pdf"]
+            pdr = RaiPdfDiver.load_pdf(pdf)
+            book = pdr.run()
+            Image.open(io.BytesIO(img)).show()
+        print("Finished")
     else:
         print("No URLs found to crawl")
 

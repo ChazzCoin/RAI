@@ -191,6 +191,10 @@ class TextProcessor(DictComparator, StringComparator):
         cleaned_text = re.sub(r'\s\s+', ' ', text).strip()
         return cleaned_text
 
+    @staticmethod
+    def content_is_valid(content: str) -> bool:
+        return len(TextProcessor.TEXT_CLEANER(content)) > 1
+
     """ MASTER """
     @staticmethod
     def clean_text_for_openai_embedding(text: str, max_length: int = None, replace_unsupported: bool = True) -> str:

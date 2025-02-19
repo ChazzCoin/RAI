@@ -2,7 +2,7 @@ import uuid
 
 import PIL
 import pytesseract
-from F import LIST
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.pdfpage import PDFPage
 from pdfminer.layout import (
@@ -10,7 +10,8 @@ from pdfminer.layout import (
 )
 from pdfminer.converter import PDFPageAggregator
 from io import BytesIO
-from rai.ingest.loaders.rai_loaders.BaseLoad import RaiDocCreator
+
+from rai.ingest.utilities.TextUtils import TextProcessor
 from rai.ingest.web.WebModels import TextLineDetail, TextLineClassification
 import io
 from typing import List, Union
@@ -51,7 +52,7 @@ def only_spaces_and_newlines(text: str) -> bool:
     return not text.strip()
 
 
-class RaiPdfDiver(RaiDocCreator):
+class RaiPdfDiver(TextProcessor):
 
     pdf_file:str = None
     pdf_bytes:bytes = None
@@ -68,57 +69,80 @@ class RaiPdfDiver(RaiDocCreator):
         self = cls()
         if isinstance(pdf, str):
             self.pdf_file = pdf
-            with open(self.file_path, 'rb') as f:
+            with open(pdf, 'rb') as f:
                 self.pdf_bytes = f.read()
         else:
             self.pdf_bytes = pdf
         return self
 
-
     def run(self):
         """
         Process a PDF by:
           1) Converting the PDF into page images.
-          2) Parsing each page for text (and classifying text lines as header, footer, or body).
-          3) Extracting text via OCR from any images encountered.
+          2) Parsing each page concurrently for text (and classifying text lines as header, footer, or body).
+          3) Extracting OCR text from any images encountered.
+
+        Returns:
+            A dictionary (self.book) with keys as page numbers and values as extracted page data.
         """
-
-        # --- Step 2: Setup PDFMiner ---
-        rsrcmgr = PDFResourceManager()
-        laparams = LAParams()
-        device = PDFPageAggregator(rsrcmgr, laparams=laparams)
-        interpreter = PDFPageInterpreter(rsrcmgr, device)
-        fp = BytesIO(self.pdf_bytes)
-
+        # --- Step 1: Convert PDF pages to images ---
         self.page_images = convert_pdf_to_images(self.pdf_bytes, dpi=150)
 
-        all_body_text = []
-        self.page_count = 0  # reset page count
-        # --- Step 3: Process each page ---
-        for page in PDFPage.get_pages(fp, caching=True, check_extractable=True):
-            interpreter.process_page(page)
-            layout = device.get_result()
-            page_height = layout.bbox[3]  # y2 of the page bbox
+        # Create a BytesIO stream from the PDF bytes and load all pages into a list.
+        fp = BytesIO(self.pdf_bytes)
+        pages = list(PDFPage.get_pages(fp, caching=True, check_extractable=True))
 
-            # Extract text lines and OCR image text from the layout
+        def process_page(page_tuple):
+            """
+            Worker function to process a single PDF page.
+            Each thread creates its own PDFMiner resource manager, device, and interpreter.
+            """
+            page, page_index = page_tuple
+            local_rsrcmgr = PDFResourceManager()
+            local_laparams = LAParams()
+            local_device = PDFPageAggregator(local_rsrcmgr, laparams=local_laparams)
+            local_interpreter = PDFPageInterpreter(local_rsrcmgr, local_device)
+
+            local_interpreter.process_page(page)
+            layout = local_device.get_result()
+            page_height = layout.bbox[3]
+
+            # Extract text lines (and OCR any images)
             text_details, _ = self._extract_text_lines_from_layout(layout._objs, page_height)
             body_text = self._filter_body_text(text_details)
-            all_body_text.append(body_text)
-            full_body_text = "\n\n".join(all_body_text)
             tables = self._extract_tables_from_layout(layout._objs)
+            # Retrieve the page image if available
+            page_image = self.page_images[page_index] if page_index < len(self.page_images) else None
 
-            page = {
-                'page_count': self.page_count,
-                'body': full_body_text,
+            content_validation = self.content_is_valid(body_text)
+            local_device.close()
+            return (page_index, {
+                'success': content_validation,
+                'page_count': page_index,
+                'content': body_text,
                 'tables': tables,
-                'image': LIST.get(self.page_count, self.page_images, None),
+                'image': page_image,
+            })
+
+        results = {}
+        # --- Step 2: Process pages concurrently ---
+        with ThreadPoolExecutor() as executor:
+            future_to_index = {
+                executor.submit(process_page, (page, idx)): idx
+                for idx, page in enumerate(pages)
             }
-            self.book[self.page_count] = page
-            self.page_count += 1
+            for future in as_completed(future_to_index):
+                try:
+                    page_index, page_result = future.result()
+                    results[page_index] = page_result
+                except Exception as e:
+                    idx = future_to_index[future]
+                    print(f"Error processing page {idx}: {e}")
 
+        # --- Step 3: Assemble the final book ---
+        self.book = {idx: results[idx] for idx in sorted(results.keys())}
+        self.page_count = len(self.book)
         fp.close()
-        device.close()
-
         return self.book
 
     def _extract_text_lines_from_layout(self, layout_objects, page_height):
@@ -301,6 +325,8 @@ if __name__ == '__main__':
     # Example with a file path
     pdf_file_path = "/Users/chazzromeo/Desktop/DocumentTestSet/scanned-mix.pdf"
     try:
+        diver = RaiPdfDiver.load_pdf(pdf_file_path)
+        book = diver.run()
         images = convert_pdf_to_images(pdf_file_path, dpi=200, fmt="PNG")
         print(f"Converted {len(images)} pages to images (PNG byte strings).")
         for image in images:

@@ -288,7 +288,8 @@ class IngestExtractorAgent:
     data_in = None
     data_type = None
 
-    book = {}
+    pre_book = {}
+    final_book = None
 
     class Text:
         metadata = "metadata"
@@ -316,8 +317,26 @@ class IngestExtractorAgent:
         if self.data_type == 'URL':
             pass
         elif self.data_type == 'PDF':
-            diver = RaiPdfDiver(self.data_in)
-            self.book = diver.run()
+            diver = RaiPdfDiver.load_pdf(self.data_in)
+            self.pre_book = diver.run()
+
+    def post_run(self):
+
+        for page_number,page in enumerate(self.pre_book):
+            new_page = page
+            if DICT.get('success', page, False):
+                new_page = self.extract_content_from_page(page)
+            self.final_book[page_number] = new_page
+
+    def extract_content_from_page(self, page) -> bool:
+        img = DICT.get('image', page, None)
+        if img:
+            extracted_text = self.extract_from_images(self.Image.text_extractor, img)
+            if extracted_text:
+                new_page = page
+                new_page['content'] = extracted_text
+                return new_page
+        return page
 
     @staticmethod
     def extract_from_images(name, images):

@@ -8,7 +8,7 @@ from selenium.webdriver.common.by import By
 from rai.raigents.composers import IngestContentAgent
 from rai.ingest.DataImport import RaiDataImporter
 from rai.ingest.web.WebModels import FullDocumentPageAnalysisModel
-from rai.ingest.web.driver.AsyncCrawler import RaiQuickCrawler
+from rai.ingest.web.driver.AsyncCrawler import RaiWebAgent
 from rai.ingest.web.driver.DriverSiteMapper import RaiWebSiteMapper
 from rai.ingest.web.soup.BodyExtractor import WebBodyExtractor
 from rai.ingest.web.soup.UrlExtractor import WebUrlExtractor
@@ -26,7 +26,7 @@ class RaiWebPageScrape(RaiWebSiteMapper):
     pages = []
 
     async def pageThreader(self, prefix:str, url:str):
-        crawler = RaiQuickCrawler()
+        crawler = RaiWebAgent()
         await crawler.url_recon(url)
         self.current_url = url
         self.add_update_crawler_queue(crawler.all_links)
