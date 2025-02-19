@@ -2,32 +2,22 @@ import ast
 import base64
 import io
 import os
-import random
 import sys
-import time
 import uuid
 import psutil
 import asyncio
-import requests
 from PIL import Image
-from xml.etree import ElementTree
-
-__location__ = os.path.dirname(os.path.abspath(__file__))
-__output__ = os.path.join(__location__, "output")
-
-from requests.adapters import HTTPAdapter
-from urllib3 import Retry
-
+from abc import abstractmethod
 from rai.ingest.parsers.PdfDiver import RaiPdfDiver
 from rai.ingest.utilities.TextUtils import TextProcessor
-from rai.ingest.DataImport import RaiDataImporter
+from typing import List
+from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode, CrawlResult
 
 # Append parent directory to system path
+__location__ = os.path.dirname(os.path.abspath(__file__))
+__output__ = os.path.join(__location__, "output")
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(parent_dir)
-
-from typing import List, Tuple
-from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode, CrawlResult
 
 
 def validate_and_prepare_screenshot(screenshot_str: str) -> bytes:
@@ -59,6 +49,28 @@ def validate_and_prepare_screenshot(screenshot_str: str) -> bytes:
 
     return screenshot_bytes
 
+
+WEB_CONFIG_REGISTRY = {}
+
+def register_web_config(name: str):
+    def decorator(cls):
+        WEB_CONFIG_REGISTRY.setdefault(name, []).append(cls)
+        return cls
+    return decorator
+
+
+class WebCrawlerConfig:
+    # Minimal browser config
+    @staticmethod
+    @abstractmethod
+    def browser() -> BrowserConfig: pass
+
+    @staticmethod
+    @abstractmethod
+    def crawl() -> CrawlerRunConfig: pass
+
+
+
 class RaiWebAgent:
     parent_id = str(uuid.uuid4())
     start_url = ""
@@ -66,6 +78,12 @@ class RaiWebAgent:
     book = {}
     pages = []
     all_links = []
+
+    @classmethod
+    def get_registry(cls): return WEB_CONFIG_REGISTRY
+
+    @staticmethod
+    def get_config(name): return WEB_CONFIG_REGISTRY.get(name)
 
     @classmethod
     def load_url(cls, url: str) -> 'RaiWebAgent':
@@ -278,6 +296,54 @@ class RaiWebAgent:
             log_memory(prefix="Final: ")
             print(f"\nPeak memory usage (MB): {peak_memory // (1024 * 1024)}")
         return self.raw_pages
+
+@register_web_config(name="speed")
+class WebCrawlerPlanDeep(WebCrawlerConfig):
+    @staticmethod
+    def browser() -> BrowserConfig:
+        return BrowserConfig(
+        headless=True,
+        light_mode=True,
+        accept_downloads=False,
+        downloads_path=None,
+        verbose=False,  # corrected from 'verbos=False'
+        extra_args=["--disable-gpu", "--disable-dev-shm-usage", "--no-sandbox"],
+    )
+    @staticmethod
+    def crawl() -> CrawlerRunConfig:
+        return CrawlerRunConfig(
+        cache_mode=CacheMode.BYPASS,
+        scan_full_page=True,
+        pdf=False,
+        screenshot=False,
+        screenshot_wait_for=0,
+        prettiify=False,
+        wait_for_images=False,
+    )
+
+@register_web_config(name="deep")
+class WebCrawlerPlanDeep(WebCrawlerConfig):
+    @staticmethod
+    def browser() -> BrowserConfig:
+        return BrowserConfig(
+        headless=True,
+        light_mode=False,
+        accept_downloads=True,
+        downloads_path=__output__,
+        verbose=False,  # corrected from 'verbos=False'
+        extra_args=["--disable-gpu", "--disable-dev-shm-usage", "--no-sandbox"],
+    )
+    @staticmethod
+    def crawl() -> CrawlerRunConfig:
+        return CrawlerRunConfig(
+        cache_mode=CacheMode.BYPASS,
+        scan_full_page=True,
+        pdf=True,
+        screenshot=True,
+        screenshot_wait_for=5,
+        prettiify=True,
+        wait_for_images=True,
+    )
 
 async def main():
     urls = ["https://www.birminghamunited.com"]

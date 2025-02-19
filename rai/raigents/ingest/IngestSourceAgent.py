@@ -282,7 +282,7 @@ class DataTypeUtils:
         return False
 
 
-class IngestExtractorAgent:
+class IngestSourceAgent:
     cleaner = TextProcessor()  # Assumes a TextProcessor with a TEXT_CLEANER and content_splitter is defined
 
     data_in = None
@@ -451,6 +451,6 @@ class IngestExtractorAgent:
 
 
 if __name__ == "__main__":
-    agent = IngestExtractorAgent()
+    agent = IngestSourceAgent()
     page_result = agent.execute(content=schedule_text)
     print(page_result)

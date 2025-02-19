@@ -8,7 +8,7 @@ from rai.ingest.web.WebModels import PageAnalysisModel
 
 from F.LOG import Log
 
-from rai.raigents.composers.IngestContentAgent import IngestContentAgent
+from rai.raigents.ingest.IngestContentAgent import IngestContentAgent
 
 Log = Log("composers.DocumentCreatorAgent")
 

@@ -5,7 +5,6 @@ from F import LIST
 from F.LOG import Log
 from selenium.webdriver.common.by import By
 
-from rai.raigents.composers import IngestContentAgent
 from rai.ingest.DataImport import RaiDataImporter
 from rai.ingest.web.WebModels import FullDocumentPageAnalysisModel
 from rai.ingest.web.driver.AsyncCrawler import RaiWebAgent
