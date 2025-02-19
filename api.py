@@ -2,9 +2,7 @@
 import asyncio
 import json
 import os.path
-import threading
 from concurrent.futures import ThreadPoolExecutor
-from typing import Optional
 import aiohttp
 from quart import Quart, request, jsonify, Response, send_file
 from quart_cors import cors
@@ -16,10 +14,10 @@ from F.DATE import get_timestamp_str as get_current_timestamp
 from rai.RaiModels import RAI_MODs, getRaiModels
 from rai.assistant.ai_models import AiModels
 from rai.assistant.connectors import RaiAi
-from rai.composers.RagAgent import RaiRagAgent
+from rai.raigents.composers.RagAgent import RaiRagAgent
 from rai.internal.connectors import REDIS_DB_CLIENT_0, REDIS_DB_CLIENT_1, PostgresTables
 from rai import env
-from rai.data.parsers.Pdf import FPDF
+from rai.ingest.parsers.Pdf import FPDF
 import base64
 import imghdr
 

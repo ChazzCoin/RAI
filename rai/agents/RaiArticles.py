@@ -8,7 +8,7 @@ from bs4 import BeautifulSoup
 from weasyprint import HTML
 import logging
 
-from rai.data.RaiWebExtraction import RaiWebDriver
+from rai.ingest.RaiWebExtraction import RaiWebDriver
 
 
 def base_url_extractor(url):

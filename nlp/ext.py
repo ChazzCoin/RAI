@@ -5,7 +5,7 @@ from nltk import word_tokenize, sent_tokenize, FreqDist
 from nltk.util import ngrams
 from nltk.sentiment import SentimentIntensityAnalyzer
 
-from rai.data.web.WebModels import NLPAssistantModel
+from rai.ingest.web.WebModels import NLPAssistantModel
 
 # Ensure necessary NLTK resources are available
 nltk.download("punkt", quiet=True)
@@ -31,12 +31,20 @@ class NLPAssistant:
       - sentiment_analysis: Analyzes sentiment using NLTK’s VADER.
       - summary: Provides a quick overview of text statistics.
     """
+
+    def __init__(self):
+        self.doc = None
+        self.sentiment_analyzer = None
+        self.nlp = None
+        self.text = None
+
     @classmethod
-    def pipeline(cls, content:str) -> NLPAssistantModel:
+    def analyze(cls, content:str) -> NLPAssistantModel:
         """
         Run the full analysis pipeline and return a populated TextAnalysisPipelineModel.
         """
-        self = cls(content)
+        self = cls()
+        self.load_text(content)
         tokens = self.tokenize()
         # Generate bigrams as joined strings for simplicity
         bigrams = [" ".join(bigram) for bigram in self.get_ngrams(2)]
@@ -65,7 +73,7 @@ class NLPAssistant:
             sentiment=sentiment,
             summary=summary
         )
-    def __init__(self, text: str):
+    def load_text(self, text: str):
         self.text = text
         # Load the spaCy English model
         self.nlp = spacy.load("en_core_web_sm")
@@ -171,18 +179,18 @@ if __name__ == "__main__":
         "The company announced a new product line today."
     )
 
-    analyzer = TextAnalyzer(sample_text)
-    print("Tokens:", analyzer.tokenize())
-    print("Bigrams:", analyzer.get_ngrams(2))
-    print("Sentences:", analyzer.sentence_tokenize())
-    print("Paragraphs:", analyzer.paragraphs())
-    print("POS Tags:", analyzer.pos_tags())
-    print("Named Entities:", analyzer.named_entities())
-    print("Lemmas:", analyzer.lemmatize())
-    print("Dependency Parse:", analyzer.dependency_parse())
-    print("Frequency Distribution:", analyzer.frequency_distribution())
-    print("Extracted URLs:", analyzer.extract_urls())
-    print("Sentiment Analysis:", analyzer.sentiment_analysis())
-    print("Summary:", analyzer.summary())
+    # analyzer = TextAnalyzer(sample_text)
+    # print("Tokens:", analyzer.tokenize())
+    # print("Bigrams:", analyzer.get_ngrams(2))
+    # print("Sentences:", analyzer.sentence_tokenize())
+    # print("Paragraphs:", analyzer.paragraphs())
+    # print("POS Tags:", analyzer.pos_tags())
+    # print("Named Entities:", analyzer.named_entities())
+    # print("Lemmas:", analyzer.lemmatize())
+    # print("Dependency Parse:", analyzer.dependency_parse())
+    # print("Frequency Distribution:", analyzer.frequency_distribution())
+    # print("Extracted URLs:", analyzer.extract_urls())
+    # print("Sentiment Analysis:", analyzer.sentiment_analysis())
+    # print("Summary:", analyzer.summary())
 
 

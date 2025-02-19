@@ -3,7 +3,7 @@ from F import DICT, DATE
 from dotenv import load_dotenv
 import os
 import logging
-from rai.data.utilities.TextUtils import TextProcessor
+from rai.ingest.utilities.TextUtils import TextProcessor
 from rai.assistant import openai_client as openai
 from typing import List, Dict
 import asyncio

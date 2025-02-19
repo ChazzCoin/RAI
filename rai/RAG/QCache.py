@@ -12,8 +12,8 @@ from rai.RAG.QHelp import DocumentQueryUtils
 from rai.assistant.openai_client import generate_embeddings  # your embedding function
 from F.LOG import Log
 
-from rai.data.utilities.DataUtilities import ensure_string_for_chroma
-from rai.data.utilities.text_data import schedule_text
+from rai.ingest.utilities.DataUtilities import ensure_string_for_chroma
+from rai.ingest.utilities.text_data import schedule_text
 from rai.internal.redisdb import RedisClient
 
 Log = Log("VectorCache")

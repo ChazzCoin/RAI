@@ -3,7 +3,7 @@ import uuid
 from F import DATE, DICT
 from rai.assistant import openai_client as openai
 from chdb.chroma import ChromaInstance
-from rai.data.utilities.TextUtils import TextProcessor
+from rai.ingest.utilities.TextUtils import TextProcessor
 
 
 class RAGWithChroma(ChromaInstance):

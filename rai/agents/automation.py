@@ -126,7 +126,7 @@ class FormatResponseTable(BaseModel):
     #     """
     # ))
 
-    # from rai.data.extraction.parsers.PDF_v1 import FPDF
+    # from rai.ingest.extraction.parsers.PDF_v1 import FPDF
     # # import asyncio
     # data = FPDF.extract_text_from_pdf("/Users/chazzromeo/Desktop/pcsc2024/general/Park City Soccer Club LTADM.pdf").strip()
     # data = data[:int(len(data)*0.5)]
