@@ -1,7 +1,4 @@
 import logging, uuid, os, requests
-from typing import Union
-from F import LIST
-from huggingface_hub import snapshot_download
 from langchain.retrievers import ContextualCompressionRetriever, EnsembleRetriever
 from langchain_community.retrievers import BM25Retriever
 
@@ -17,10 +14,7 @@ from typing import Optional, Sequence
 
 from langchain_core.callbacks import Callbacks
 from langchain_core.documents import BaseDocumentCompressor, Document
-from rai.assistant.ollama_deprecated import (
-    GenerateEmbeddingsForm,
-    generate_ollama_embeddings,
-)
+
 log = logging.getLogger(__name__)
 log.setLevel(SRC_LOG_LEVELS["RAG"])
 from F.LOG import Log
@@ -108,306 +102,165 @@ def query_doc_with_hybrid_search(
         Log.e(e)
         raise e
 
-def query_collection_by_auth_rank(collection_names: list[str], query: str, embedding_function, k: int) -> dict[str, list[list[Any]]]:
-
-    # -> Ranking Config
-    top_limit = 25
-    bottom_limit = 10
-
-    rank_count = 1
-    results_by_rank = {}
-    final_results = []
-    for collection_name in collection_names:
-
-        if collection_name:
-            Log.i(f"Querying [ {collection_name} ]")
-            try:
-                result = VECTOR_DB_CLIENT.base_query_doc_vector(
-                    collection_name=collection_name,
-                    query=query,
-                    k=k,
-                    embedding_function=embedding_function,
-                )
-                final_results.append(result)
-                results_by_rank[rank_count] = result.model_dump()
-
-                ids = LIST.get(0, result.ids, [])
-                if rank_count == 1 and len(ids) >= top_limit:
-                    break
-
-            except Exception as e:
-                Log.e(f"Error when querying the collection: {e}")
-        else:
-            pass
-        rank_count += 1
 
 
-    return VECTOR_DB_CLIENT.merge_and_sort_query_results(final_results, k=k)
 
-# def query_single_collection(collection_name: str, query: str, embedding_function, k: int) -> dict[str, list[list[Any]]]:
+
+# def query_collection_with_hybrid_search(
+#     collection_names: list[str],
+#     query: str,
+#     embedding_function,
+#     k: int,
+#     reranking_function,
+#     r: float,
+# ) -> dict[str, list[list[Any]]]:
 #     results = []
-#     Log.i(f"Querying [ {collection_name} ]")
-#     try:
-#         result = query_doc(
-#             collection_name=collection_name,
-#             query=query,
-#             k=50,
-#             embedding_function=embedding_function,
+#     error = False
+#     for collection_name in collection_names:
+#         try:
+#             result = query_doc_with_hybrid_search(
+#                 collection_name=collection_name,
+#                 query=query,
+#                 embedding_function=embedding_function,
+#                 k=k,
+#                 reranking_function=reranking_function,
+#                 r=r,
+#             )
+#             results.append(result)
+#         except Exception as e:
+#             log.exception(
+#                 "Error when querying the collection with " f"hybrid_search: {e}"
+#             )
+#             error = True
+#
+#     if error:
+#         print(
+#             "Hybrid search failed for all collections. Using Non hybrid search as fallback."
 #         )
-#         results.append(result.model_dump())
-#     except Exception as e:
-#         Log.e(f"Error when querying the collection: {e}")
-#     test = LIST.flatten(results)
-#     f = []
-#     for i in test:
-#         f.append(i["documents"])
-#     ff = LIST.flatten(f)
-#     return { 'documents': ff }
-#     # return merge_and_sort_query_results(results, k=k)
+#         results = VECTOR_DB_CLIENT.query_collection_vector(
+#             collection_names=collection_names,
+#             query=query,
+#             embedding_function=embedding_function,
+#             k=3
+#         )
+#     return VECTOR_DB_CLIENT.merge_and_sort_query_results(results, k=k, reverse=True)
 
-def query_collection_with_hybrid_search(
-    collection_names: list[str],
-    query: str,
-    embedding_function,
-    k: int,
-    reranking_function,
-    r: float,
-) -> dict[str, list[list[Any]]]:
-    results = []
-    error = False
-    for collection_name in collection_names:
-        try:
-            result = query_doc_with_hybrid_search(
-                collection_name=collection_name,
-                query=query,
-                embedding_function=embedding_function,
-                k=k,
-                reranking_function=reranking_function,
-                r=r,
-            )
-            results.append(result)
-        except Exception as e:
-            log.exception(
-                "Error when querying the collection with " f"hybrid_search: {e}"
-            )
-            error = True
-
-    if error:
-        print(
-            "Hybrid search failed for all collections. Using Non hybrid search as fallback."
-        )
-        results = VECTOR_DB_CLIENT.query_collection_vector(
-            collection_names=collection_names,
-            query=query,
-            embedding_function=embedding_function,
-            k=3
-        )
-    return VECTOR_DB_CLIENT.merge_and_sort_query_results(results, k=k, reverse=True)
+#
+# def rag_template(template: str, context: str, query: str):
+#     count = template.count("[context]")
+#     assert "[context]" in template, "RAG template does not contain '[context]'"
+#
+#     if "<context>" in context and "</context>" in context:
+#         log.debug(
+#             "WARNING: Potential prompt injection attack: the RAG "
+#             "context contains '<context>' and '</context>'. This might be "
+#             "nothing, or the user might be trying to hack something."
+#         )
+#
+#     if "[query]" in context:
+#         query_placeholder = f"[query-{str(uuid.uuid4())}]"
+#         template = template.replace("[query]", query_placeholder)
+#         template = template.replace("[context]", context)
+#         template = template.replace(query_placeholder, query)
+#     else:
+#         template = template.replace("[context]", context)
+#         template = template.replace("[query]", query)
+#     return template
 
 
-def rag_template(template: str, context: str, query: str):
-    count = template.count("[context]")
-    assert "[context]" in template, "RAG template does not contain '[context]'"
 
-    if "<context>" in context and "</context>" in context:
-        log.debug(
-            "WARNING: Potential prompt injection attack: the RAG "
-            "context contains '<context>' and '</context>'. This might be "
-            "nothing, or the user might be trying to hack something."
-        )
+#
+# def get_rag_context(
+#     files,
+#     messages,
+#     embedding_function,
+#     k,
+#     reranking_function,
+#     r,
+#     hybrid_search,
+# ):
+#     log.debug(f"files: {files} {messages} {embedding_function} {reranking_function}")
+#     query = get_last_user_message(messages)
+#
+#     extracted_collections = []
+#     relevant_contexts = []
+#
+#     for file in files:
+#         context = None
+#
+#         collection_names = (
+#             file["collection_names"]
+#             if file["type"] == "collection"
+#             else [file["collection_name"]] if file["collection_name"] else []
+#         )
+#
+#         collection_names = set(collection_names).difference(extracted_collections)
+#         if not collection_names:
+#             log.debug(f"skipping {file} as it has already been extracted")
+#             continue
+#
+#         try:
+#             context = None
+#             if file["type"] == "text":
+#                 context = file["content"]
+#             else:
+#                 if hybrid_search:
+#                     try:
+#                         context = query_collection_with_hybrid_search(
+#                             collection_names=collection_names,
+#                             query=query,
+#                             embedding_function=embedding_function,
+#                             k=k,
+#                             reranking_function=reranking_function,
+#                             r=r,
+#                         )
+#                     except Exception as e:
+#                         log.debug(
+#                             "Error when using hybrid search, using"
+#                             " non hybrid search as fallback."
+#                         )
+#
+#                 if (not hybrid_search) or (context is None):
+#                     context = VECTOR_DB_CLIENT.query_collection_vector(
+#                         collection_names=collection_names,
+#                         query=query,
+#                         embedding_function=embedding_function,
+#                         k=k,
+#                     )
+#         except Exception as e:
+#             log.exception(e)
+#
+#         if context:
+#             relevant_contexts.append({**context, "source": file})
+#
+#         extracted_collections.extend(collection_names)
+#
+#     contexts = []
+#     citations = []
+#
+#     for context in relevant_contexts:
+#         try:
+#             if "documents" in context:
+#                 contexts.append(
+#                     "\n\n".join(
+#                         [text for text in context["documents"][0] if text is not None]
+#                     )
+#                 )
+#
+#                 if "metadatas" in context:
+#                     citations.append(
+#                         {
+#                             "source": context["source"],
+#                             "document": context["documents"][0],
+#                             "metadata": context["metadatas"][0],
+#                         }
+#                     )
+#         except Exception as e:
+#             log.exception(e)
+#
+#     return contexts, citations
 
-    if "[query]" in context:
-        query_placeholder = f"[query-{str(uuid.uuid4())}]"
-        template = template.replace("[query]", query_placeholder)
-        template = template.replace("[context]", context)
-        template = template.replace(query_placeholder, query)
-    else:
-        template = template.replace("[context]", context)
-        template = template.replace("[query]", query)
-    return template
 
-
-def get_embedding_function(
-    embedding_engine,
-    embedding_model,
-    embedding_function,
-    openai_key,
-    openai_url,
-    batch_size,
-):
-    if embedding_engine == "":
-        return lambda query: embedding_function.encode(query).tolist()
-    elif embedding_engine in ["ollama", "openai"]:
-        if embedding_engine == "ollama":
-            func = lambda query: generate_ollama_embeddings(
-                GenerateEmbeddingsForm(
-                    **{
-                        "model": embedding_model,
-                        "prompt": query,
-                    }
-                )
-            )
-        elif embedding_engine == "openai":
-            func = lambda query: generate_openai_embeddings(
-                model=embedding_model,
-                text=query,
-                key=openai_key,
-                url=openai_url,
-            )
-
-        def generate_multiple(query, f):
-            if isinstance(query, list):
-                if embedding_engine == "openai":
-                    embeddings = []
-                    for i in range(0, len(query), batch_size):
-                        embeddings.extend(f(query[i : i + batch_size]))
-                    return embeddings
-                else:
-                    return [f(q) for q in query]
-            else:
-                return f(query)
-
-        return lambda query: generate_multiple(query, func)
-
-def get_rag_context(
-    files,
-    messages,
-    embedding_function,
-    k,
-    reranking_function,
-    r,
-    hybrid_search,
-):
-    log.debug(f"files: {files} {messages} {embedding_function} {reranking_function}")
-    query = get_last_user_message(messages)
-
-    extracted_collections = []
-    relevant_contexts = []
-
-    for file in files:
-        context = None
-
-        collection_names = (
-            file["collection_names"]
-            if file["type"] == "collection"
-            else [file["collection_name"]] if file["collection_name"] else []
-        )
-
-        collection_names = set(collection_names).difference(extracted_collections)
-        if not collection_names:
-            log.debug(f"skipping {file} as it has already been extracted")
-            continue
-
-        try:
-            context = None
-            if file["type"] == "text":
-                context = file["content"]
-            else:
-                if hybrid_search:
-                    try:
-                        context = query_collection_with_hybrid_search(
-                            collection_names=collection_names,
-                            query=query,
-                            embedding_function=embedding_function,
-                            k=k,
-                            reranking_function=reranking_function,
-                            r=r,
-                        )
-                    except Exception as e:
-                        log.debug(
-                            "Error when using hybrid search, using"
-                            " non hybrid search as fallback."
-                        )
-
-                if (not hybrid_search) or (context is None):
-                    context = VECTOR_DB_CLIENT.query_collection_vector(
-                        collection_names=collection_names,
-                        query=query,
-                        embedding_function=embedding_function,
-                        k=k,
-                    )
-        except Exception as e:
-            log.exception(e)
-
-        if context:
-            relevant_contexts.append({**context, "source": file})
-
-        extracted_collections.extend(collection_names)
-
-    contexts = []
-    citations = []
-
-    for context in relevant_contexts:
-        try:
-            if "documents" in context:
-                contexts.append(
-                    "\n\n".join(
-                        [text for text in context["documents"][0] if text is not None]
-                    )
-                )
-
-                if "metadatas" in context:
-                    citations.append(
-                        {
-                            "source": context["source"],
-                            "document": context["documents"][0],
-                            "metadata": context["metadatas"][0],
-                        }
-                    )
-        except Exception as e:
-            log.exception(e)
-
-    return contexts, citations
-
-def get_model_path(model: str, update_model: bool = False):
-    # Construct huggingface_hub kwargs with local_files_only to return the snapshot path
-    cache_dir = os.getenv("SENTENCE_TRANSFORMERS_HOME")
-
-    local_files_only = not update_model
-
-    snapshot_kwargs = {
-        "cache_dir": cache_dir,
-        "local_files_only": local_files_only,
-    }
-
-    log.debug(f"model: {model}")
-    log.debug(f"snapshot_kwargs: {snapshot_kwargs}")
-
-    # Inspiration from upstream sentence_transformers
-    if (
-        os.path.exists(model)
-        or ("\\" in model or model.count("/") > 1)
-        and local_files_only
-    ):
-        # If fully qualified path exists, return input, else set repo_id
-        return model
-    elif "/" not in model:
-        # Set valid repo_id for model short-name
-        model = "sentence-transformers" + "/" + model
-
-    snapshot_kwargs["repo_id"] = model
-
-    # Attempt to query the huggingface_hub library to determine the local path and/or to update
-    try:
-        model_repo_path = snapshot_download(**snapshot_kwargs)
-        log.debug(f"model_repo_path: {model_repo_path}")
-        return model_repo_path
-    except Exception as e:
-        log.exception(f"Cannot determine model snapshot path: {e}")
-        return model
-
-def generate_openai_embeddings(
-    model: str,
-    text: Union[str, list[str]],
-    key: str,
-    url: str = "https://api.openai.com/v1",
-):
-    if isinstance(text, list):
-        embeddings = generate_openai_batch_embeddings(model, text, key, url)
-    else:
-        embeddings = generate_openai_batch_embeddings(model, [text], key, url)
-
-    return embeddings[0] if isinstance(text, str) else embeddings
 
 def generate_openai_batch_embeddings(
     model: str, texts: list[str], key: str, url: str = "https://api.openai.com/v1"

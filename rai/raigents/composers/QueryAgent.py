@@ -199,7 +199,7 @@ class QueryAgentBaseRunner(RaiQueryAgent):
             # )
 
             # expanded_user_prompt = DICT.get("context_expander", results, user_prompt)
-            wrapped_results = VECTOR_DB_CLIENT.queryThreaded(*collection_list, user_prompt=query, k=10)
+            wrapped_results = VECTOR_DB_CLIENT.query(*collection_list, user_prompt=query, k=10)
             unwrapped_results = VECTOR_DB_CLIENT.unwrap_results(wrapped_results)
 
             query_results = VECTOR_DB_CLIENT.unwrap_formatted(unwrapped_results, k=5)

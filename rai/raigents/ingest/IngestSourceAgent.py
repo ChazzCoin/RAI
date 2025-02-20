@@ -1,17 +1,12 @@
-from typing import Optional
+from typing import Optional, List
 
-from F import DICT, DATE, LIST
-import nlp.Tokenizer
-import nlp.Paragraphs
-import nlp.Re
-import nlp.Keywords
-from nlp.ext import NLPAssistant
+from F import DICT
+from rai.ingest.IngestModels import IngestBrief
 from rai.ingest.parsers.PdfDiver import RaiPdfDiver
+from rai.ingest.providers.WebSourceProvider import RaiWebSourceProvider
 from rai.ingest.utilities.TextUtils import TextProcessor, to_sentences
 from rai.ingest.utilities.text_data import schedule_text
-from rai.ingest.web.WebModels import PageAnalysisModel, FNLPAssistantModel, NLPAssistantModel, TextNLPAgentModel
 from rai.raigents.base.BaseImageAgents.BaseImageAgent import RaiBaseImageAgent
-from rai.raigents.base.BaseTextAgents.BaseTextAgent import RaiBaseTextAgent
 
 DOC_SPLIT_SIZE = 10000
 
@@ -288,8 +283,9 @@ class IngestSourceAgent:
     data_in = None
     data_type = None
 
-    pre_book = {}
-    final_book = None
+    briefings = []
+
+    record = {}
 
     class Text:
         metadata = "metadata"
@@ -306,27 +302,29 @@ class IngestSourceAgent:
         form_extractor = "form_extractor"
 
     @classmethod
-    def load_data(cls, data):
+    def load_data(cls, data) -> 'IngestSourceAgent':
         self = cls()
         self.data_in = data
         self.data_type = self.determine_data_type(data)
         return self
 
-    def run(self):
-        if not self.data_in: return
+    def run(self) -> List['IngestBrief']:
+        if not self.data_in: return self.briefings
         if self.data_type == 'URL':
-            pass
+            crawl_result = RaiWebSourceProvider.execute('speed', self.data_in)
+            self.briefings = crawl_result.briefings
         elif self.data_type == 'PDF':
             diver = RaiPdfDiver.load_pdf(self.data_in)
-            self.pre_book = diver.run()
+            self.briefings = diver.run()
+        return self.briefings
 
     def post_run(self):
 
-        for page_number,page in enumerate(self.pre_book):
+        for page_number,page in enumerate(self.briefings):
             new_page = page
             if DICT.get('success', page, False):
                 new_page = self.extract_content_from_page(page)
-            self.final_book[page_number] = new_page
+            self.briefings[page_number] = new_page
 
     def extract_content_from_page(self, page) -> bool:
         img = DICT.get('image', page, None)
@@ -452,5 +450,5 @@ class IngestSourceAgent:
 
 if __name__ == "__main__":
     agent = IngestSourceAgent()
-    page_result = agent.execute(content=schedule_text)
+    page_result = agent.load_data(data=schedule_text)
     print(page_result)

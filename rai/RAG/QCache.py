@@ -9,6 +9,7 @@ from redis.commands.search.indexDefinition import IndexDefinition, IndexType
 from redis.commands.search.query import Query
 
 from rai.RAG.QHelp import DocumentQueryUtils
+from rai.assistant.connectors import RaiAi
 from rai.assistant.openai_client import generate_embeddings  # your embedding function
 from F.LOG import Log
 
@@ -19,24 +20,24 @@ from rai.internal.redisdb import RedisClient
 Log = Log("VectorCache")
 
 
-class VectorCache(RedisClient, DocumentQueryUtils):
+class VectorCache(RedisClient, RaiAi, DocumentQueryUtils):
     index_name = "rai_vector_cache"
     distance_metric = "COSINE"
 
     @classmethod
-    def create(cls, index:str):
+    def create(cls):
         cache = cls()
-        return cache.create_index(index)
+        return cache.create_index()
 
     @classmethod
-    def search(cls, index:str, query:str):
+    def search(cls, prefix:str, query:str):
         cache = cls()
-        return cache.query(index, query)
+        return cache.query(prefix, query)
 
     @classmethod
-    def add(cls, index:str, text:str, metadata={}):
+    def add(cls, prefix:str, text:str, metadata={}):
         cache = cls()
-        return cache.add_text(index, text, metadata)
+        return cache.add_text(prefix, text, metadata)
 
     # -------------------------------------------------------------------------
     # Vector-Based Functions (Redis/RediSearch operations)
@@ -64,21 +65,19 @@ class VectorCache(RedisClient, DocumentQueryUtils):
         except Exception as e:
             print(f"Index '{self.index_name}' may already exist. Details: {e}")
 
-    def add_text(self, index, text: str, metadata={}):
-        set_id = f"doc:{index}:{str(uuid.uuid4())}"
+    def add_text(self, prefix, text: str, metadata={}):
+        set_id = f"doc:{prefix}:{str(uuid.uuid4())}"
         try:
-            response = generate_embeddings(text)
-            embeddings = np.array(response, dtype=np.float32)
             pipe = self.redis_client.generate()
             meta = DICT.lazy_merge_dicts(metadata, {
-                "index": index,
+                "index": prefix,
                 "set_id": set_id,
             })
             pipe.hset(set_id, mapping={
-                "vector": embeddings.tobytes(),
-                "content": text,
+                "vector": self.embed_for_cache(text),
+                "text": text,
                 "metadata": str(ensure_string_for_chroma(meta)),
-                "tag": index
+                "tag": prefix
             })
             res = pipe.generate()
             print(f"Document '{set_id}' stored successfully.")
@@ -86,28 +85,43 @@ class VectorCache(RedisClient, DocumentQueryUtils):
         except Exception as e:
             print(f"Failed to store document '{set_id}': {e}")
 
-    def query(self, index, query) -> List[Dict[str, Any]]:
-        embeddings = generate_embeddings(query)
-        query_embedding = np.array(embeddings, dtype=np.float32)
-        tag = "(@tag: { " + index + " } )"
+    def add_doc(self, prefix, doc: {}, metadata={}):
+        set_id = f"doc:{prefix}:{str(uuid.uuid4())}"
+        try:
+            pipe = self.redis_client.generate()
+            meta = DICT.lazy_merge_dicts(metadata, {
+                "index": prefix,
+                "set_id": set_id,
+            })
+            doc["metadata"] = str(ensure_string_for_chroma(meta))
+            pipe.hset(set_id, mapping=doc)
+            res = pipe.generate()
+            print(f"Document '{set_id}' stored successfully.")
+            return res
+        except Exception as e:
+            print(f"Failed to store document '{set_id}': {e}")
+
+    def query(self, prefix, query) -> List[Dict[str, Any]]:
+        tag = "(@tag: { " + prefix + " } )"
         try:
             redis_query = (
                 Query(f"{tag}=>[KNN 2 @vector $vec as score]")
                 .sort_by("score")
-                .return_fields("content", "tag", "score", "metadata")
+                .return_fields("text", "tag", "score", "metadata")
                 .paging(0, 2)
                 .dialect(2)
             )
-            query_params = {"vec": query_embedding.tobytes()}
+            query_params = {"vec": self.embed_for_cache(query)}
             documents = self.redis_client.ft(self.index_name).search(redis_query, query_params).docs
             return documents
         except Exception as e:
             print(f"Error querying documents: {e}")
             return []
 
-    def get_all_documents_in_index(self, index):
+
+    def get_all_documents_in_index(self, prefix):
         try:
-            docs = self.keys(f"*{index}*")
+            docs = self.keys(f"*{prefix}*")
             return docs
         except Exception as e:
             print(f"Error querying documents: {e}")

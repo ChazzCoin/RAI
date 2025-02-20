@@ -1,4 +1,5 @@
-from typing import Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Optional, List, overload
 
 from F import DICT, DATE, LIST
 import nlp.Tokenizer
@@ -6,10 +7,10 @@ import nlp.Paragraphs
 import nlp.Re
 import nlp.Keywords
 from nlp.ext import NLPAssistant
+from rai.ingest.IngestModels import IngestBrief, IngestPage, FNLPAssistantModel, NLPAssistantModel, TextNLPAgentModel
 from rai.ingest.parsers.PdfDiver import RaiPdfDiver
 from rai.ingest.utilities.TextUtils import TextProcessor, to_sentences
 from rai.ingest.utilities.text_data import schedule_text
-from rai.ingest.web.WebModels import PageAnalysisModel, FNLPAssistantModel, NLPAssistantModel, TextNLPAgentModel
 from rai.raigents.base.BaseImageAgents.BaseImageAgent import RaiBaseImageAgent
 from rai.raigents.base.BaseTextAgents.BaseTextAgent import RaiBaseTextAgent
 
@@ -35,7 +36,7 @@ DOC_SPLIT_SIZE = 10000
 
      ANALYZE IMAGE VIA AI
  """
-DOC_SPLIT_SIZE = 10000
+DOC_SPLIT_SIZE = 30000
 
 """
 "grammar_corrector"
@@ -116,29 +117,62 @@ class IngestContentAgent:
 
     content_character_count = 0
     content_size = 6
-    pipeline_plan = None
+    run = None
     cleaned_content = None
     split_content = None
 
-    page = PageAnalysisModel()
+    ingest_brief = IngestBrief()
+    ingest_pages: List[IngestPage] = []
+
+    page = IngestPage()
     pages = {}
 
 
     # -------------------------------
     # Master methods to run the analysis
     # -------------------------------
+
     @classmethod
-    def execute(cls, content: str, image=None, **metadata) -> PageAnalysisModel:
+    def execute(cls, brief: IngestBrief) -> IngestPage:
         self = cls()
-        self.load_content(content, image, **metadata)
-        return self.pipeline_plan()
+        self.load_brief(brief)
+        return self.run()
+
+    @classmethod
+    def executes(cls, briefs: List[IngestBrief]) -> List[IngestPage]:
+
+        def runner(brief):
+            instance = cls()
+            instance.load_brief(brief)
+            return instance.run()
+
+        results = {}
+        with ThreadPoolExecutor() as executor:
+            # Submit all briefs for processing
+            future_to_index = {
+                executor.submit(runner, brief): index for index, brief in enumerate(briefs)
+            }
+            # Collect results as they complete
+            for future in as_completed(future_to_index):
+                index = future_to_index[future]
+                try:
+                    results[index] = future.result()
+                except Exception as e:
+                    # Optionally, handle exceptions here.
+                    results[index] = None
+                    print(f"Error processing brief at index {index}: {e}")
+
+        # Return the results in the original order.
+        batched_pages = [results[i] for i in range(len(briefs))]
+        return LIST.flatten(batched_pages)
+
 
     @staticmethod
-    def new_page_model(content: str, page: Optional[PageAnalysisModel] = None) -> PageAnalysisModel:
+    def new_page_model(content: str, page: Optional[IngestPage] = None) -> IngestPage:
         if page is None:
-            page = PageAnalysisModel()
+            page = IngestPage()
         page.details.date = DATE.get_now_month_day_year_str()  # Assumes DATE helper exists
-        page.content = content
+        page.brief.original_content = content
         return page
 
     def load_content(self, content: str, image=None, **metadata):
@@ -148,33 +182,42 @@ class IngestContentAgent:
         self.image = image
         self.pre_process_content(content)
 
+    def load_brief(self, brief: IngestBrief):
+        self.ingest_brief = brief
+        self.page.brief = brief
+        self.content = self.ingest_brief.content
+        self.original_content = self.ingest_brief.original_content
+        self.metadata = self.ingest_brief.metadata
+        self.image = self.ingest_brief.page_screenshot
+        self.pre_process_content(self.ingest_brief.content)
+
     """Clean and split the text, then decide which plan to run."""
     def pre_process_content(self, content: str):
-        content = self.cleaner.TEXT_CLEANER(content)
+        self.content = self.cleaner.TEXT_CLEANER(content)
         self.content_character_count = len(content)
 
         # Choose a pipeline plan based on the character count
-        if self.content_character_count <= 250:
+        if self.content_character_count <= 1000:
             self.content_size = 0
-            self.pipeline_plan = self.plan_0
-        elif self.content_character_count <= 500:
-            self.content_size = 1
-            self.pipeline_plan = self.plan_1
-        elif self.content_character_count <= 1000:
-            self.content_size = 2
-            self.pipeline_plan = self.plan_2
-        elif self.content_character_count <= 1500:
-            self.content_size = 3
-            self.pipeline_plan = self.plan_3
+            self.run = self.plan_0
         elif self.content_character_count <= 5000:
-            self.content_size = 4
-            self.pipeline_plan = self.plan_4
+            self.content_size = 1
+            self.run = self.plan_1
         elif self.content_character_count <= 10000:
+            self.content_size = 2
+            self.run = self.plan_2
+        elif self.content_character_count <= 20000:
+            self.content_size = 3
+            self.run = self.plan_3
+        elif self.content_character_count <= 25000:
+            self.content_size = 4
+            self.run = self.plan_4
+        elif self.content_character_count <= 30000:
             self.content_size = 5
-            self.pipeline_plan = self.plan_5
+            self.run = self.plan_5
         else:
             self.content_size = 6
-            self.pipeline_plan = self.plan_6
+            self.run = self.plan_6
 
         # Split content if it’s a very large document
         if self.content_character_count >= DOC_SPLIT_SIZE:
@@ -187,12 +230,12 @@ class IngestContentAgent:
     # -------------------------------
     # Pipeline plans based on content size
     # -------------------------------
-    def plan_0(self) -> PageAnalysisModel:
+    def plan_0(self) -> IngestPage:
         """
             Plan 0: Tiny content – treat as a title or small snippet.
         Minimal NLP processing is performed.
         """
-        page_model = PageAnalysisModel()
+        page_model = IngestPage()
         page_model.content = self.cleaner.NORMALIZE_NEW_LINES(self.original_content)
         try:
             page_model.details.title = self.cleaned_content.strip()[:50]
@@ -201,25 +244,25 @@ class IngestContentAgent:
         page_model.nlp = self.nlp(self.original_content)
         page_model.details.metadata = self.metadata_agent()
         return self.page_passthrough(page=page_model)
-    def plan_1(self) -> PageAnalysisModel:
+    def plan_1(self) -> IngestPage:
         return self.plan_0()
-    def plan_2(self) -> PageAnalysisModel:
+    def plan_2(self) -> IngestPage:
         page_model = self.plan_1()
         page_model.fnlp = self.fnlp(self.original_content)
         page_model.nlp_agent = self.nlp_agent()
         return self.page_passthrough(page=page_model)
-    def plan_3(self) -> PageAnalysisModel:
+    def plan_3(self) -> IngestPage:
         return self.plan_2()
-    def plan_4(self) -> PageAnalysisModel:
+    def plan_4(self) -> IngestPage:
         return self.plan_3()
-    def plan_5(self) -> PageAnalysisModel:
+    def plan_5(self) -> IngestPage:
         return self.plan_4()
-    def plan_6(self) -> PageAnalysisModel:
+    def plan_6(self) -> IngestPage:
         page_model = self.plan_5()
         # todo: run sub-documents
         return self.page_passthrough(page=page_model)
 
-    def page_passthrough(self, page: PageAnalysisModel) -> PageAnalysisModel:
+    def page_passthrough(self, page: IngestPage) -> IngestPage:
         self.page = page
         return page
 
@@ -296,7 +339,7 @@ class IngestContentAgent:
 
     def metadata_agent(self):
         result = RaiBaseTextAgent.generate("metadata", self.cleaned_content).model_dump()
-        meta = DICT.lazy_merge_dicts(result, self.metadata)
+        meta = DICT.lazy_merge_dicts(result, self.metadata or {})
         return meta
 
     def image_agent(self, name) -> str:

@@ -1,6 +1,5 @@
 import uuid
 
-import PIL
 import pytesseract
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
@@ -11,8 +10,9 @@ from pdfminer.layout import (
 from pdfminer.converter import PDFPageAggregator
 from io import BytesIO
 
+from rai.ingest.IngestModels import IngestBrief, TextLineDetail, TextLineClassification
+from rai.ingest.providers.WebSourceProvider import validate_and_prepare_screenshot
 from rai.ingest.utilities.TextUtils import TextProcessor
-from rai.ingest.web.WebModels import TextLineDetail, TextLineClassification
 import io
 from typing import List, Union
 from pdf2image import convert_from_path, convert_from_bytes
@@ -59,10 +59,10 @@ class RaiPdfDiver(TextProcessor):
 
     document_id = str(uuid.uuid4())
     page_id = str(uuid.uuid4())
-    pages = []
+    briefings = []
     page_images = []
     page_count = 0
-    book = {}
+    record = {}
 
     @classmethod
     def load_pdf(cls, pdf: Union[str, bytes]) -> "RaiPdfDiver":
@@ -92,7 +92,7 @@ class RaiPdfDiver(TextProcessor):
         fp = BytesIO(self.pdf_bytes)
         pages = list(PDFPage.get_pages(fp, caching=True, check_extractable=True))
 
-        def process_page(page_tuple):
+        def process_page(page_tuple) -> IngestBrief:
             """
             Worker function to process a single PDF page.
             Each thread creates its own PDFMiner resource manager, device, and interpreter.
@@ -116,13 +116,16 @@ class RaiPdfDiver(TextProcessor):
 
             content_validation = self.content_is_valid(body_text)
             local_device.close()
-            return (page_index, {
-                'success': content_validation,
-                'page_count': page_index,
-                'content': body_text,
-                'tables': tables,
-                'image': page_image,
-            })
+
+            return page_index, IngestBrief(
+                source=str(self.pdf_file),
+                success=content_validation,
+                index=page_index,
+                original_content=str(body_text),
+                content=TextProcessor.NORMALIZE_NEW_LINES(body_text),
+                page_screenshot=page_image
+            )
+
 
         results = {}
         # --- Step 2: Process pages concurrently ---
@@ -140,10 +143,9 @@ class RaiPdfDiver(TextProcessor):
                     print(f"Error processing page {idx}: {e}")
 
         # --- Step 3: Assemble the final book ---
-        self.book = {idx: results[idx] for idx in sorted(results.keys())}
-        self.page_count = len(self.book)
+        self.briefings = [item for item in results.values()]
         fp.close()
-        return self.book
+        return self.briefings
 
     def _extract_text_lines_from_layout(self, layout_objects, page_height):
         """
@@ -323,14 +325,11 @@ class RaiPdfDiver(TextProcessor):
 # --- Usage Example ---
 if __name__ == '__main__':
     # Example with a file path
-    pdf_file_path = "/Users/chazzromeo/Desktop/DocumentTestSet/scanned-mix.pdf"
+    pdf_file_path = "/Users/chazzromeo/Desktop/DocumentTestSet/structured-1.pdf"
     try:
         diver = RaiPdfDiver.load_pdf(pdf_file_path)
-        book = diver.run()
-        images = convert_pdf_to_images(pdf_file_path, dpi=200, fmt="PNG")
-        print(f"Converted {len(images)} pages to images (PNG byte strings).")
-        for image in images:
-            PIL.Image.open(io.BytesIO(image)).show()
+        briefs = diver.run()
+        print(briefs)
     except Exception as error:
         print("Error:", error)
 

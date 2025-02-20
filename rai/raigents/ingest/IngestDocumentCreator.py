@@ -1,10 +1,14 @@
-from abc import abstractmethod
+import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
+from tqdm import tqdm
+
+from rai.assistant.connectors import RaiAi
+from rai.ingest.IngestModels import IngestPage
 from rai.ingest.loaders.rai_loaders.BaseLoad import RaiBaseLoader, RaiLoaderDocument
 from rai.ingest.utilities.DataUtilities import ensure_string_for_chroma
 from rai.ingest.utilities.TextUtils import TextProcessor
 from rai.ingest.utilities.text_data import schedule_text
-from rai.ingest.web.WebModels import PageAnalysisModel
 
 from F.LOG import Log
 
@@ -15,13 +19,7 @@ Log = Log("composers.DocumentCreatorAgent")
 from typing import List, Dict, Any
 import json
 
-class RaiGent:
-
-    @abstractmethod
-    def pipeline(self, name, user_prompt, system_prompt, image): pass
-
-
-class IngestDocumentAgent(RaiBaseLoader, TextProcessor):
+class IngestDocumentCreator(RaiBaseLoader, TextProcessor, RaiAi):
     """
     A condensed document creator that processes a PageAnalysisModel and creates
     a single document for each logical grouping (content, NLP, FNLP, agent, images,
@@ -35,13 +33,39 @@ class IngestDocumentAgent(RaiBaseLoader, TextProcessor):
         super().__init__(file_path="")
 
     @classmethod
-    def execute(cls, content: str, image=None, **metadata):
-        page: PageAnalysisModel = IngestContentAgent.execute(content, image, **metadata)
+    def execute(cls, page: IngestPage) -> List['RaiLoaderDocument']:
         self = cls()
         self.load_page(page)
-        return self.process()
+        return self.run()
 
-    def load_page(self, page: PageAnalysisModel):
+    @classmethod
+    def executes(cls, pages: List[IngestPage]) -> List[RaiLoaderDocument]:
+
+        def runner(page):
+            instance = cls()
+            instance.load_page(page)
+            return instance.run()
+
+        results = {}
+        with ThreadPoolExecutor() as executor:
+            # Submit all briefs for processing
+            future_to_index = {
+                executor.submit(runner, brief): index for index, brief in enumerate(pages)
+            }
+            # Collect results as they complete
+            for future in as_completed(future_to_index):
+                index = future_to_index[future]
+                try:
+                    results[index] = future.result()
+                except Exception as e:
+                    # Optionally, handle exceptions here.
+                    results[index] = None
+                    print(f"Error processing brief at index {index}: {e}")
+
+        # Return the results in the original order.
+        return [results[i] for i in range(len(pages))]
+
+    def load_page(self, page: IngestPage):
         self.page = page
 
     def are_docs_identical(self, doc1: 'RaiLoaderDocument', doc2: 'RaiLoaderDocument') -> bool:
@@ -63,8 +87,8 @@ class IngestDocumentAgent(RaiBaseLoader, TextProcessor):
         meta['collection'] = collection
 
         cleaned_content = self.TEXT_CLEANER(str(content))
-        if not self.string_length_is_within(text=cleaned_content, max_length=5000):
-            content_parts = self.split_string_by_limit(cleaned_content, char_limit=5000)
+        if not self.string_length_is_within(text=cleaned_content, max_length=20000):
+            content_parts = self.split_string_by_limit(cleaned_content, char_limit=20000)
         else:
             content_parts = [cleaned_content]
 
@@ -78,7 +102,7 @@ class IngestDocumentAgent(RaiBaseLoader, TextProcessor):
             self.cache.append(doc)
             self.documents.append(doc)
 
-    def process(self) -> List['RaiLoaderDocument']:
+    def run(self) -> List['RaiLoaderDocument']:
         """
         Combines the various fields in the PageAnalysisModel into condensed documents.
         """
@@ -87,15 +111,15 @@ class IngestDocumentAgent(RaiBaseLoader, TextProcessor):
         self.add_doc(self.page.content, base_metadata, "pages")
 
         # --- Combine Content Fields ---
-        content_parts = []
-        if self.page.content_extended:
-            content_parts.append("Extended Content:\n" + self.page.content_extended)
-        if self.page.sub_content:
-            content_parts.append("Sub Content:\n" + "\n".join(self.page.sub_content))
-        combined_content = "\n\n".join(content_parts)
-        if combined_content.strip():
-            Log.i("Creating combined content document.")
-            self.add_doc(combined_content, base_metadata, "content")
+        # content_parts = []
+        # if self.page.content_extended:
+        #     content_parts.append("Extended Content:\n" + self.page.content_extended)
+        # if self.page.sub_content:
+        #     content_parts.append("Sub Content:\n" + "\n".join(self.page.sub_content))
+        # combined_content = "\n\n".join(content_parts)
+        # if combined_content.strip():
+        #     Log.i("Creating combined content document.")
+        #     self.add_doc(combined_content, base_metadata, "content")
 
         # --- Combine NLP Fields (NLPAssistantModel) ---
         nlp_parts = []
@@ -161,9 +185,10 @@ class IngestDocumentAgent(RaiBaseLoader, TextProcessor):
             if fnlp.paragraph_count is not None:
                 fnlp_parts.append("Paragraph Count:\n" + str(fnlp.paragraph_count))
         combined_fnlp = "\n\n".join(fnlp_parts)
-        if combined_fnlp.strip():
+        if combined_fnlp.strip() or combined_nlp.strip():
             Log.i("Creating combined FNLP document.")
-            self.add_doc(combined_fnlp, base_metadata, "nlp")
+            lp = combined_nlp.strip() + "\n" +combined_fnlp.strip()
+            self.add_doc(lp, base_metadata, "nlp")
 
         # --- Combine NLP Agent Fields ---
         agent_parts = []
@@ -231,7 +256,28 @@ class IngestDocumentAgent(RaiBaseLoader, TextProcessor):
         Log.i(f"Total condensed documents created: {len(self.documents)}")
         return self.documents
 
+    def prepare_documents_for_database(self, prefix, docs: []):
+        items = {}
+        for idx, doc in enumerate(tqdm(docs, desc="Preparing Documents.", colour="yellow")):
+            temp = {
+                "id": f"{str(uuid.uuid4())}:{str(idx)}",
+                "text": str(doc.page_content),
+                "vector": self.embed(text=doc.page_content),
+                "metadata": str(ensure_string_for_chroma(doc.metadata)),
+                "tag": prefix
+            }
+            # Get the collection from doc.metadata, defaulting to 'general'
+            collection = doc.metadata.get('collection', 'general')
+            # Build the collection key using the configured prefix and collection name
+            c = f"{prefix}.{collection}"
+            # Retrieve the current list of items for this collection, or initialize an empty list if none
+            temp_items = items.get(c, [])
+            temp_items.append(temp)
+            items[c] = temp_items  # Save the updated list back to the dictionary.
+        return items
+
+
 if __name__ == "__main__":
-    agent = IngestDocumentAgent()
+    agent = IngestDocumentCreator()
     page_result = agent.execute(content=schedule_text)
     print(page_result)

@@ -1,5 +1,6 @@
 from typing import Dict, Type
 
+import numpy as np
 from F import DICT
 from pydantic import BaseModel
 
@@ -43,6 +44,15 @@ class RaiAi:
             self.CURRENT_ENGINE = engine_name
         else:
             return f"Engine [ {engine_name} ] Not Supported."
+
+    def embed(self, text:str):
+        return self.engine.generate_embeddings(text)
+
+    def embed_for_cache(self, query) -> bytes:
+        embeddings = self.engine.generate_embeddings(query)
+        query_embedding = np.array(embeddings, dtype=np.float32)
+        return query_embedding.tobytes()
+
     def generate(self, user: str, system: str, image=None):
         return self.engine.generate(user, system, image)
 

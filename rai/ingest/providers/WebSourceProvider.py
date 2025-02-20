@@ -3,11 +3,14 @@ import base64
 import io
 import os
 import sys
+import threading
 import uuid
 import psutil
 import asyncio
 from PIL import Image
 from abc import abstractmethod
+
+from rai.ingest.IngestModels import IngestBrief
 from rai.ingest.utilities.TextUtils import TextProcessor
 from typing import List, Optional
 from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode, CrawlResult
@@ -16,7 +19,6 @@ from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode
 __location__ = os.path.dirname(os.path.abspath(__file__))
 __output__ = os.path.join(__location__, "output")
 
-from rai.ingest.web.WebModels import PageOutlineModel
 
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(parent_dir)
@@ -77,13 +79,12 @@ class WebCrawlerConfig:
     def crawl() -> CrawlerRunConfig: pass
 
 
-class RaiWebAgent:
+class RaiWebSourceProvider:
     config: WebCrawlerConfig
     parent_id = str(uuid.uuid4())
     start_url = ""
     raw_pages = {str:CrawlResult}
-    book = {}
-    pages = []
+    briefings = []
     all_links = []
 
     @classmethod
@@ -92,8 +93,30 @@ class RaiWebAgent:
     @staticmethod
     def get_config(name): return WEB_CONFIG_REGISTRY.get(name)[0]
 
+    @staticmethod
+    def execute(name, data_in) -> 'RaiWebSourceProvider':
+        result_container = {}
+        def thread_target(name, url):
+            # Create a new event loop for this thread
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                # Run the async function until complete
+                result = loop.run_until_complete(
+                    RaiWebSourceProvider.execute_async(name, url)
+                )
+                result_container['result'] = result
+            finally:
+                loop.close()
+
+        # Start the thread and wait for it to finish
+        thread = threading.Thread(target=thread_target, args=(name, data_in))
+        thread.start()
+        thread.join()
+
+        return result_container.get('result')
     @classmethod
-    async def execute_async(cls, name, url: str) -> 'RaiWebAgent':
+    async def execute_async(cls, name, url: str) -> 'RaiWebSourceProvider':
         self = cls()
         self.start_url = url
         self.config = self.get_config(name)
@@ -101,7 +124,7 @@ class RaiWebAgent:
         return self
 
     @classmethod
-    def load_url(cls, url: str, config:WebCrawlerConfig=None) -> 'RaiWebAgent':
+    def load_url(cls, url: str, config:WebCrawlerConfig=None) -> 'RaiWebSourceProvider':
         self = cls()
         self.start_url = url
         self.config = config
@@ -112,7 +135,7 @@ class RaiWebAgent:
         visited = set()
 
         self.all_links = []
-        self.pages = []
+        self.briefings = []
 
         if not self.start_url:
             print("Provided URL is empty or None. Exiting crawl.")
@@ -162,7 +185,7 @@ class RaiWebAgent:
                     content = crawl_result.markdown
 
                     try:
-                        page = PageOutlineModel(
+                        page = IngestBrief(
                             source=str(key),
                             success= TextProcessor.content_is_valid(content),
                             original_content=str(content),
@@ -170,17 +193,17 @@ class RaiWebAgent:
                             page_screenshot=validate_and_prepare_screenshot(crawl_result.screenshot),
                             page_pdf=crawl_result.pdf
                         )
-                        self.pages.append(page)
+                        self.briefings.append(page)
                     except Exception as e:
                         print("Failed to process page, falling back", e)
                         try:
-                            page = PageOutlineModel(
+                            page = IngestBrief(
                                 source=str(key),
                                 success=False,
                                 original_content=str(content),
                                 content=TextProcessor.NORMALIZE_NEW_LINES(content),
                             )
-                            self.pages.append(page)
+                            self.briefings.append(page)
                         except Exception as e:
                             print("Failed to process page, completely", e)
 
@@ -193,11 +216,11 @@ class RaiWebAgent:
                 # Queue the newly discovered links as a new group (tuple)
                 to_visit.add(tuple(new_links))
 
-        print("Crawling finished. Pages Extracted:", len(self.pages))
+        print("Crawling finished. Pages Extracted:", len(self.briefings))
         # Ensure all_links contains only unique URLs
         self.all_links = list(set(self.all_links))
 
-        return self.pages
+        return self.briefings
 
     def should_add_link(self, link) -> bool:
         if str(link).endswith('.css'): return False
@@ -343,13 +366,15 @@ async def main():
     urls = ["https://www.birminghamunited.com"]
     if urls:
         print(f"Found {len(urls)} URLs to crawl")
-        crawler = await RaiWebAgent.execute_async("speed", "https://www.birminghamunited.com")
-        print("Finished", len(crawler.pages))
+        crawler = await RaiWebSourceProvider.execute_async("speed", "https://www.birminghamunited.com")
+        print("Finished", len(crawler.briefings))
     else:
         print("No URLs found to crawl")
 
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    # asyncio.run(main())
     # get_urls()
+    results = RaiWebSourceProvider.execute('speed', 'https://www.birminghamunited.com')
+    print(results)

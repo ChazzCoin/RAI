@@ -194,14 +194,7 @@ class RaiDataImporter:
         value_new = LIST.merge_lists(value_old, items)
         self.failed[collection] = LIST.flatten(value_new)
 
-    @staticmethod
-    def get_texts(docs: []):
-        metadatas = [doc.page_content for doc in docs]
-        return metadatas
-    @staticmethod
-    def get_metadatas(docs: []):
-        metadatas = [{**doc.metadata, **({})} for doc in docs]
-        return metadatas
+
     def prepare_documents(self, docs: []):
         items = {}
         for idx, doc in enumerate(tqdm(docs, desc="Preparing Documents for chromadb...", colour="yellow")):

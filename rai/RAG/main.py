@@ -13,11 +13,7 @@ import requests
 import validators
 from chromadb import Documents
 from fastapi import Depends, File, Form, HTTPException, UploadFile, status
-from rai.RAG.Q import QueryCollectionsForm
 from rai.RAG.models import ConfigUpdateForm, UrlForm, TextRAGForm, ProcessDocForm, QueryDocForm
-from rai.RAG.utils import (
-    get_embedding_function,
-)
 from rai.models.documents import DocumentForm
 from rai.internal.postgres import POSTGRES_CLIENT
 from rai.models.files import FilesTable
@@ -165,14 +161,6 @@ app.state.config.RAG_WEB_SEARCH_RESULT_COUNT = RAG_WEB_SEARCH_RESULT_COUNT
 app.state.config.RAG_WEB_SEARCH_CONCURRENT_REQUESTS = RAG_WEB_SEARCH_CONCURRENT_REQUESTS
 
 
-app.state.EMBEDDING_FUNCTION = get_embedding_function(
-    app.state.config.RAG_EMBEDDING_ENGINE,
-    app.state.config.RAG_EMBEDDING_MODEL,
-    app.state.sentence_transformer_ef,
-    app.state.config.OPENAI_API_KEY,
-    app.state.config.OPENAI_API_BASE_URL,
-    app.state.config.RAG_EMBEDDING_OPENAI_BATCH_SIZE,
-)
 
 
 
@@ -349,32 +337,7 @@ async def get_query_settings(user=Depends(get_admin_user)):
         "hybrid": app.state.config.ENABLE_RAG_HYBRID_SEARCH,
     }
 
-def query_doc_handler(form_data: QueryDocForm):
-    try:
-        return VECTOR_DB_CLIENT.base_query_doc_vector(
-            collection_name=form_data.collection_name,
-            query=form_data.query,
-            embedding_function=app.state.EMBEDDING_FUNCTION,
-            k=form_data.k if form_data.k else app.state.config.TOP_K,
-        )
-    except Exception as e:
-        log.exception(e)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=ERROR_MESSAGES.DEFAULT(e),
-        )
-def query_chroma(form_data: QueryCollectionsForm, hybrid=True):
-    try:
-        return VECTOR_DB_CLIENT.query_collection_vector(
-            collection_names=form_data.collection_names,
-            query=form_data.query,
-            embedding_function=app.state.EMBEDDING_FUNCTION,
-            k=form_data.k if form_data.k else 3,
-        )
 
-    except Exception as e:
-        log.exception(e)
-        return {}
 
 def store_youtube_video(form_data: UrlForm, user=Depends(get_verified_user)):
     try:
@@ -469,81 +432,7 @@ def resolve_hostname(hostname):
 
     return ipv4_addresses, ipv6_addresses
 
-""" -> YES <- """
-def store_data_in_vector_db(data, collection_name, metadata: Optional[dict] = None, overwrite: bool = False) -> tuple[bool, None]:
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=app.state.config.CHUNK_SIZE,
-        chunk_overlap=app.state.config.CHUNK_OVERLAP,
-        add_start_index=True,
-    )
 
-    docs = text_splitter.split_documents(data)
-
-    if len(docs) > 0:
-        log.info(f"store_data_in_vector_db {docs}")
-        return __store_docs_in_vector_db(docs, collection_name, metadata, overwrite), None
-    else:
-        raise ValueError(ERROR_MESSAGES.EMPTY_CONTENT)
-""" -> YES <- """
-def store_text_in_vector_db(text, metadata, collection_name, overwrite: bool = False) -> bool:
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=app.state.config.CHUNK_SIZE,
-        chunk_overlap=app.state.config.CHUNK_OVERLAP,
-        add_start_index=True,
-    )
-    docs = text_splitter.create_documents([text], metadatas=[metadata])
-    return __store_docs_in_vector_db(docs, collection_name, overwrite=overwrite)
-
-""" -> private - YES <- """
-def __store_docs_in_vector_db(docs, collection_name, metadata: Optional[dict] = None, overwrite: bool = False) -> bool:
-    log.info(f"store_docs_in_vector_db {docs} {collection_name}")
-
-    texts = [doc.page_content for doc in docs]
-    metadatas = [{**doc.metadata, **(metadata if metadata else {})} for doc in docs]
-
-    # ChromaDB does not like datetime formats
-    # for meta-data so convert them to string.
-    for metadata in metadatas:
-        for key, value in metadata.items():
-            if isinstance(value, datetime):
-                metadata[key] = str(value)
-
-    try:
-        if overwrite:
-            if VECTOR_DB_CLIENT.has_collection(collection_name=collection_name):
-                log.info(f"deleting existing collection {collection_name}")
-                VECTOR_DB_CLIENT.delete_collection(collection_name=collection_name)
-
-        if VECTOR_DB_CLIENT.has_collection(collection_name=collection_name):
-            log.info(f"collection {collection_name} already exists")
-            return True
-        else:
-            embedding_function = get_embedding_function(
-                app.state.config.RAG_EMBEDDING_ENGINE,
-                app.state.config.RAG_EMBEDDING_MODEL,
-                app.state.sentence_transformer_ef,
-                app.state.config.OPENAI_API_KEY,
-                app.state.config.OPENAI_API_BASE_URL,
-                app.state.config.RAG_EMBEDDING_OPENAI_BATCH_SIZE,
-            )
-
-            VECTOR_DB_CLIENT.insert(
-                collection_name=collection_name,
-                items=[
-                    {
-                        "id": str(uuid.uuid4()),
-                        "text": text,
-                        "vector": embedding_function(text.replace("\n", " ")),
-                        "metadata": metadatas[idx],
-                    }
-                    for idx, text in enumerate(texts)
-                ],
-            )
-
-            return True
-    except Exception as e:
-        log.exception(e)
-        return False
 
 
 class TikaLoader:
@@ -692,132 +581,7 @@ def get_loader(filename: str, file_content_type: str, file_path: str):
             known_type = False
 
     return loader, known_type
-def store_doc(collection_name: Optional[str] = Form(None), file: UploadFile = File(...)):
-    # "https://www.gutenberg.org/files/1727/1727-h/1727-h.htm"
 
-    log.info(f"file.content_type: {file.content_type}")
-    try:
-        unsanitized_filename = file.filename
-        filename = os.path.basename(unsanitized_filename)
-
-        file_path = f"{UPLOAD_DIR}/{filename}"
-
-        contents = file.file.read()
-        with open(file_path, "wb") as f:
-            f.write(contents)
-            f.close()
-
-        f = open(file_path, "rb")
-        if collection_name is None:
-            collection_name = calculate_sha256(f)[:63]
-        f.close()
-
-        loader, known_type = get_loader(filename, file.content_type, file_path)
-        data = loader.load()
-
-        try:
-            result = store_data_in_vector_db(data, collection_name)
-
-            if result:
-                return {
-                    "status": True,
-                    "collection_name": collection_name,
-                    "filename": filename,
-                    "known_type": known_type,
-                }
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=e,
-            )
-    except Exception as e:
-        log.exception(e)
-        if "No pandoc was found" in str(e):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=ERROR_MESSAGES.PANDOC_NOT_INSTALLED,
-            )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=ERROR_MESSAGES.DEFAULT(e),
-            )
-def process_doc(form_data: ProcessDocForm):
-    try:
-        file = Files.get_file_by_id(form_data.file_id)
-        file_path = file.meta.get("path", f"{UPLOAD_DIR}/{file.filename}")
-
-        f = open(file_path, "rb")
-
-        collection_name = form_data.collection_name
-        if collection_name is None:
-            collection_name = calculate_sha256(f)[:63]
-        f.close()
-
-        loader, known_type = get_loader(
-            file.filename, file.meta.get("content_type"), file_path
-        )
-        data = loader.load()
-
-        try:
-            result = store_data_in_vector_db(
-                data,
-                collection_name,
-                {
-                    "file_id": form_data.file_id,
-                    "name": file.meta.get("name", file.filename),
-                },
-            )
-
-            if result:
-                return {
-                    "status": True,
-                    "collection_name": collection_name,
-                    "known_type": known_type,
-                    "filename": file.meta.get("name", file.filename),
-                }
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=e,
-            )
-    except Exception as e:
-        log.exception(e)
-        if "No pandoc was found" in str(e):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=ERROR_MESSAGES.PANDOC_NOT_INSTALLED,
-            )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=ERROR_MESSAGES.DEFAULT(e),
-            )
-
-form = TextRAGForm(
-    name="",
-    content="",
-    collection_name="",
-)
-# todo
-def store_text(form_data: TextRAGForm, userId:str):
-    collection_name = form_data.collection_name
-    if collection_name is None:
-        collection_name = calculate_sha256_string(form_data.content)
-
-    result = store_text_in_vector_db(
-        form_data.content,
-        metadata={"name": form_data.name, "created_by": userId},
-        collection_name=collection_name,
-    )
-
-    if result:
-        return {"status": True, "collection_name": collection_name}
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=ERROR_MESSAGES.DEFAULT(),
-        )
 
 
 def scan_docs_dir():
@@ -838,7 +602,7 @@ def scan_docs_dir():
                 data = loader.load()
 
                 try:
-                    result = store_data_in_vector_db(data, collection_name)
+                    result = "store_data_in_vector_db(data, collection_name)"
 
                     if result:
                         sanitized_filename = sanitize_filename(filename)

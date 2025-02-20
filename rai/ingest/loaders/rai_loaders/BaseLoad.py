@@ -4,9 +4,9 @@ from typing import List
 from F import LIST
 from F.LOG import Log
 
+from rai.ingest.IngestModels import IngestPage
 from rai.ingest.utilities.DataUtilities import ensure_string_for_chroma
 from rai.ingest.utilities.TextUtils import TextProcessor
-from rai.ingest.web.WebModels import PageAnalysisModel
 from rai.raigents.base.BaseTextAgents.BaseTextAgent import RaiBaseTextAgent
 from rai.raigents.base.BaseTextAgents.BaseTextFormats import RaiMetadata
 
@@ -92,7 +92,7 @@ class RaiDocCreator(RaiBaseLoader, TextProcessor):
             if self.has_doc(doc): return
             self.cache.append(doc)
 
-    def to_documents(self, page: PageAnalysisModel):
+    def to_documents(self, page: IngestPage):
         """ Web Contents Loader """
         Log.i("Creating Content Documents.")
         try:

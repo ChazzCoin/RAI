@@ -18,6 +18,8 @@ class GetResult(BaseModel):
 class SearchResult(GetResult):
     distances: Optional[List[List[float]]]
 
+
+
 class CollectionNameForm(BaseModel):
     collection_name: Optional[str] = "test"
 
