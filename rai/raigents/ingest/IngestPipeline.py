@@ -2,6 +2,7 @@ import uuid
 from abc import abstractmethod, ABC
 from typing import List
 
+from F import LIST
 from tqdm import tqdm
 
 from rai.RAG.QCache import VectorCache
@@ -82,7 +83,7 @@ class RaiIngestPipeline(ABC, RaiAi, TextProcessor):
        for k,v in self.pages.items():
            temp = list(v.loader_documents)
            self.docs.extend(temp)
-       return self.docs
+       return LIST.flatten(self.docs)
 
     def add_to_store(self) -> {}: return self.vector_store.stores(self.prefix, self.docs)
     def add_to_cache(self): return self.vector_cache.caches(self.prefix, self.docs)
@@ -179,7 +180,7 @@ class IngestPipelineCacheDocuments(RaiIngestPipeline):
 
 if __name__ == "__main__":
     # from rai.ingest.utilities.text_data import schedule_text
-    pdf_file_path = "/Users/chazzromeo/Desktop/DocumentTestSet/LTADM.pdf"
+    pdf_file_path = "/Users/chazzromeo/Desktop/DocumentTestSet/Monthly Invoice Generation -Flow.pdf"
     website = "https://www.parkcitysoccer.org"
     pipe = "store"
     prefix = 'rai2025.1'

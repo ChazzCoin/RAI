@@ -169,15 +169,6 @@ class IngestNLPAgent:
         pages = sorted_tuples
         return pages
 
-
-    @staticmethod
-    def new_page_model(content: str, page: Optional[IngestPage] = None) -> IngestPage:
-        if page is None:
-            page = IngestPage()
-        page.details.date = DATE.get_now_month_day_year_str()  # Assumes DATE helper exists
-        page.brief.original_content = content
-        return page
-
     def initialize(self):
         self.page = IngestPage()
 
@@ -208,19 +199,19 @@ class IngestNLPAgent:
         if self.content_character_count <= 1000:
             self.content_size = 0
             self.run = self.plan_0
-        elif self.content_character_count <= 5000:
+        elif self.content_character_count <= 3000:
             self.content_size = 1
             self.run = self.plan_1
-        elif self.content_character_count <= 10000:
+        elif self.content_character_count <= 5000:
             self.content_size = 2
             self.run = self.plan_2
-        elif self.content_character_count <= 20000:
+        elif self.content_character_count <= 8000:
             self.content_size = 3
             self.run = self.plan_3
-        elif self.content_character_count <= 25000:
+        elif self.content_character_count <= 12000:
             self.content_size = 4
             self.run = self.plan_4
-        elif self.content_character_count <= 30000:
+        elif self.content_character_count <= 16000:
             self.content_size = 5
             self.run = self.plan_5
         else:

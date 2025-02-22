@@ -8,6 +8,8 @@ from rai.assistant.connectors import RaiAi
 from rai.raigents.base.BaseContexts import RaiBaseContexts
 from rai.ingest.utilities.TextUtils import TextProcessor
 from rai.internal.connectors import VECTOR_DB_CLIENT
+from rai.raigents.composers.QueryAgent import RaiQueryAgent
+
 OBJECTIVE_PROMPT_REGISTRY = {}
 RAG_AGENT_REGISTRY = {}
 def register_rag_agent(name: str):
@@ -41,27 +43,26 @@ class RaiRagAgent(ABC, RaiAi, TextProcessor):
     third = []
     collections = {
         "pages": 1,
-        "summaries": 1,
-        "context_groups": 2,
         "events": 2,
         "images": 3,
-        "pdfs": 3,
         "contacts": 2,
         "locations": 2,
         "agent": 1,
-        "nlp": 3
+        "nlp": 3,
+        "fnlp": 3,
+        "agentnlp": 1
     }
 
     @classmethod
-    async def pipeline_async(cls, name: str, prefix: str, user_prompt: str):
+    def pipeline(cls, name: str, prefix: str, user_prompt: str):
         agent_classes = RAG_AGENT_REGISTRY.get(name)
         if not agent_classes: return None
         cls.name = name
         agent_cls = agent_classes[0]
         agent_instance = agent_cls()
-        return await agent_instance.run_async(prefix=prefix, user_prompt=user_prompt)
+        return agent_instance.run(prefix=prefix, user_prompt=user_prompt)
     @abstractmethod
-    async def run_async(self, prefix:str, user_prompt:str): pass
+    def run(self, prefix:str, user_prompt:str): pass
 
     def system(self, name:str): return OBJECTIVE_PROMPT_REGISTRY.get(name)
     def user(self, user_prompt:str, data:str):
@@ -195,27 +196,22 @@ where_results = VECTOR_DB_CLIENT.queryThreaded(*collection_list, user_prompt=use
 
 @register_rag_agent("base")
 class RagAgentBaseRunner(RaiRagAgent):
-    async def run_async(self, prefix: str, user_prompt: str):
+    def run(self, prefix: str, user_prompt: str):
         try:
             # self.switch_engine('ollama')
             collection_list = [f"{prefix}.{c}" for c in self.collections]
             results = RaiBaseTextAgent.generates(
-                "context_expander", "objective",
+                "objective",
                 user_prompt=user_prompt
             )
 
-            # expanded_user_prompt = DICT.get("context_expander", results, user_prompt)
-            wrapped_results = VECTOR_DB_CLIENT.queries(*collection_list, user_prompt=user_prompt, k=10)
-            unwrapped_results = VECTOR_DB_CLIENT.unwrap_results(wrapped_results)
-
-            query_results = VECTOR_DB_CLIENT.unwrap_formatted(unwrapped_results, k=5)
+            agent_results: RaiQueryAgentResults = RaiQueryAgent.execute("base", prefix, user_prompt)
 
             objectives = DICT.get("objective", results, [])
             objective = LIST.get(0, objectives, "general")
 
             system_prompt = self.system(objective)
-            ai_response = await self.engine.generate_async(user=self.user(user_prompt, query_results),
-                                                           system=system_prompt)
+            ai_response = self.engine.generate(user=self.user(user_prompt, agent_results.formatted), system=system_prompt)
             final_response = f"{ai_response}"
             return final_response
         except Exception as e:
@@ -354,25 +350,11 @@ class AgentConfigRAG(RaiBaseTextAgent):
     def type(self): return "base"
     def parse(self, result): return result
 
-async def main(name, user_prompt):
+def mains(name:str, prefix, user_prompt):
     # from rai.ingest.utilities.text_data import schedule_text
-    results = await RaiBaseTextAgent.generate_async(
+    results = RaiRagAgent.pipeline(
             name=name,
-            user_prompt=user_prompt
-        )
-    if type(results) in [list, tuple]:
-        for item in results:
-            print(item)
-    elif type(results) in [dict]:
-        for item in results.items():
-            print(item)
-    else:
-        print(results)
-
-def mains(*names:str, user_prompt):
-    # from rai.ingest.utilities.text_data import schedule_text
-    results = RaiBaseTextAgent.generates(
-            *names,
+            prefix=prefix,
             user_prompt=user_prompt
         )
     print(user_prompt)
@@ -386,18 +368,5 @@ def mains(*names:str, user_prompt):
         print(results)
 
 if __name__ == "__main__":
-    # from rai.ingest.utilities.text_data import schedule_text
-    user_prompt = "How do i register for placements?"
-    mains("objective", "subject", user_prompt=user_prompt)
-    # asyncio.run(
-    #     main(
-    #         name="objective",
-    #         user_prompt=user_prompt
-    #     )
-    # )
-    # asyncio.run(
-    #     main(
-    #         name="subject",
-    #         user_prompt=user_prompt
-    #     )
-    # )
+    user_prompt = "Can you breakdown the flow diagram for the monthly invoice generation job?"
+    mains("base", "rai2025.1", user_prompt=user_prompt)

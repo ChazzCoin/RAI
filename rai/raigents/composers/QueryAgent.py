@@ -10,7 +10,6 @@ from rai.RAG.QCache import VectorCache
 from rai.RAG.QStore import VectorStore
 from rai.assistant.connectors import RaiAi
 from rai.ingest.utilities.TextUtils import TextProcessor
-from rai.internal.connectors import VECTOR_DB_CLIENT
 
 
 QUERY_AGENT_REGISTRY = {}
@@ -47,15 +46,15 @@ class RaiQueryAgent(ABC, RaiAi, TextProcessor):
     }
 
     @classmethod
-    async def execute_async(cls, name: str, prefix: str, query: str):
+    def execute(cls, name: str, prefix: str, query: str):
         agent_classes = QUERY_AGENT_REGISTRY.get(name)
         if not agent_classes: return None
         cls.name = name
         agent_cls = agent_classes[0]
         agent_instance = agent_cls()
-        return await agent_instance.run_async(prefix=prefix, query=query)
+        return agent_instance.run(prefix=prefix, query=query)
     @abstractmethod
-    async def run_async(self, prefix:str, query:str): pass
+    def run(self, prefix:str, query:str): pass
 
     def system(self, name:str): return ""
     def user(self, query:str, data:str):
@@ -196,7 +195,7 @@ class RaiQueryAgentResults(BaseModel):
 
 @register_query_agent("base")
 class QueryAgentBaseRunner(RaiQueryAgent):
-    async def run_async(self, prefix: str, query: str):
+    def run(self, prefix: str, query: str):
         try:
             collection_list = [f"{prefix}.{c}" for c in self.collections]
             wrapped_results = self.store.queries(*collection_list, user_prompt=query, k=10)
@@ -232,17 +231,6 @@ async def main(prefix, query):
 
 
 if __name__ == "__main__":
-    # from rai.ingest.utilities.text_data import schedule_text
-    q = "What is the LTADM?"
-    asyncio.run(
-        main(
-            prefix="rai2025.1",
-            query=q
-        )
-    )
-    # asyncio.run(
-    #     main(
-    #         name="subject",
-    #         user_prompt=user_prompt
-    #     )
-    # )
+    q = "Who is joel person?"
+    results = RaiQueryAgent.execute('base', "rai2025.1", query=q)
+    print(results)

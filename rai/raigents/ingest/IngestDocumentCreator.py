@@ -2,16 +2,12 @@
 from F.LOG import Log
 Log = Log("composers.DocumentCreatorAgent")
 
-import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import json
-from tqdm import tqdm
 from typing import List, Dict, Any
 
 from rai.assistant.connectors import RaiAi
 from rai.ingest.IngestModels import IngestPage
 from rai.ingest.loaders.rai_loaders.BaseLoad import RaiBaseLoader, IngestLoaderDocument
-from rai.ingest.utilities.DataUtilities import ensure_metadata_is_string_for_chroma
 from rai.ingest.utilities.TextUtils import TextProcessor
 from rai.ingest.utilities.text_data import schedule_text
 
@@ -82,23 +78,25 @@ class IngestDocumentCreator(RaiBaseLoader, TextProcessor, RaiAi):
         """
         meta = metadata.copy()
         meta['collection'] = collection
+        split_count = 7000
 
         cleaned_content = self.NORMALIZE_NEW_LINES(str(content))
+        content_length = len(cleaned_content)
         # If splitting is enabled (for "parts"), only create documents if the content is over the limit.
-        if split:
-            if self.string_length_is_within(text=cleaned_content, max_length=20000):
-                # Content is short; skip adding split parts.
-                return
-            content_parts = self.split_string_by_limit(cleaned_content, char_limit=20000)
+
+        if not self.string_length_is_within(text=cleaned_content, max_length=split_count):
+            content_parts = self.split_string_by_limit(cleaned_content, char_limit=split_count)
         else:
-            # Always add the full cleaned content without splitting.
             content_parts = [cleaned_content]
 
+        split_index = 0
         for part in content_parts:
+            meta['split_index'] = split_index
             doc = IngestLoaderDocument(
                 page_content=part,
                 metadata=meta
             )
+            split_index += 1
             if self.has_doc(doc):
                 continue
             self.cache.append(doc)
@@ -120,10 +118,6 @@ class IngestDocumentCreator(RaiBaseLoader, TextProcessor, RaiAi):
         # --- Full page content as a single document (no splitting) ---
         Log.i("Creating full page document. -> [ pages ]")
         self.add_doc(self.page.content, base_metadata, "pages", split=False)
-
-        # --- Page parts (split if the content is too long) ---
-        Log.i("Creating page parts document. -> [ parts ]")
-        self.add_doc(self.page.content, base_metadata, "parts", split=True)
 
         # --- Combine basic NLP fields (only those useful for embeddings/similarity) ---
         try:
