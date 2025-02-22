@@ -111,7 +111,7 @@ class ToolsTable:
 
     def get_tools(self) -> list[ToolModel]:
         with get_db() as db:
-            return [ToolModel.model_validate(tool) for tool in db.query(Tool).all()]
+            return [ToolModel.model_validate(tool) for tool in db.queries(Tool).all()]
 
     def get_tool_valves_by_id(self, id: str) -> Optional[dict]:
         try:
@@ -125,7 +125,7 @@ class ToolsTable:
     def update_tool_valves_by_id(self, id: str, valves: dict) -> Optional[ToolValves]:
         try:
             with get_db() as db:
-                db.query(Tool).filter_by(id=id).update(
+                db.queries(Tool).filter_by(id=id).update(
                     {"valves": valves, "updated_at": int(time.time())}
                 )
                 db.commit()
@@ -177,12 +177,12 @@ class ToolsTable:
     def update_tool_by_id(self, id: str, updated: dict) -> Optional[ToolModel]:
         try:
             with get_db() as db:
-                db.query(Tool).filter_by(id=id).update(
+                db.queries(Tool).filter_by(id=id).update(
                     {**updated, "updated_at": int(time.time())}
                 )
                 db.commit()
 
-                tool = db.query(Tool).get(id)
+                tool = db.queries(Tool).get(id)
                 db.refresh(tool)
                 return ToolModel.model_validate(tool)
         except Exception:
@@ -191,7 +191,7 @@ class ToolsTable:
     def delete_tool_by_id(self, id: str) -> bool:
         try:
             with get_db() as db:
-                db.query(Tool).filter_by(id=id).delete()
+                db.queries(Tool).filter_by(id=id).delete()
                 db.commit()
 
                 return True

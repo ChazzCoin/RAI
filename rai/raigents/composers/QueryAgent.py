@@ -6,6 +6,8 @@ from typing import List
 from F import DICT, LIST
 from pydantic import BaseModel
 
+from rai.RAG.QCache import VectorCache
+from rai.RAG.QStore import VectorStore
 from rai.assistant.connectors import RaiAi
 from rai.ingest.utilities.TextUtils import TextProcessor
 from rai.internal.connectors import VECTOR_DB_CLIENT
@@ -24,6 +26,10 @@ def register_query_agent(name: str):
 
 class RaiQueryAgent(ABC, RaiAi, TextProcessor):
     name = None
+
+    store = VectorStore()
+    cache = VectorCache()
+
     first = []
     second = []
     third = []
@@ -186,24 +192,23 @@ class RaiQueryAgentResults(BaseModel):
     query_expanded: str
     documents: List[dict]
     sub_documents: List[dict]
+    formatted: str
 
 @register_query_agent("base")
 class QueryAgentBaseRunner(RaiQueryAgent):
     async def run_async(self, prefix: str, query: str):
         try:
-            # self.switch_engine('ollama')
             collection_list = [f"{prefix}.{c}" for c in self.collections]
-            # results = await RaiBaseTextAgent.generate_async(
-            #     "context_expander",
-            #     user_prompt=query
-            # )
-
-            # expanded_user_prompt = DICT.get("context_expander", results, user_prompt)
-            wrapped_results = VECTOR_DB_CLIENT.query(*collection_list, user_prompt=query, k=10)
-            unwrapped_results = VECTOR_DB_CLIENT.unwrap_results(wrapped_results)
-
-            query_results = VECTOR_DB_CLIENT.unwrap_formatted(unwrapped_results, k=5)
-            print(query_results)
+            wrapped_results = self.store.queries(*collection_list, user_prompt=query, k=10)
+            unwrapped_results = self.store.unwrap_results(wrapped_results)
+            formatted_results = self.store.unwrap_formatted(unwrapped_results, k=5)
+            return RaiQueryAgentResults(
+                query=query,
+                query_expanded=query,
+                documents=unwrapped_results,
+                sub_documents=[],
+                formatted=formatted_results,
+            )
         except Exception as e:
             print(f"Error: {e}")
             return None
@@ -228,10 +233,10 @@ async def main(prefix, query):
 
 if __name__ == "__main__":
     # from rai.ingest.utilities.text_data import schedule_text
-    q = "How do i register for placements?"
+    q = "What is the LTADM?"
     asyncio.run(
         main(
-            prefix="pcsc2025.3",
+            prefix="rai2025.1",
             query=q
         )
     )

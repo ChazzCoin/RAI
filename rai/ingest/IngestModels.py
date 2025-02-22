@@ -29,6 +29,8 @@ class BasePageModel(BaseModel):
     metadata: Optional[Dict[str, Any]] = None
 
 class NLPAssistantModel(BaseModel):
+    combined: Optional[str] = None
+
     tokens: List[str] = Field(default_factory=list)
     bigrams: List[str] = Field(default_factory=list)
     sentences: List[str] = Field(default_factory=list)
@@ -43,6 +45,8 @@ class NLPAssistantModel(BaseModel):
     summary: Dict[str, Any] = Field(default_factory=dict)
 
 class FNLPAssistantModel(BaseModel):
+    combined: Optional[str] = None
+
     sentences: List[str] = Field(default_factory=list)
     paragraphs: List[str] = Field(default_factory=list)
     tags: List[str] = Field(default_factory=list)
@@ -77,9 +81,20 @@ class TextMediaModel(BaseModel):
     content: Optional[str] = None
     screenshot: Optional[str] = None
 
+class IngestVectorDocument(BaseModel):
+    id: Optional[str] = None
+    text: Optional[str] = None
+    vector: Optional[List[float]] = None
+    metadata: Optional[Dict[str, Any]] = None
+    tag: Optional[str] = None
+
+class IngestLoaderDocument(BaseModel):
+    page_content: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
+
 
 class IngestBrief(BaseModel):
-    id: Optional[str] = str(uuid.uuid4())
+    id: str = str(uuid.uuid4())
 
     success: bool = False
 
@@ -104,10 +119,19 @@ class IngestBrief(BaseModel):
     crawl_result: Type[CrawlResult] = None
 
 class IngestPage(BaseModel):
-    id: Optional[str] = str(uuid.uuid4())
-    details: BasePageModel = Field(default_factory=BasePageModel)
+    id: str = str(uuid.uuid4())
+    record_id: str = ""
+
+    title: Optional[str] = None
+    author: Optional[str] = None
+    date: Optional[str] = None
+    url: Optional[str] = None
+    file_name: Optional[str] = None
+    page_count: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
 
     brief: Optional[IngestBrief] = None
+    loader_documents: List[IngestLoaderDocument] = Field(default_factory=list)
 
     content: Optional[str] = None
     content_extended: Optional[str] = None
@@ -127,6 +151,13 @@ class IngestPage(BaseModel):
 
 
 class IngestRecord(BaseModel):
-    id: Optional[str] = str(uuid.uuid4())
-    details: BasePageModel = Field(default_factory=BasePageModel)
+    id: str = str(uuid.uuid4())
+
+    title: Optional[str] = None
+    author: Optional[str] = None
+    date: Optional[str] = None
+    url: Optional[str] = None
+    file_name: Optional[str] = None
+    page_count: Optional[str] = None
+
     pages: Optional[List[IngestPage]] = None

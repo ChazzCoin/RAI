@@ -1,6 +1,6 @@
 from F.LOG import Log
 
-from rai.ingest.loaders.rai_loaders.BaseLoad import RaiBaseLoader, RaiLoaderDocument
+from rai.ingest.loaders.rai_loaders.BaseLoad import RaiBaseLoader, IngestLoaderDocument
 from rai.ingest.parsers.Vision import VisionExtractor
 Log = Log("VisionDataLoader")
 
@@ -23,7 +23,7 @@ class VisionDataLoader(RaiBaseLoader):
                 content = page.get('page_content', '')
             if load_images:
                 self.metadata['image'] = page.get('image', '')
-            self.cache.append(RaiLoaderDocument(page_content=content, metadata=self.metadata))
+            self.cache.append(IngestLoaderDocument(page_content=content, metadata=self.metadata))
         return self.cache
 
     def get_pages(self, load_text=True, load_images=True):
@@ -53,7 +53,7 @@ class VisionDataLoader(RaiBaseLoader):
         for page in self.data:
             page_content = page.get('page_content', '')
             metadata = {'image': page.get('image', '')}
-            documents.append(RaiLoaderDocument(page_content=page_content, metadata=metadata))
+            documents.append(IngestLoaderDocument(page_content=page_content, metadata=metadata))
         return documents
 
     @staticmethod

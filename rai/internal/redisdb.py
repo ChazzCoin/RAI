@@ -27,7 +27,6 @@ class RedisClient:
             self.port = redis_port
             self.db = db
             self.password = redis_pass
-            self.redis_client = None
             self.connect()
         except Exception as e:
             Log.e(e)
@@ -53,7 +52,8 @@ class RedisClient:
                 db=self.db,
                 password=self.password
             )
-            self.redis_client.ping()  # Test connection
+            p = self.redis_client.ping()  # Test connection
+            print(p)
             Log.s("Successfully Connected to Remote Redis Client.")
         except redis.ConnectionError as e:
             print(f"Failed to connect to Remote Redis Client: {e}")

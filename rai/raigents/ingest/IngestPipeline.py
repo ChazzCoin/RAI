@@ -1,12 +1,17 @@
-
+import uuid
 from abc import abstractmethod, ABC
 from typing import List
 
+from tqdm import tqdm
+
+from rai.RAG.QCache import VectorCache
+from rai.RAG.QStore import VectorStore
 from rai.assistant.connectors import RaiAi
-from rai.ingest.IngestModels import IngestBrief, IngestPage
-from rai.ingest.loaders.rai_loaders.BaseLoad import RaiLoaderDocument
+from rai.ingest.IngestModels import IngestRecord
+from rai.ingest.loaders.rai_loaders.BaseLoad import IngestLoaderDocument
+from rai.ingest.utilities.DataUtilities import ensure_metadata_is_string_for_chroma
 from rai.ingest.utilities.TextUtils import TextProcessor
-from rai.raigents.ingest.IngestContentAgent import IngestContentAgent
+from rai.raigents.ingest.IngestNLPAgent import IngestNLPAgent
 from rai.raigents.ingest.IngestDocumentCreator import IngestDocumentCreator
 from rai.raigents.ingest.IngestSourceAgent import IngestSourceAgent
 
@@ -23,19 +28,26 @@ def register_ingest_pipeline(name: str):
 
 class RaiIngestPipeline(ABC, RaiAi, TextProcessor):
     name = None
+    prefix = None
 
-    briefs: List[IngestBrief] = []
-    pages: List[IngestPage] = []
-    docs: List[RaiLoaderDocument] = []
+    vector_store = VectorStore()
+    vector_cache = VectorCache()
+
+    record: IngestRecord = IngestRecord()
+
+    briefs: {} = {}
+    pages: {} = {}
+    docs: List[IngestLoaderDocument] = []
 
     @classmethod
     def get_registry(cls): return INGEST_PIPELINES
 
     @classmethod
-    def pipeline(cls, name: str, data):
+    def pipeline(cls, name: str, data, prefix=None):
         agent_classes = INGEST_PIPELINES.get(name)
         if not agent_classes: return None
         cls.name = name
+        cls.prefix = prefix
         agent_cls = agent_classes[0]
         agent_instance = agent_cls()
         return agent_instance.run(data)
@@ -47,19 +59,33 @@ class RaiIngestPipeline(ABC, RaiAi, TextProcessor):
     @abstractmethod
     def run(self, data): pass
 
-    def get_briefs(self, data) -> List['IngestBrief']:
-        bs = IngestSourceAgent.load_data(data).run()
-        self.briefs.extend(bs)
-        return bs
+    def get_all_briefs(self, datas) -> {}:
+        self.briefs = IngestSourceAgent.executes(datas)
+        return self.briefs
 
-    def to_pages(self, briefs:List['IngestBrief']) -> List['IngestPage']:
-       self.pages = IngestContentAgent.executes(briefs=briefs)
+    def get_briefs(self, data) -> {}:
+        if type(data) is list:
+            self.get_all_briefs(data)
+        else:
+            self.briefs = IngestSourceAgent.execute(data)
+            return self.briefs
+
+    def to_pages(self, briefs: {}) -> {}:
+       self.pages = IngestNLPAgent.executes(briefs=briefs)
        return self.pages
 
-    def to_docs(self, pages: List['IngestPage']) -> List['RaiLoaderDocument']:
-       self.docs = IngestDocumentCreator.executes(pages=pages)
+    def create_and_attach_docs(self, pages: {}) -> {}:
+       self.pages = IngestDocumentCreator.executes(pages=pages)
+       return self.pages
+
+    def get_all_docs(self) -> {}:
+       for k,v in self.pages.items():
+           temp = list(v.loader_documents)
+           self.docs.extend(temp)
        return self.docs
 
+    def add_to_store(self) -> {}: return self.vector_store.stores(self.prefix, self.docs)
+    def add_to_cache(self): return self.vector_cache.caches(self.prefix, self.docs)
 
 """
 These seem to be turning into Configurations for agents.
@@ -68,30 +94,94 @@ What they do, how they do it...what they need...etc...
 - summarize data
 - 
 """
+@register_ingest_pipeline("briefs")
+class IngestPipelineBriefs(RaiIngestPipeline):
+    def type(self): return "briefs"
+    def parse(self, result): return result
+    def run(self, data):
+        """ 1. Source Provider """
+        return self.get_briefs(data)
+@register_ingest_pipeline("pages")
+class IngestPipelinePages(RaiIngestPipeline):
+    def type(self): return "pages"
+    def parse(self, result): return result
+    def run(self, data):
+        """ 1. Source Provider """
+        self.get_briefs(data)
+        """ 2. Content Agent """
+        return self.to_pages(self.briefs)
+
 @register_ingest_pipeline("docs")
 class IngestPipelineDocuments(RaiIngestPipeline):
+    def type(self): return "embed"
+    def parse(self, result): return result
+    def run(self, data):
+        """ 1. Source Provider """
+        self.get_briefs(data)
+        """ 2. Content Agent """
+        self.to_pages(self.briefs)
+        """ 3. Document Creator """
+        self.create_and_attach_docs(self.pages)
+        """ 4. Get All Documents """
+        self.get_all_docs()
+        return self.docs
+
+@register_ingest_pipeline("multi-docs")
+class IngestPipelineMultiDocuments(RaiIngestPipeline):
     def type(self): return "embed"
     def parse(self, result): return result
 
     def run(self, data):
         """ 1. Source Provider """
-        self.get_briefs(data)
-
+        if type(data) is list:
+            self.get_all_briefs(data)
+        else:
+            self.get_briefs(data)
         """ 2. Content Agent """
         self.to_pages(self.briefs)
-
         """ 3. Document Creator """
-        self.to_docs(self.pages)
-
+        self.create_and_attach_docs(self.pages)
+        """ 4. Get All Documents """
+        self.get_all_docs()
         return self.docs
 
+@register_ingest_pipeline("store")
+class IngestPipelineStoreDocuments(RaiIngestPipeline):
+    def type(self): return "store"
+    def parse(self, result): return result
+    def run(self, data):
+        """ 1. Source Provider """
+        self.get_briefs(data)
+        """ 2. Content Agent """
+        self.to_pages(self.briefs)
+        """ 3. Document Creator """
+        self.create_and_attach_docs(self.pages)
+        """ 4. Get All Documents """
+        self.get_all_docs()
+        """ 5. Save to Storage """
+        return self.add_to_store()
 
-
+@register_ingest_pipeline("cache")
+class IngestPipelineCacheDocuments(RaiIngestPipeline):
+    def type(self): return "cache"
+    def parse(self, result): return result
+    def run(self, data):
+        """ 1. Source Provider """
+        self.get_briefs(data)
+        """ 2. Content Agent """
+        self.to_pages(self.briefs)
+        """ 3. Document Creator """
+        self.create_and_attach_docs(self.pages)
+        """ 4. Get All Documents """
+        self.get_all_docs()
+        """ 5. Save to Storage """
+        return self.add_to_cache()
 
 if __name__ == "__main__":
     # from rai.ingest.utilities.text_data import schedule_text
-    pdf_file_path = "/Users/chazzromeo/Desktop/DocumentTestSet/instructions-1.pdf"
+    pdf_file_path = "/Users/chazzromeo/Desktop/DocumentTestSet/LTADM.pdf"
     website = "https://www.parkcitysoccer.org"
-    pipe = "docs"
-    docs = RaiIngestPipeline.pipeline(name=pipe, data=website)
+    pipe = "store"
+    prefix = 'rai2025.1'
+    docs = RaiIngestPipeline.pipeline(name=pipe, data=pdf_file_path, prefix=prefix)
     print(docs)

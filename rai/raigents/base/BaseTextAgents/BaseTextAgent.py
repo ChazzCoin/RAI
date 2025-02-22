@@ -300,12 +300,17 @@ class AgentConfigTopicLaw(RaiBaseTextAgent):
 @register_agent("context_expander")
 class AgentConfigPromptExpander(RaiBaseTextAgent):
     def type(self): return "format"
-    def parse(self, result): return result.query
+    def parse(self, result): return result.queries
 
 @register_agent("metadata")
 class AgentConfigMetadata(RaiBaseTextAgent):
     def type(self): return "format"
-    def parse(self, result): return result
+    def parse(self, result):
+        try:
+            return result.model_dump()
+        except Exception as e:
+            print(e)
+            return {}
 
 
 @register_agent("form_extractor")

@@ -1,7 +1,7 @@
 import json
 from F import DICT
 
-from rai.ingest.loaders.rai_loaders.BaseLoad import RaiBaseLoader, RaiLoaderDocument
+from rai.ingest.loaders.rai_loaders.BaseLoad import RaiBaseLoader, IngestLoaderDocument
 from rai.ingest.loaders.rai_loaders.Utils import ensure_string
 from F.LOG import Log
 
@@ -12,7 +12,7 @@ Log = Log("JSONDataLoader")
 
 @register_loader(name="json")
 class JSONDataLoader(RaiBaseLoader):
-    cache: [RaiLoaderDocument] = None
+    cache: [IngestLoaderDocument] = None
     is_file: bool = False
     json_data: [{}] = None
 
@@ -64,7 +64,7 @@ class JSONDataLoader(RaiBaseLoader):
         # If we found a direct content field, treat it as a single object
         cleaned_data = ensure_string(data)
         str_content = json.dumps(cleaned_data, ensure_ascii=False)
-        doc = RaiLoaderDocument(page_content=str_content, metadata=self.metadata)
+        doc = IngestLoaderDocument(page_content=str_content, metadata=self.metadata)
         self.cache = [doc]
         return self.cache
 
@@ -75,7 +75,7 @@ class JSONDataLoader(RaiBaseLoader):
                 # Just one item in the list
                 cleaned_data = ensure_string(data[0])
                 str_content = json.dumps(cleaned_data, ensure_ascii=False)
-                doc = RaiLoaderDocument(page_content=str_content, metadata=self.metadata)
+                doc = IngestLoaderDocument(page_content=str_content, metadata=self.metadata)
                 self.cache = [doc]
                 return self.cache
             # Otherwise, multiple items
@@ -94,7 +94,7 @@ class JSONDataLoader(RaiBaseLoader):
                     self.metadata["children"] = str(all_keys_list)
                     for item in value:
                         str_content = json.dumps(item, ensure_ascii=False)
-                        doc = RaiLoaderDocument(page_content=str_content, metadata=self.metadata)
+                        doc = IngestLoaderDocument(page_content=str_content, metadata=self.metadata)
                         r.append(doc)
             self.cache = r
             return self.cache
@@ -102,6 +102,6 @@ class JSONDataLoader(RaiBaseLoader):
             # Single dictionary
             cleaned_data = ensure_string(data)
             str_content = json.dumps(cleaned_data, ensure_ascii=False)
-            doc = RaiLoaderDocument(page_content=str_content, metadata=self.metadata)
+            doc = IngestLoaderDocument(page_content=str_content, metadata=self.metadata)
             self.cache = [doc]
             return self.cache

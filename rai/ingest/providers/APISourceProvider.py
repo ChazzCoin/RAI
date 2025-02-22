@@ -1,3 +1,5 @@
+from abc import abstractmethod
+
 import requests
 import threading
 import json
@@ -15,97 +17,41 @@ def register_api_group(group_name: str):
     return decorator
 
 
-# Register API Endpoints (Example APIs)
-@register_api_group("news")
-def news_api_endpoints():
-    return {
-        "top_headlines": {
-            "url": "https://newsapi.org/v2/top-headlines",
-            "method": "GET",
-            "params": {"country": "us", "category": "technology"},
-            "headers": {"Authorization": "Bearer YOUR_NEWS_API_KEY"}
-        },
-        "everything": {
-            "url": "https://newsapi.org/v2/everything",
-            "method": "GET",
-            "params": {"q": "AI"},
-            "headers": {"Authorization": "Bearer YOUR_NEWS_API_KEY"}
-        }
-    }
+API_PROVIDER_REGISTRY = {}
+
+def register_api_provider(name: str):
+    def decorator(cls):
+        API_PROVIDER_REGISTRY.setdefault(name, []).append(cls)
+        return cls
+    return decorator
 
 
-@register_api_group("stocks")
-def stocks_api_endpoints():
-    return {
-        "market_summary": {
-            "url": "https://query1.finance.yahoo.com/v7/finance/quote",
-            "method": "GET",
-            "params": {"symbols": "AAPL,MSFT,GOOG"}
-        },
-        "historical_data": {
-            "url": "https://query1.finance.yahoo.com/v8/finance/chart/AAPL",
-            "method": "GET",
-            "params": {"interval": "1d", "range": "1mo"}
-        }
-    }
-
-
-@register_api_group("graphql_example")
-def graphql_api_endpoints():
-    return {
-        "fetch_user": {
-            "url": "https://api.example.com/graphql",
-            "method": "POST",
-            "json": {
-                "query": """query { user(id: "123") { name, email, posts { title } } }"""
-            },
-            "headers": {"Authorization": "Bearer YOUR_API_TOKEN"}
-        }
-    }
-
-@register_api_group("cerner")
-def cerner_api_endpoints():
-    """FHIR API Configuration for Cerner"""
-    base_url = "https://fhir-open.cerner.com/r4/ec2458f2-1e24-41c8-b71b-0e701af7583d"
-
-    return {
-        "schedule_by_id": {
-            "url": f"{base_url}/Schedule",
-            "method": "GET",
-            "params": {"_id": "24477854-21304876-62852027-0"},
-            "headers": {
-                "Accept": "application/fhir+json",
-                "Content-Type": "application/fhir+json"
-            }
-        }
-    }
 
 class APIDataLoader:
     lock = threading.Lock()
 
+    @abstractmethod
+    def base_url(self) -> str: pass
+    @abstractmethod
+    def endpoints(self) -> dict: pass
+    @abstractmethod
+    def get_endpoint(self, endpoint) -> dict: pass
+
     @classmethod
     def get_registry(cls, name: str) -> Dict[str, Any]:
         """Retrieves registered API endpoints for a group."""
-        return API_REGISTRY.get(name, {})
+        return API_PROVIDER_REGISTRY.get(name, {})
 
     @classmethod
-    def execute(cls, group: str, command: str, custom_params: Optional[Dict[str, Any]] = None):
-        """
-        Executes an API request based on the registry.
+    def execute(cls, name: str, endpoint: str, custom_params: Optional[Dict[str, Any]] = None):
+        self = API_PROVIDER_REGISTRY.get(name)[0]()
 
-        :param group: The API group name (e.g., 'news', 'stocks').
-        :param command: The specific API request to execute.
-        :param custom_params: Optional parameters to override defaults.
-        :return: API response data.
-        """
-        self = cls()
+        if name == 'group':
+            return self.run_group(endpoint)
 
-        if group == 'group':
-            return self.run_group(command)
-
-        api_details = self.get_registry(group).get(command, None)
+        api_details = self.get_endpoint(endpoint)
         if not api_details:
-            raise ValueError(f"API command '{command}' not found in group '{group}'")
+            raise ValueError(f"API command '{endpoint}' not found in group '{name}'")
 
         return self.run(api_details, custom_params)
 
@@ -155,6 +101,27 @@ class APIDataLoader:
             return {"error": str(e)}
 
 
+@register_api_provider("cerner")
+class CernerProvider(APIDataLoader):
+    """FHIR API Configuration for Cerner"""
+    def base_url(self) -> str:
+        return "https://fhir-open.cerner.com/r4/ec2458f2-1e24-41c8-b71b-0e701af7583d"
+
+    def get_endpoint(self, endpoint: str) -> dict:
+        return self.endpoints()[endpoint]
+
+    def endpoints(self) -> dict:
+        return {
+            "schedule_by_id": {
+                "url": f"{self.base_url}/Schedule",
+                "method": "GET",
+                "params": {"_id": "24477854-21304876-62852027-0"},
+                "headers": {
+                    "Accept": "application/fhir+json",
+                    "Content-Type": "application/fhir+json"
+                }
+            }
+        }
 # Example Usage
 if __name__ == "__main__":
     # print("Fetching News Headlines...")

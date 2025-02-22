@@ -94,7 +94,7 @@ class TagTable:
     ) -> Optional[TagModel]:
         try:
             with get_db() as db:
-                tag = db.query(Tag).filter_by(name=name, user_id=user_id).first()
+                tag = db.queries(Tag).filter_by(name=name, user_id=user_id).first()
                 return TagModel.model_validate(tag)
         except Exception:
             return None
@@ -134,7 +134,7 @@ class TagTable:
             tag_names = [
                 chat_id_tag.tag_name
                 for chat_id_tag in (
-                    db.query(ChatIdTag)
+                    db.queries(ChatIdTag)
                     .filter_by(user_id=user_id)
                     .order_by(ChatIdTag.timestamp.desc())
                     .all()
@@ -144,7 +144,7 @@ class TagTable:
             return [
                 TagModel.model_validate(tag)
                 for tag in (
-                    db.query(Tag)
+                    db.queries(Tag)
                     .filter_by(user_id=user_id)
                     .filter(Tag.name.in_(tag_names))
                     .all()
@@ -158,7 +158,7 @@ class TagTable:
             tag_names = [
                 chat_id_tag.tag_name
                 for chat_id_tag in (
-                    db.query(ChatIdTag)
+                    db.queries(ChatIdTag)
                     .filter_by(user_id=user_id, chat_id=chat_id)
                     .order_by(ChatIdTag.timestamp.desc())
                     .all()
@@ -168,7 +168,7 @@ class TagTable:
             return [
                 TagModel.model_validate(tag)
                 for tag in (
-                    db.query(Tag)
+                    db.queries(Tag)
                     .filter_by(user_id=user_id)
                     .filter(Tag.name.in_(tag_names))
                     .all()
@@ -182,7 +182,7 @@ class TagTable:
             return [
                 ChatIdTagModel.model_validate(chat_id_tag)
                 for chat_id_tag in (
-                    db.query(ChatIdTag)
+                    db.queries(ChatIdTag)
                     .filter_by(user_id=user_id, tag_name=tag_name)
                     .order_by(ChatIdTag.timestamp.desc())
                     .all()
@@ -194,7 +194,7 @@ class TagTable:
     ) -> int:
         with get_db() as db:
             return (
-                db.query(ChatIdTag)
+                db.queries(ChatIdTag)
                 .filter_by(tag_name=tag_name, user_id=user_id)
                 .count()
             )
@@ -203,7 +203,7 @@ class TagTable:
         try:
             with get_db() as db:
                 res = (
-                    db.query(ChatIdTag)
+                    db.queries(ChatIdTag)
                     .filter_by(tag_name=tag_name, user_id=user_id)
                     .delete()
                 )
@@ -215,7 +215,7 @@ class TagTable:
                 )
                 if tag_count == 0:
                     # Remove tag item from Tag col as well
-                    db.query(Tag).filter_by(name=tag_name, user_id=user_id).delete()
+                    db.queries(Tag).filter_by(name=tag_name, user_id=user_id).delete()
                     db.commit()
                 return True
         except Exception as e:
@@ -228,7 +228,7 @@ class TagTable:
         try:
             with get_db() as db:
                 res = (
-                    db.query(ChatIdTag)
+                    db.queries(ChatIdTag)
                     .filter_by(tag_name=tag_name, chat_id=chat_id, user_id=user_id)
                     .delete()
                 )
@@ -240,7 +240,7 @@ class TagTable:
                 )
                 if tag_count == 0:
                     # Remove tag item from Tag col as well
-                    db.query(Tag).filter_by(name=tag_name, user_id=user_id).delete()
+                    db.queries(Tag).filter_by(name=tag_name, user_id=user_id).delete()
                     db.commit()
 
                 return True

@@ -1,20 +1,27 @@
 import os
 import threading
+import uuid
 from typing import Optional, List, Dict, Any
 
 from FNLP.Regex import Re
 from F import DICT, LIST
+from tqdm import tqdm
 from typing_extensions import Any  # noqa: F401
 
 from rai.RAG.QHelp import DocumentQueryUtils
-from rai.RAG.models import QueryCollectionsForm
+from rai.RAG.models import QueryCollectionsForm, VectorItem
+from rai.assistant.connectors import RaiAi
 from rai.assistant.openai_client import generate_embeddings
+from rai.ingest.IngestModels import IngestLoaderDocument
+from rai.ingest.utilities.DataUtilities import ensure_metadata_is_string_for_chroma
 from rai.internal.chromadb import ChromaClient
 from F.LOG import Log
 
+from rai.internal.connectors import VECTOR_DB_CLIENT
+
 Log = Log("Rai Data Loader")
 open_ai_key = os.getenv("OPENAI_API_KEY")
-
+ai = RaiAi()
 
 ###############################################################################
 #                Chroma (Vector-Based) Query Handler                          #
@@ -54,11 +61,11 @@ class VectorStore(ChromaClient, DocumentQueryUtils):
         # Uses the document merging function from DocumentQueryUtils
         return DocumentQueryUtils.merge_sort_all_results(query_results=[results.model_dump()])
 
-    def query(self, *collections, user_prompt: str, k: int = 5, where: dict = None):
+    def queries(self, *collections, user_prompt: str, k: int = 5, where: dict = None):
         query_results = {}
 
         def query_db(collection, user_prompt, where):
-            query_results[collection] = self.query_collection(
+            query_results[collection] = self.query(
                 collection,
                 user_message=user_prompt,
                 k=k,
@@ -75,7 +82,7 @@ class VectorStore(ChromaClient, DocumentQueryUtils):
 
         return query_results
 
-    def query_collection(self, collection, user_message: str, k: int = 5, where: dict = None):
+    def query(self, collection, user_message: str, k: int = 5, where: dict = None):
         try:
             print("User Query:", user_message)
             results = self.base_query_doc_vector(
@@ -93,7 +100,7 @@ class VectorStore(ChromaClient, DocumentQueryUtils):
 
     def base_query_doc_vector(self, collection_name: str, query: str, embedding_function, k: int, where: dict = None):
         try:
-            result = self.search_vector(
+            result = VECTOR_DB_CLIENT.search_vector(
                 collection_name=collection_name,
                 vectors=[embedding_function(query)],
                 limit=k,
@@ -108,7 +115,7 @@ class VectorStore(ChromaClient, DocumentQueryUtils):
 
     def base_query_doc_texts(self, collection_name: str, query: str, k: int):
         try:
-            result = self.search_text(
+            result = VECTOR_DB_CLIENT.search_text(
                 collection_name=collection_name,
                 texts=[query],
                 limit=k,
@@ -120,6 +127,38 @@ class VectorStore(ChromaClient, DocumentQueryUtils):
             print(e)
             raise e
 
+    def prepares(self, prefix, docs: List['IngestLoaderDocument']):
+        items = {}
+        for idx, doc in enumerate(tqdm(docs, desc="Preparing Documents.", colour="yellow")):
+            temp = {
+                "id": f"{str(uuid.uuid4())}:{str(idx)}",
+                "text": str(doc.page_content),
+                "vector": ai.embed(text=doc.page_content),
+                "metadata": ensure_metadata_is_string_for_chroma(doc.metadata),
+                "tag": prefix
+            }
+            collection = doc.metadata.get('collection', 'general')
+            c = f"{prefix}.{collection}"
+            temp_items = items.get(c, [])
+            temp_items.append(temp)
+            items[c] = temp_items
+        return items
+
+    def stores(self, prefix, docs: List['IngestLoaderDocument']):
+        sorted_documents: Dict[str:VectorItem] = self.prepares(prefix, docs)
+        for collection, items in sorted_documents.items():
+            Log.i(f"importing [ {len(items)} ] docs in [ {collection} ]")
+            try:
+                return self.store(collection, items)
+            except Exception as e:
+                Log.e(e)
+
+    @staticmethod
+    def store(collection:str, documents: List[VectorItem]):
+        return VECTOR_DB_CLIENT.insert(
+            collection_name=collection,
+            items=documents,
+        )
 
 ###############################################################################
 #                            Example Usage                                    #
@@ -129,7 +168,7 @@ if __name__ == "__main__":
     chroma_handler = VectorStore()
 
     # Example: threaded query across several collections.
-    results = chroma_handler.query(
+    results = chroma_handler.queries(
         "pcsc2025.2.web.pages",
         "pcsc2025.2.web.contacts",
         "pcsc2025.2.web.events",

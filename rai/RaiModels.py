@@ -109,18 +109,18 @@ proverbs_special = f"""
 
 """ -- YOU MUST ADD THE MODEL HERE FOR IT TO 'MOLD' TO YOUR CONFIGURATION -- """
 RAI_MODs = {
-    'BUSA:2025-1': {
-        'id': 'BUSA-2025-1',
-        'name': 'BUSA:2025-1',
-        'model': 'BUSA:2025-1',
+    'RAI:2025-1': {
+        'id': 'RAI-2025-1',
+        'name': 'RAI:2025-1',
+        'model': 'RAI:2025-1',
         'zip': '84098',
         'address': '',
-        'title': 'Birmingham United Soccer Association',
-        'initials': 'busa',
-        'ai_name': 'Bruno',
+        'title': 'Rai Testing Model 2025-1',
+        'initials': 'rai',
+        'ai_name': 'Raiko',
         'ai_flow': 'QA',
         'org_rep_type': 'Personal Customer Representative',
-        'collection': 'busa2025.1',
+        'collection': 'rai2025.1',
         'prompt': GENERAL_PROMPT_TEMPLATE,
         'context_prompt': context.SOCCER_CLUB_CONTEXT_EXPANDER,
         'primary_functions': "ysc_primary",
@@ -129,7 +129,6 @@ RAI_MODs = {
         'ollama': 'llama3:latest',
         'org_type': "Youth Soccer Club",
         'org_specialty': f"""
-           You specialize in understanding youth soccer clubs, organizational structure, youth soccer parents, youth soccer coaches, youth soccer players.
        """,
         'modified_at': '2024-07-02T06:32:47.913084094Z',
         'size': 177669289,

@@ -1,13 +1,13 @@
 from F.LOG import Log
 
 from rai.raigents.base.BaseLoaders import register_loader
-from rai.ingest.loaders.rai_loaders.BaseLoad import RaiBaseLoader, RaiLoaderDocument
+from rai.ingest.loaders.rai_loaders.BaseLoad import RaiBaseLoader, IngestLoaderDocument
 
 Log = Log("RawTextDataLoader")
 
 @register_loader(name="text")
 class RawTextDataLoader(RaiBaseLoader):
-    cache: [RaiLoaderDocument] = None
+    cache: [IngestLoaderDocument] = None
     def __init__(self, raw_text: str, file_path: str, metadata={'image': ''}):
         super().__init__(file_path, metadata)
         self.data = raw_text
@@ -17,5 +17,5 @@ class RawTextDataLoader(RaiBaseLoader):
         if self.cache:
             Log.i(f"Returning Cached Loader: [ Raw Text ]")
             return self.cache
-        self.cache = [RaiLoaderDocument(page_content=self.data, metadata=self.metadata)]
+        self.cache = [IngestLoaderDocument(page_content=self.data, metadata=self.metadata)]
         return self.cache

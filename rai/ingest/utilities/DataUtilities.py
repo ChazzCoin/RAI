@@ -38,7 +38,7 @@ PROJECT_BASE = os.getenv("RAG_PROJECT_BASE") or os.getenv("RAG_DEPLOY_BASE")
 RAG_BASE = os.getenv("RAG_BASE")
 
 
-def ensure_string_for_chroma(dic: {}, default={}):
+def ensure_metadata_is_string_for_chroma(dic: {}, default={}):
     final_meta = {}
     try:
         for key, value in dic.items():

@@ -4,7 +4,7 @@ from F.LOG import Log
 from langchain_community.document_loaders import UnstructuredExcelLoader, UnstructuredCSVLoader
 
 from rai.raigents.base.BaseLoaders import register_loader
-from rai.ingest.loaders.rai_loaders.BaseLoad import RaiBaseLoader, RaiLoaderDocument
+from rai.ingest.loaders.rai_loaders.BaseLoad import RaiBaseLoader, IngestLoaderDocument
 from rai.ingest.loaders.rai_loaders.JsonDataLoader import JSONDataLoader
 from rai.ingest.loaders.rai_loaders.LastResortDataLoader import LastResortDataLoader
 from rai.ingest.parsers.Excel import csv_to_json
@@ -103,7 +103,7 @@ class TableDataLoader(RaiBaseLoader):
                 df = pd.read_excel(self.file_path)
             formatted_data = self.format_dataframe(df)
             if formatted_data:
-                self.cache = RaiLoaderDocument.generate_documents(formatted_data, metadata=self.metadata)
+                self.cache = IngestLoaderDocument.generate_documents(formatted_data, metadata=self.metadata)
                 return self.cache
             else:
                 raise ValueError("Dataframe is empty or could not be processed.")

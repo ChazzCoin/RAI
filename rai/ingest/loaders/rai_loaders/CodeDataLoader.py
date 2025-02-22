@@ -3,13 +3,13 @@ import os
 import re
 from typing import List
 
-from rai.ingest.loaders.rai_loaders.BaseLoad import RaiLoaderDocument, RaiBaseLoader
+from rai.ingest.loaders.rai_loaders.BaseLoad import IngestLoaderDocument, RaiBaseLoader
 from rai.raigents.base.BaseLoaders import register_loader
 
 
 @register_loader('code')
 class CodeDataLoader(RaiBaseLoader):
-    cache: List[RaiLoaderDocument] = None
+    cache: List[IngestLoaderDocument] = None
 
     def __init__(self, directory_path: str, file_path: str, extensions=None, metadata=None):
         super().__init__(file_path, metadata)
@@ -54,7 +54,7 @@ class CodeDataLoader(RaiBaseLoader):
                     "end_line": end_line,
                     **self.metadata
                 }
-                doc = RaiLoaderDocument(page_content=section_text, metadata=section_metadata)
+                doc = IngestLoaderDocument(page_content=section_text, metadata=section_metadata)
                 documents.append(doc)
 
         self.cache = documents

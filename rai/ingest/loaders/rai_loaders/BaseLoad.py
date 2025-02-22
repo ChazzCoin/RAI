@@ -5,14 +5,14 @@ from F import LIST
 from F.LOG import Log
 
 from rai.ingest.IngestModels import IngestPage
-from rai.ingest.utilities.DataUtilities import ensure_string_for_chroma
+from rai.ingest.utilities.DataUtilities import ensure_metadata_is_string_for_chroma
 from rai.ingest.utilities.TextUtils import TextProcessor
 from rai.raigents.base.BaseTextAgents.BaseTextAgent import RaiBaseTextAgent
 from rai.raigents.base.BaseTextAgents.BaseTextFormats import RaiMetadata
 
 Log = Log("RaiLoaderDocument")
 
-class RaiLoaderDocument:
+class IngestLoaderDocument:
     page_content:str
     metadata:dict
 
@@ -24,14 +24,14 @@ class RaiLoaderDocument:
     def generate_documents(items:[str], metadata:dict={ 'image':'' }):
         docs = []
         for item in items:
-            docs.append(RaiLoaderDocument(item, metadata))
+            docs.append(IngestLoaderDocument(item, metadata))
         return docs
 
 class RaiBaseLoader(BaseLoader):
     file_path = ""
     metadata = { 'image':'' }
     data = None
-    cache: [RaiLoaderDocument] = None
+    cache: [IngestLoaderDocument] = None
 
     def __init__(self, file_path: str, metadata: dict = {'image': ''}):
         self.file_path = file_path
@@ -55,7 +55,7 @@ class RaiBaseLoader(BaseLoader):
 
 class RaiDocCreator(RaiBaseLoader, TextProcessor):
     cache:[] = []
-    documents: List['RaiLoaderDocument'] = []
+    documents: List['IngestLoaderDocument'] = []
 
     def __init__(self, file_path: str=None):
         super().__init__(file_path)
@@ -65,13 +65,13 @@ class RaiDocCreator(RaiBaseLoader, TextProcessor):
         metadata: RaiMetadata = RaiBaseTextAgent.generate(name='metadata', user_prompt=content)
         return metadata.model_dump()
 
-    def are_docs_identical(self, doc1: RaiLoaderDocument, doc2: RaiLoaderDocument) -> bool:
+    def are_docs_identical(self, doc1: IngestLoaderDocument, doc2: IngestLoaderDocument) -> bool:
         if self.are_strings_identical(doc1.page_content, doc2.page_content):
             if self.are_dicts_identical(doc1.metadata, doc2.metadata):
                 return True
         return False
 
-    def has_doc(self, doc: RaiLoaderDocument) -> bool:
+    def has_doc(self, doc: IngestLoaderDocument) -> bool:
         if doc in self.cache: return True
         for document in self.cache:
             if self.are_docs_identical(document, doc):
@@ -85,9 +85,9 @@ class RaiDocCreator(RaiBaseLoader, TextProcessor):
         else: contents = [content]
 
         for c in contents:
-            doc = RaiLoaderDocument(
+            doc = IngestLoaderDocument(
                 page_content=c,
-                metadata=ensure_string_for_chroma(metadata)
+                metadata=ensure_metadata_is_string_for_chroma(metadata)
             )
             if self.has_doc(doc): return
             self.cache.append(doc)

@@ -13,7 +13,8 @@ from rai.assistant.connectors import RaiAi
 from rai.assistant.openai_client import generate_embeddings  # your embedding function
 from F.LOG import Log
 
-from rai.ingest.utilities.DataUtilities import ensure_string_for_chroma
+from rai.ingest.IngestModels import IngestLoaderDocument
+from rai.ingest.utilities.DataUtilities import ensure_metadata_is_string_for_chroma
 from rai.ingest.utilities.text_data import schedule_text
 from rai.internal.redisdb import RedisClient
 
@@ -68,36 +69,28 @@ class VectorCache(RedisClient, RaiAi, DocumentQueryUtils):
     def add_text(self, prefix, text: str, metadata={}):
         set_id = f"doc:{prefix}:{str(uuid.uuid4())}"
         try:
-            pipe = self.redis_client.generate()
             meta = DICT.lazy_merge_dicts(metadata, {
                 "index": prefix,
                 "set_id": set_id,
             })
-            pipe.hset(set_id, mapping={
+            return self.redis_client.hset(set_id, mapping={
                 "vector": self.embed_for_cache(text),
                 "text": text,
-                "metadata": str(ensure_string_for_chroma(meta)),
+                "metadata": str(ensure_metadata_is_string_for_chroma(meta)),
                 "tag": prefix
             })
-            res = pipe.generate()
-            print(f"Document '{set_id}' stored successfully.")
-            return res
         except Exception as e:
             print(f"Failed to store document '{set_id}': {e}")
 
-    def add_doc(self, prefix, doc: {}, metadata={}):
+    def add_doc(self, prefix, doc: {}):
         set_id = f"doc:{prefix}:{str(uuid.uuid4())}"
         try:
-            pipe = self.redis_client.generate()
-            meta = DICT.lazy_merge_dicts(metadata, {
-                "index": prefix,
-                "set_id": set_id,
+            return self.redis_client.hset(set_id, mapping={
+                "vector": self.embed_for_cache(doc.page_content),
+                "text": doc.page_content,
+                "metadata": str(ensure_metadata_is_string_for_chroma(doc.metadata)),
+                "tag": prefix
             })
-            doc["metadata"] = str(ensure_string_for_chroma(meta))
-            pipe.hset(set_id, mapping=doc)
-            res = pipe.generate()
-            print(f"Document '{set_id}' stored successfully.")
-            return res
         except Exception as e:
             print(f"Failed to store document '{set_id}': {e}")
 
@@ -118,7 +111,6 @@ class VectorCache(RedisClient, RaiAi, DocumentQueryUtils):
             print(f"Error querying documents: {e}")
             return []
 
-
     def get_all_documents_in_index(self, prefix):
         try:
             docs = self.keys(f"*{prefix}*")
@@ -126,6 +118,13 @@ class VectorCache(RedisClient, RaiAi, DocumentQueryUtils):
         except Exception as e:
             print(f"Error querying documents: {e}")
             return []
+
+    def caches(self, prefix, docs: List[IngestLoaderDocument]):
+        for doc in docs: self.cache(prefix, doc)
+
+    def cache(self, prefix, doc: IngestLoaderDocument):
+        return self.add_doc(prefix, doc)
+
 
 def test_vector_cache():
     import time

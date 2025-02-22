@@ -6,14 +6,14 @@ from pptx import Presentation
 
 from rai.raigents.base.BaseLoaders import register_loader
 from rai.ingest.loaders import verify_loader_data
-from rai.ingest.loaders.rai_loaders.BaseLoad import RaiBaseLoader, RaiLoaderDocument
+from rai.ingest.loaders.rai_loaders.BaseLoad import RaiBaseLoader, IngestLoaderDocument
 from rai.ingest.loaders.rai_loaders.LastResortDataLoader import LastResortDataLoader
 
 Log = Log("PowerPointDataLoader")
 
 @register_loader(name="powerpoint")
 class PowerPointDataLoader(RaiBaseLoader):
-    cache: [RaiLoaderDocument] = None
+    cache: [IngestLoaderDocument] = None
     def __init__(self, file_path: str, metadata=None):
         super().__init__(file_path, metadata)
         if metadata is None:
@@ -41,7 +41,7 @@ class PowerPointDataLoader(RaiBaseLoader):
             presentation = Presentation(self.file_path)
             formatted_slides = self.format_presentation(presentation)
             if formatted_slides:
-                self.cache = RaiLoaderDocument.generate_documents(formatted_slides, metadata=self.metadata)
+                self.cache = IngestLoaderDocument.generate_documents(formatted_slides, metadata=self.metadata)
                 return self.cache
             else:
                 raise ValueError("Presentation is empty or could not be processed.")

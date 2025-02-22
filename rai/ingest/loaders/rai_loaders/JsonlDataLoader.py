@@ -4,14 +4,14 @@ import os
 from F import DICT
 from F.LOG import Log
 from jsonlines import jsonlines
-from rai.ingest.loaders.rai_loaders.BaseLoad import RaiBaseLoader, RaiLoaderDocument
+from rai.ingest.loaders.rai_loaders.BaseLoad import RaiBaseLoader, IngestLoaderDocument
 from rai.raigents.base.BaseLoaders import register_loader
 
 Log = Log("JSONLDataLoader")
 
 @register_loader(name="jsonl")
 class JSONLDataLoader(RaiBaseLoader):
-    cache: [RaiLoaderDocument] = None
+    cache: [IngestLoaderDocument] = None
     def __init__(self, file_path: str, metadata={'image': ''}):
         super().__init__(file_path, metadata)
         self.file_path = file_path
@@ -26,7 +26,7 @@ class JSONLDataLoader(RaiBaseLoader):
             with jsonlines.open(self.file_path) as reader:
                 for obj in reader:
                     data_string = DICT.get_any(keys=["content", "text", "page", "page_content"], dic=obj)
-                    self.cache.append(RaiLoaderDocument(page_content=data_string, metadata=self.metadata))
+                    self.cache.append(IngestLoaderDocument(page_content=data_string, metadata=self.metadata))
         except Exception as e:
             Log.e(e)
             self.cache = []

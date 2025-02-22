@@ -8,7 +8,7 @@ from F.LOG import Log
 
 from rai.assistant.connectors import RaiAi
 from rai.ingest.DataAgent import RaiBaseTextAgent
-from rai.ingest.loaders.rai_loaders.BaseLoad import RaiLoaderDocument
+from rai.ingest.loaders.rai_loaders.BaseLoad import IngestLoaderDocument
 
 Log = Log("RaiMetadataLoader")
 
@@ -129,7 +129,7 @@ class RaiMetadataLoader:
         Log.i("Loading Default Metadata.")
         return DataLoaderMetadata()
 
-    def ai_genny(self, raiDocs: [RaiLoaderDocument]=None, text:str=None):
+    def ai_genny(self, raiDocs: [IngestLoaderDocument]=None, text:str=None):
         try:
             if raiDocs:
                 if len(raiDocs) <= 50:

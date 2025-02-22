@@ -1,10 +1,10 @@
-from typing import Optional, List
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import List
 
 from F import DICT
-from rai.ingest.IngestModels import IngestBrief
-from rai.ingest.parsers.PdfDiver import RaiPdfDiver
-from rai.ingest.providers.WebSourceProvider import RaiWebSourceProvider
-from rai.ingest.utilities.TextUtils import TextProcessor, to_sentences
+from rai.ingest.parsers.PdfDiver import IngestPdfMiner
+from rai.ingest.providers.WebSourceProvider import IngestWebSourceProvider
+from rai.ingest.utilities.TextUtils import TextProcessor
 from rai.ingest.utilities.text_data import schedule_text
 from rai.raigents.base.BaseImageAgents.BaseImageAgent import RaiBaseImageAgent
 
@@ -283,9 +283,7 @@ class IngestSourceAgent:
     data_in = None
     data_type = None
 
-    briefings = []
-
-    record = {}
+    briefings = {}
 
     class Text:
         metadata = "metadata"
@@ -302,29 +300,43 @@ class IngestSourceAgent:
         form_extractor = "form_extractor"
 
     @classmethod
+    def execute(cls, data:str) -> {}:
+        return cls.load_data(data).run()
+
+    @classmethod
+    def executes(cls, datas:List) -> {}:
+
+        def runner(data:str):
+            return cls.load_data(data).run()
+
+        results = {}
+        index = 0
+        for data in datas:
+            results[data] = runner(data)
+            index += 1
+
+        # Return the results in the original order.
+        sorted_items = sorted(results.items(), key=lambda item: item[0])
+        sorted_tuples = dict(sorted_items)
+        briefs = sorted_tuples
+        return briefs
+
+    @classmethod
     def load_data(cls, data) -> 'IngestSourceAgent':
         self = cls()
         self.data_in = data
         self.data_type = self.determine_data_type(data)
         return self
 
-    def run(self) -> List['IngestBrief']:
+    def run(self):
         if not self.data_in: return self.briefings
         if self.data_type == 'URL':
-            crawl_result = RaiWebSourceProvider.execute('speed', self.data_in)
+            crawl_result = IngestWebSourceProvider.execute('deep', self.data_in)
             self.briefings = crawl_result.briefings
         elif self.data_type == 'PDF':
-            diver = RaiPdfDiver.load_pdf(self.data_in)
+            diver = IngestPdfMiner.load_pdf(self.data_in)
             self.briefings = diver.run()
         return self.briefings
-
-    def post_run(self):
-
-        for page_number,page in enumerate(self.briefings):
-            new_page = page
-            if DICT.get('success', page, False):
-                new_page = self.extract_content_from_page(page)
-            self.briefings[page_number] = new_page
 
     def extract_content_from_page(self, page) -> bool:
         img = DICT.get('image', page, None)

@@ -52,7 +52,7 @@ def only_spaces_and_newlines(text: str) -> bool:
     return not text.strip()
 
 
-class RaiPdfDiver(TextProcessor):
+class IngestPdfMiner(TextProcessor):
 
     pdf_file:str = None
     pdf_bytes:bytes = None
@@ -65,7 +65,7 @@ class RaiPdfDiver(TextProcessor):
     record = {}
 
     @classmethod
-    def load_pdf(cls, pdf: Union[str, bytes]) -> "RaiPdfDiver":
+    def load_pdf(cls, pdf: Union[str, bytes]) -> "IngestPdfMiner":
         self = cls()
         if isinstance(pdf, str):
             self.pdf_file = pdf
@@ -92,7 +92,7 @@ class RaiPdfDiver(TextProcessor):
         fp = BytesIO(self.pdf_bytes)
         pages = list(PDFPage.get_pages(fp, caching=True, check_extractable=True))
 
-        def process_page(page_tuple) -> IngestBrief:
+        def process_page(page_tuple) -> (int, IngestBrief):
             """
             Worker function to process a single PDF page.
             Each thread creates its own PDFMiner resource manager, device, and interpreter.
@@ -143,7 +143,9 @@ class RaiPdfDiver(TextProcessor):
                     print(f"Error processing page {idx}: {e}")
 
         # --- Step 3: Assemble the final book ---
-        self.briefings = [item for item in results.values()]
+        sorted_items = sorted(results.items(), key=lambda item: item[0])
+        sorted_tuples = dict(sorted_items)
+        self.briefings = sorted_tuples
         fp.close()
         return self.briefings
 
@@ -327,7 +329,7 @@ if __name__ == '__main__':
     # Example with a file path
     pdf_file_path = "/Users/chazzromeo/Desktop/DocumentTestSet/structured-1.pdf"
     try:
-        diver = RaiPdfDiver.load_pdf(pdf_file_path)
+        diver = IngestPdfMiner.load_pdf(pdf_file_path)
         briefs = diver.run()
         print(briefs)
     except Exception as error:

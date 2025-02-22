@@ -12,7 +12,7 @@ from abc import abstractmethod
 
 from rai.ingest.IngestModels import IngestBrief
 from rai.ingest.utilities.TextUtils import TextProcessor
-from typing import List, Optional
+from typing import List, Optional, Dict
 from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode, CrawlResult
 
 # Append parent directory to system path
@@ -79,12 +79,12 @@ class WebCrawlerConfig:
     def crawl() -> CrawlerRunConfig: pass
 
 
-class RaiWebSourceProvider:
+class IngestWebSourceProvider:
     config: WebCrawlerConfig
     parent_id = str(uuid.uuid4())
     start_url = ""
     raw_pages = {str:CrawlResult}
-    briefings = []
+    briefings = {}
     all_links = []
 
     @classmethod
@@ -94,7 +94,7 @@ class RaiWebSourceProvider:
     def get_config(name): return WEB_CONFIG_REGISTRY.get(name)[0]
 
     @staticmethod
-    def execute(name, data_in) -> 'RaiWebSourceProvider':
+    def execute(name, data_in) -> 'IngestWebSourceProvider':
         result_container = {}
         def thread_target(name, url):
             # Create a new event loop for this thread
@@ -103,7 +103,7 @@ class RaiWebSourceProvider:
             try:
                 # Run the async function until complete
                 result = loop.run_until_complete(
-                    RaiWebSourceProvider.execute_async(name, url)
+                    IngestWebSourceProvider.execute_async(name, url)
                 )
                 result_container['result'] = result
             finally:
@@ -116,7 +116,7 @@ class RaiWebSourceProvider:
 
         return result_container.get('result')
     @classmethod
-    async def execute_async(cls, name, url: str) -> 'RaiWebSourceProvider':
+    async def execute_async(cls, name, url: str) -> 'IngestWebSourceProvider':
         self = cls()
         self.start_url = url
         self.config = self.get_config(name)
@@ -124,22 +124,22 @@ class RaiWebSourceProvider:
         return self
 
     @classmethod
-    def load_url(cls, url: str, config:WebCrawlerConfig=None) -> 'RaiWebSourceProvider':
+    def load_url(cls, url: str, config:WebCrawlerConfig=None) -> 'IngestWebSourceProvider':
         self = cls()
         self.start_url = url
         self.config = config
         return self
 
-    async def run(self):
+    async def run(self) -> Dict[str, 'IngestBrief']:
         to_visit = set()
         visited = set()
 
         self.all_links = []
-        self.briefings = []
+        self.briefings = {}
 
         if not self.start_url:
             print("Provided URL is empty or None. Exiting crawl.")
-            return
+            return {}
         if self.start_url not in visited:
             visited.add(self.start_url)
             to_visit.add((self.start_url,))
@@ -193,7 +193,7 @@ class RaiWebSourceProvider:
                             page_screenshot=validate_and_prepare_screenshot(crawl_result.screenshot),
                             page_pdf=crawl_result.pdf
                         )
-                        self.briefings.append(page)
+                        self.briefings[str(key)] = page
                     except Exception as e:
                         print("Failed to process page, falling back", e)
                         try:
@@ -203,7 +203,7 @@ class RaiWebSourceProvider:
                                 original_content=str(content),
                                 content=TextProcessor.NORMALIZE_NEW_LINES(content),
                             )
-                            self.briefings.append(page)
+                            self.briefings[str(key)] = page
                         except Exception as e:
                             print("Failed to process page, completely", e)
 
@@ -216,7 +216,7 @@ class RaiWebSourceProvider:
                 # Queue the newly discovered links as a new group (tuple)
                 to_visit.add(tuple(new_links))
 
-        print("Crawling finished. Pages Extracted:", len(self.briefings))
+        print("Crawling finished. Pages Extracted:", len(self.briefings.items()))
         # Ensure all_links contains only unique URLs
         self.all_links = list(set(self.all_links))
 
@@ -366,7 +366,7 @@ async def main():
     urls = ["https://www.birminghamunited.com"]
     if urls:
         print(f"Found {len(urls)} URLs to crawl")
-        crawler = await RaiWebSourceProvider.execute_async("speed", "https://www.birminghamunited.com")
+        crawler = await IngestWebSourceProvider.execute_async("speed", "https://www.birminghamunited.com")
         print("Finished", len(crawler.briefings))
     else:
         print("No URLs found to crawl")
@@ -376,5 +376,5 @@ async def main():
 if __name__ == "__main__":
     # asyncio.run(main())
     # get_urls()
-    results = RaiWebSourceProvider.execute('speed', 'https://www.birminghamunited.com')
+    results = IngestWebSourceProvider.execute('speed', 'https://www.birminghamunited.com')
     print(results)

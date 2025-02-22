@@ -69,6 +69,7 @@ class FusedResult(BaseModel):
 
 
 open_ai_key = os.getenv("OPENAI_API_KEY")
+print(open_ai_key)
 class FusedAI(ABC):
     engines: Dict[str, Type['FusedAI']] = {}
     MODEL_OVERRIDE = None

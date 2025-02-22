@@ -6,7 +6,7 @@ from langchain_community.document_loaders import Docx2txtLoader
 
 from rai.raigents.base.BaseLoaders import register_loader
 from rai.ingest.loaders import verify_loader_data
-from rai.ingest.loaders.rai_loaders.BaseLoad import RaiBaseLoader, RaiLoaderDocument
+from rai.ingest.loaders.rai_loaders.BaseLoad import RaiBaseLoader, IngestLoaderDocument
 from rai.ingest.loaders.rai_loaders.LastResortDataLoader import LastResortDataLoader
 from rai.ingest.loaders.rai_loaders.RaiMetadataLoader import DEFAULT_METADATA
 from rai.ingest.loaders.rai_loaders.VisionDataLoader import VisionDataLoader
@@ -15,7 +15,7 @@ Log = Log("WordDocDataLoader")
 
 @register_loader(name="doc")
 class WordDocDataLoader(RaiBaseLoader):
-    cache: [RaiLoaderDocument] = None
+    cache: [IngestLoaderDocument] = None
     def __init__(self, file_path: str, metadata: dict = DEFAULT_METADATA):
         super().__init__(file_path, metadata)
         self.file_path = file_path
@@ -47,7 +47,7 @@ class WordDocDataLoader(RaiBaseLoader):
                 formatted_paragraphs = self.format_docx(document)
                 if formatted_paragraphs:
                     Log.i(f"Docx Success: [ {self.file_path} ]")
-                    self.cache = RaiLoaderDocument.generate_documents(formatted_paragraphs, metadata=self.metadata)
+                    self.cache = IngestLoaderDocument.generate_documents(formatted_paragraphs, metadata=self.metadata)
                     return self.cache
                 else:
                     Log.w("WordDocLoader Failed, last resorting.", e)

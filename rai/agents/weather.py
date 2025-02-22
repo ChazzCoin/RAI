@@ -3,24 +3,7 @@ import requests
 from F import LIST, DICT
 from rai.app import state
 
-async def get_air_quality(zip:str):
-    API_KEY = 'AIRNOW_API_KEY' # Replace with your AirNow API key
-    ZIP_CODE = zip        # Example ZIP code
-    DISTANCE = '25'           # Search radius in miles
-    URL = (
-        'https://www.airnowapi.org/aq/observation/zipCode/current/'
-        f'?format=application/json&zipCode={ZIP_CODE}&distance={DISTANCE}&API_KEY={API_KEY}'
-    )
-    result = ""
-    async with aiohttp.ClientSession() as session:
-        async with session.get(URL) as resp:
-            if resp.status != 200:
-                error = await resp.json()
-                raise Exception(f"Error from AirNow: {error}")
-            response_data = await resp.json()
-            for observation in response_data:
-                result += f"Location: {observation['ReportingArea']}, {observation['StateCode']}\nAir Quality: [ {observation['Category']['Name']} ] Level: [ {observation['Category']['Number']} ]\n"
-            return result
+
 
 def get_weather_by_zip(zip_code):
     # Step 1: Get latitude and longitude from ZIP code
@@ -73,4 +56,4 @@ def g(key, dic):
 'windSpeed': '0 to 5 mph'
  }
 """
-# get_weather_by_zip('84098')
+get_weather_by_zip('84098')

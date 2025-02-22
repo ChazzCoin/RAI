@@ -1,6 +1,6 @@
 
 from F.LOG import Log
-from rai.ingest.loaders.rai_loaders.BaseLoad import RaiBaseLoader, RaiLoaderDocument
+from rai.ingest.loaders.rai_loaders.BaseLoad import RaiBaseLoader, IngestLoaderDocument
 from rai.ingest.loaders.rai_loaders.RaiMetadataLoader import DEFAULT_METADATA
 from rai.ingest.loaders.rai_loaders.RawTextDataLoader import RawTextDataLoader
 from rai.ingest.files.read import read_file
@@ -32,4 +32,4 @@ class LastResortDataLoader(RaiBaseLoader):
                 raise ValueError("Failed to extract raw text from the file.")
         except Exception as e:
             Log.t("FINAL DATA LOADER FAILURE ALERT! Falling Back: [ This data is unknown at this time. ]", e)
-            return [RaiLoaderDocument(page_content=DEFAULT_CONTENT, metadata=DEFAULT_METADATA)]
+            return [IngestLoaderDocument(page_content=DEFAULT_CONTENT, metadata=DEFAULT_METADATA)]
