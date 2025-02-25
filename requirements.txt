@@ -124,3 +124,5 @@ pdf2image==1.17.0
 six==1.12.0
 pdfminer==20191125
 chardet==3.0.4
+httpx~=0.27.2
+paramiko~=3.5.0
