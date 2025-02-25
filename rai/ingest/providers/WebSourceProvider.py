@@ -72,6 +72,10 @@ class WebCrawlerConfig:
 
     @staticmethod
     @abstractmethod
+    def runs() -> int: pass
+
+    @staticmethod
+    @abstractmethod
     def max_concurrent() -> int: pass
 
     @staticmethod
@@ -173,6 +177,9 @@ class IngestWebSourceProvider:
             self.all_links.append(self.start_url)
 
         while to_visit:
+
+            if len(self.briefings) >= self.config.runs():
+                break
 
             try:
                 # Pop one group (tuple) of URLs for parallel crawling
@@ -314,6 +321,7 @@ class IngestWebSourceProvider:
 
                 # Evaluate results
                 for url, result in zip(batch, results):
+                    print("Crawled URL:", url)
                     if isinstance(result, Exception):
                         print(f"Error crawling {url}: {result}")
                         fail_count += 1
@@ -341,6 +349,9 @@ class WebCrawlerPlanDeep(WebCrawlerConfig):
 
     @staticmethod
     def is_single_run() -> bool: return True
+
+    @staticmethod
+    def runs() -> int: return 1
 
     @staticmethod
     def max_concurrent() -> int: return 100
@@ -374,6 +385,9 @@ class WebCrawlerPlanDeep(WebCrawlerConfig):
     def is_single_run() -> bool: return False
 
     @staticmethod
+    def runs() -> int: return 10
+
+    @staticmethod
     def max_concurrent() -> int: return 100
 
     @staticmethod
@@ -405,29 +419,32 @@ class WebCrawlerPlanDeep(WebCrawlerConfig):
     def is_single_run() -> bool: return False
 
     @staticmethod
+    def runs() -> int: return 500
+
+    @staticmethod
     def max_concurrent() -> int: return 100
 
     @staticmethod
     def browser() -> BrowserConfig:
         return BrowserConfig(
-        headless=True,
-        light_mode=False,
-        accept_downloads=True,
-        downloads_path=__output__,
-        verbose=False,  # corrected from 'verbos=False'
-        extra_args=["--disable-gpu", "--disable-dev-shm-usage", "--no-sandbox"],
-    )
+            headless=True,
+            light_mode=False,
+            accept_downloads=True,
+            downloads_path=__output__,
+            verbose=False,  # corrected from 'verbos=False'
+            extra_args=["--disable-gpu", "--disable-dev-shm-usage", "--no-sandbox"],
+        )
     @staticmethod
     def crawl() -> CrawlerRunConfig:
         return CrawlerRunConfig(
-        cache_mode=CacheMode.BYPASS,
-        scan_full_page=True,
-        pdf=True,
-        screenshot=True,
-        screenshot_wait_for=5,
-        prettiify=True,
-        wait_for_images=True,
-    )
+            cache_mode=CacheMode.BYPASS,
+            scan_full_page=True,
+            pdf=True,
+            screenshot=True,
+            screenshot_wait_for=5,
+            prettiify=True,
+            wait_for_images=True,
+        )
 
 async def main():
     urls = ["https://www.birminghamunited.com"]
@@ -443,5 +460,5 @@ async def main():
 if __name__ == "__main__":
     # asyncio.run(main())
     # get_urls()
-    results = IngestWebSourceProvider.execute('injection', 'https://www.birminghamunited.com/youth_rec/sunday-soccer/#overview')
+    results = IngestWebSourceProvider.execute('speed', 'https://www.wired.com/story/inside-the-telegram-groups-doxing-women-for-their-facebook-posts/')
     print(results)
