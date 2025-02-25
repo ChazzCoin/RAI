@@ -14,7 +14,6 @@ from rai.ingest.IngestModels import IngestBrief
 from rai.ingest.utilities.TextUtils import TextProcessor
 from typing import List, Optional, Dict
 from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode, CrawlResult
-from crawl4ai.extraction_strategy import JsonCssExtractionStrategy
 # Append parent directory to system path
 __location__ = os.path.dirname(os.path.abspath(__file__))
 __output__ = os.path.join(__location__, "output")

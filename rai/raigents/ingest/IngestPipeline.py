@@ -1,16 +1,13 @@
-import uuid
 from abc import abstractmethod, ABC
 from typing import List
 
 from F import LIST
-from tqdm import tqdm
 
 from rai.RAG.QCache import VectorCache
 from rai.RAG.QStore import VectorStore
 from rai.assistant.connectors import RaiAi
 from rai.ingest.IngestModels import IngestRecord
 from rai.ingest.loaders.rai_loaders.BaseLoad import IngestLoaderDocument
-from rai.ingest.utilities.DataUtilities import ensure_metadata_is_string_for_chroma
 from rai.ingest.utilities.TextUtils import TextProcessor
 from rai.raigents.ingest.IngestNLPAgent import IngestNLPAgent
 from rai.raigents.ingest.IngestDocumentCreator import IngestDocumentCreator

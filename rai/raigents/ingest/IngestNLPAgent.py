@@ -1,7 +1,7 @@
 import json
 from abc import abstractmethod, ABC
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Optional, List, overload, Dict, Any
+from typing import Optional, List, Dict, Any
 
 from F import DICT, DATE, LIST
 import nlp.Tokenizer

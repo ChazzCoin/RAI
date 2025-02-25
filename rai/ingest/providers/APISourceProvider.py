@@ -33,6 +33,8 @@ class APIDataLoader:
     @abstractmethod
     def base_url(self) -> str: pass
     @abstractmethod
+    def main_endpoint(self) -> str: pass
+    @abstractmethod
     def endpoints(self) -> dict: pass
     @abstractmethod
     def get_endpoint(self, endpoint) -> dict: pass
@@ -43,7 +45,7 @@ class APIDataLoader:
         return API_PROVIDER_REGISTRY.get(name, {})
 
     @classmethod
-    def execute(cls, name: str, endpoint: str, custom_params: Optional[Dict[str, Any]] = None):
+    def execute(cls, name: str, endpoint: str=None, custom_params: Optional[Dict[str, Any]] = None):
         self = API_PROVIDER_REGISTRY.get(name)[0]()
 
         if name == 'group':
@@ -107,13 +109,16 @@ class CernerProvider(APIDataLoader):
     def base_url(self) -> str:
         return "https://fhir-open.cerner.com/r4/ec2458f2-1e24-41c8-b71b-0e701af7583d"
 
-    def get_endpoint(self, endpoint: str) -> dict:
+    def main_endpoint(self): return 'schedule_by_id'
+
+    def get_endpoint(self, endpoint: str=None) -> dict:
+        if endpoint is None: return self.endpoints()[self.main_endpoint()]
         return self.endpoints()[endpoint]
 
     def endpoints(self) -> dict:
         return {
             "schedule_by_id": {
-                "url": f"{self.base_url}/Schedule",
+                "url": f"{self.base_url()}/Schedule",
                 "method": "GET",
                 "params": {"_id": "24477854-21304876-62852027-0"},
                 "headers": {
@@ -129,7 +134,7 @@ if __name__ == "__main__":
     # print(json.dumps(news_data, indent=4))
 
     print("\nFetching Cerner Data...")
-    stock_data = APIDataLoader.execute('cerner', 'schedule_by_id')
+    stock_data = APIDataLoader.execute('cerner')
     print(json.dumps(stock_data, indent=4))
     #
     # print("\nRunning All GraphQL Requests...")

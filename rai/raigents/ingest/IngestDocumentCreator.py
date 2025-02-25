@@ -81,8 +81,6 @@ class IngestDocumentCreator(RaiBaseLoader, TextProcessor, RaiAi):
         split_count = 7000
 
         cleaned_content = self.NORMALIZE_NEW_LINES(str(content))
-        content_length = len(cleaned_content)
-        # If splitting is enabled (for "parts"), only create documents if the content is over the limit.
 
         if not self.string_length_is_within(text=cleaned_content, max_length=split_count):
             content_parts = self.split_string_by_limit(cleaned_content, char_limit=split_count)
