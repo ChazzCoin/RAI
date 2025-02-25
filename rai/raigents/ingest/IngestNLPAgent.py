@@ -1,4 +1,5 @@
 import json
+from abc import abstractmethod, ABC
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional, List, overload, Dict, Any
 
@@ -9,11 +10,21 @@ import nlp.Re
 import nlp.Keywords
 from nlp.ext import NLPAssistant
 from rai.ingest.IngestModels import IngestBrief, IngestPage, FNLPAssistantModel, NLPAssistantModel, TextNLPAgentModel
-from rai.ingest.parsers.PdfDiver import IngestPdfMiner
+from rai.ingest.miners.PdfDiver import IngestPdfMiner
 from rai.ingest.utilities.TextUtils import TextProcessor, to_sentences
 from rai.ingest.utilities.text_data import schedule_text
 from rai.raigents.base.BaseImageAgents.BaseImageAgent import RaiBaseImageAgent
 from rai.raigents.base.BaseTextAgents.BaseTextAgent import RaiBaseTextAgent
+
+INGEST_NLP_AGENT_REGISTRY = {}
+
+def register_ingest_nlp_agent_plan(name: str):
+    def decorator(cls):
+        INGEST_NLP_AGENT_REGISTRY.setdefault(name, []).append(cls)
+        return cls
+
+    return decorator
+
 
 DOC_SPLIT_SIZE = 10000
 
@@ -108,7 +119,17 @@ class WebPlan:
         return {
             1: "rag_query_generator",
         }
-class IngestNLPAgent:
+class IngestPipelineInterface(ABC):
+    @abstractmethod
+    def get_registry(cls): pass
+    @abstractmethod
+    def execute(cls, name: str, **kwargs): pass
+    @abstractmethod
+    def executes(cls, name: str, **kwargs): pass
+    @abstractmethod
+    def run(self): pass
+class IngestNLPAgent(ABC):
+    name = "base"
     cleaner = TextProcessor()  # Assumes a TextProcessor with a TEXT_CLEANER and content_splitter is defined
 
     original_content = None
@@ -132,20 +153,26 @@ class IngestNLPAgent:
     # -------------------------------
     # Master methods to run the analysis
     # -------------------------------
+    @classmethod
+    def get_registry(cls): return INGEST_NLP_AGENT_REGISTRY
 
     @classmethod
-    def execute(cls, brief: IngestBrief) -> IngestPage:
-        self = cls()
+    def execute(cls, name:str, brief: IngestBrief) -> IngestPage:
+        agent_cls = INGEST_NLP_AGENT_REGISTRY.get(name)
+        cls.name = name
+        self = agent_cls[0]()
         self.load_brief(brief)
         return self.run()
 
     @classmethod
-    def executes(cls, briefs: {}) -> {}:
+    def executes(cls, name:str, briefs: {}) -> {}:
 
         def runner(brief):
-            instance = cls()
+            agent_cls = INGEST_NLP_AGENT_REGISTRY.get(name)
+            cls.name = name
+            instance = agent_cls[0]()
             instance.load_brief(brief)
-            return instance.run()
+            return instance.plan()
 
         results = {}
         with ThreadPoolExecutor() as executor:
@@ -169,6 +196,10 @@ class IngestNLPAgent:
         pages = sorted_tuples
         return pages
 
+    @abstractmethod
+    def plan(self) -> IngestPage:
+        pass
+
     def initialize(self):
         self.page = IngestPage()
 
@@ -185,14 +216,14 @@ class IngestNLPAgent:
         self.ingest_brief = brief
         self.page.brief = brief
         self.content = self.ingest_brief.content
-        self.original_content = self.ingest_brief.original_content
+        self.original_content = self.ingest_brief.content
         self.metadata = self.ingest_brief.metadata
         self.image = self.ingest_brief.page_screenshot
         self.pre_process_content(self.ingest_brief.content)
 
     """Clean and split the text, then decide which plan to run."""
     def pre_process_content(self, content: str):
-        self.content = self.cleaner.TEXT_CLEANER(content)
+        self.content = self.cleaner.NORMALIZER(content)
         self.content_character_count = len(content)
 
         # Choose a pipeline plan based on the character count
@@ -226,36 +257,34 @@ class IngestNLPAgent:
 
         self.cleaned_content = content
 
+
     # -------------------------------
     # Pipeline plans based on content size
     # -------------------------------
     def plan_0(self) -> IngestPage:
         print("INGEST: Starting Plan 0")
-        self.page.content = self.cleaner.NORMALIZE_NEW_LINES(self.original_content)
+        self.page.content = self.cleaner.NORMALIZER(self.original_content)
         self.setup_metadata()
         self.nlp(self.original_content)
         self.metadata_nlp()
         return self.page_passthrough(page=self.page)
     def plan_1(self) -> IngestPage:
         print("INGEST: Starting Plan 1")
-        self.page = self.plan_0()
         self.fnlp(self.original_content)
         self.metadata_fnlp()
         return self.page_passthrough(page=self.page)
     def plan_2(self) -> IngestPage:
         print("INGEST: Starting Plan 2")
-        self.page = self.plan_1()
         self.nlp_agent()
         self.metadata_agent()
         return self.page_passthrough(page=self.page)
     def plan_3(self) -> IngestPage:
-        return self.plan_2()
+        return self.page_passthrough(page=self.page)
     def plan_4(self) -> IngestPage:
-        return self.plan_3()
+        return self.page_passthrough(page=self.page)
     def plan_5(self) -> IngestPage:
-        return self.plan_4()
+        return self.page_passthrough(page=self.page)
     def plan_6(self) -> IngestPage:
-        self.page = self.plan_5()
         return self.page_passthrough(page=self.page)
 
     def page_passthrough(self, page: IngestPage) -> IngestPage:
@@ -264,7 +293,6 @@ class IngestNLPAgent:
     # -------------------------------
     # FairNLP/NLTK/SpaCy/AI & Enhancement Methods
     # -------------------------------
-
     def fnlp(self, content: str) -> IngestPage:
         try:
             grams = nlp.Tokenizer.complete_tokenization_v2(content, toList=False)
@@ -298,12 +326,10 @@ class IngestNLPAgent:
         except Exception as e:
             print(e)
             return self.page
-
     def nlp(self, content: str) -> NLPAssistantModel:
         self.page.nlp = NLPAssistant.analyze(content)
         self.page.nlp.combined = self.combine_nlp()
         return self.page.nlp
-
     def nlp_agent(self) -> IngestPage:
         """
         Enhanced NLP pipeline using parallel calls to several models:
@@ -342,7 +368,6 @@ class IngestNLPAgent:
         except Exception as e:
             print(e)
             return self.page
-
     def combine_fnlp(self) -> str:
         fnlp_parts = []
         try:
@@ -369,7 +394,6 @@ class IngestNLPAgent:
         except Exception as e:
             print(e)
         return ""
-
     def combine_nlp(self) -> str:
         nlp_parts = []
         try:
@@ -394,7 +418,6 @@ class IngestNLPAgent:
         except Exception as e:
             print(e)
         return ""
-
     def metadata_agent(self):
         try:
             result = RaiBaseTextAgent.generate("metadata", self.cleaned_content + self.combine_nlp())
@@ -420,7 +443,6 @@ class IngestNLPAgent:
 
         self.page.metadata = self.metadata
         return self.metadata
-
     def metadata_nlp(self) -> Dict[str, Any]:
         # Process basic NLP fields.
         try:
@@ -442,7 +464,6 @@ class IngestNLPAgent:
         except Exception as e:
             print(e)
             return self.metadata
-
     def metadata_fnlp(self) -> Dict[str, Any]:
         # Process detailed FNLP fields.
         try:
@@ -471,7 +492,6 @@ class IngestNLPAgent:
         except Exception as e:
             print(e)
             return self.metadata
-
     def image_agent(self, name) -> Optional[str]:
         try:
             return RaiBaseImageAgent.generate(name=name, image=self.image)
@@ -479,6 +499,32 @@ class IngestNLPAgent:
             print(e)
             return None
 
+@register_ingest_nlp_agent_plan("injection")
+class IngestNLPAgentInjection(IngestNLPAgent):
+    def plan(self) -> IngestPage:
+        print("INGEST: Starting Plan [ Injection ]")
+        self.page.content = self.cleaner.NORMALIZER(self.original_content)
+        self.setup_metadata()
+        self.nlp(self.original_content)
+        self.metadata_nlp()
+        return self.page_passthrough(page=self.page)
+
+@register_ingest_nlp_agent_plan("deep")
+class IngestNLPAgentInjection(IngestNLPAgent):
+    def plan(self) -> IngestPage:
+        print("INGEST: Starting Plan [ Deep ]")
+        self.page.content = self.cleaner.NORMALIZER(self.original_content)
+        self.setup_metadata()
+        # Basic NLP
+        self.nlp(self.original_content)
+        self.metadata_nlp()
+        # Fair NLP
+        self.fnlp(self.original_content)
+        self.metadata_fnlp()
+        # NLP Agent
+        self.nlp_agent()
+        self.metadata_agent()
+        return self.page_passthrough(page=self.page)
 
 if __name__ == "__main__":
     agent = IngestNLPAgent()

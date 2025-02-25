@@ -187,6 +187,23 @@ class TextProcessor(DictComparator, StringComparator):
         if text is None: return ""
         cleaned_text = re.sub(r'\n+', '\n', text).strip()
         return cleaned_text
+
+    @staticmethod
+    def NORMALIZER(text: str) -> str:
+        if text is None: return ""
+        try:
+            text = unicodedata.normalize('NFC', text)
+        except Exception as e:
+            Log.w(f"Unicode normalization failed: {e}")
+        try:
+            text = ''.join(char for char in text if
+                                   char.isprintable() and not unicodedata.category(char).startswith('C'))
+        except Exception as e:
+            Log.w(f"Removing non-printable characters failed: {e}")
+        text = re.sub(r'[\U00010000-\U0010FFFF]+', '', text)
+        text = re.sub(r'\n+', '\n', text).strip()
+        return text
+
     @staticmethod
     def NORMALIZE_SPACES(text: str) -> str:
         cleaned_text = re.sub(r'\s\s+', ' ', text).strip()

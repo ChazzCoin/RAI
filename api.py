@@ -4,7 +4,7 @@ import json
 import os.path
 from concurrent.futures import ThreadPoolExecutor
 import aiohttp
-from quart import Quart, request, jsonify, Response, send_file
+from quart import Quart, request, jsonify, Response, send_file, websocket
 from quart_cors import cors
 import requests
 from F import DICT, LIST
@@ -17,7 +17,7 @@ from rai.assistant.connectors import RaiAi
 from rai.raigents.composers.RagAgent import RaiRagAgent
 from rai.internal.connectors import REDIS_DB_CLIENT_0, REDIS_DB_CLIENT_1, PostgresTables
 from rai import env
-from rai.ingest.parsers.Pdf import FPDF
+from rai.ingest.miners.Pdf import FPDF
 import base64
 import imghdr
 
@@ -130,26 +130,17 @@ class UserRequest:
 @app.route('/v1/query/{idx}', methods=['POST', 'OPTIONS'])
 @app.route('/v1/query', methods=['POST', 'OPTIONS'])
 async def query(idx:Optional[int]=None):
-    data = await request.get_data(as_text=True)
-    query = json.loads(json.dumps(data))
-    # query_results = await RaiRagAgent.pipeline_async(
-    #     name='base',
-    #     prefix="pcsc2025.4",
-    #     user_prompt=query
-    # )
-    # Validate and serialize the response using Pydantic
-    documents: List[SearchResponseDoc] = [SearchResponseDoc(
-        id="dsadokapsfd",
-        metadata=[]
-    )]
-    generated: List[SearchResponseSummary] = [SearchResponseSummary(
-        text="YOOOOO",
-        status="live"
-    )]
-    response: List[SearchResponseResult] = [SearchResponseResult(
-        text="YOOO"
-    )]
-    return jsonify({"status": 200, "data": "yooooo"})
+    data = await request.get_data(as_text=False)
+    jbody: dict = json.loads(data.decode('utf-8'))
+    query: str = jbody.get('query')
+    # agent_results: RaiQueryAgentResults = RaiQueryAgent.execute("base", "rai2025.1", query)
+    query_results = RaiRagAgent.pipeline(
+        name='base',
+        prefix="rai2025.1",
+        user_prompt=query
+    )
+
+    return jsonify({ "status": 200, "data": {"response": [query_results]} })
 
 
 @app.route('/api/chat/{idx}', methods=['POST', 'OPTIONS'])

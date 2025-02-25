@@ -6,8 +6,8 @@ from openpyxl import load_workbook
 from pptx import Presentation
 from F.LOG import Log
 
-from rai.ingest.parsers.Pdf import FPDF
-from rai.ingest.parsers.Vision import VisionExtractor
+from rai.ingest.miners.Pdf import FPDF
+from rai.ingest.miners.Vision import VisionExtractor
 
 # Configure logging
 Log = Log("files.read")

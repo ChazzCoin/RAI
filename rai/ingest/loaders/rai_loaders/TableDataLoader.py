@@ -7,7 +7,7 @@ from rai.raigents.base.BaseLoaders import register_loader
 from rai.ingest.loaders.rai_loaders.BaseLoad import RaiBaseLoader, IngestLoaderDocument
 from rai.ingest.loaders.rai_loaders.JsonDataLoader import JSONDataLoader
 from rai.ingest.loaders.rai_loaders.LastResortDataLoader import LastResortDataLoader
-from rai.ingest.parsers.Excel import csv_to_json
+from rai.ingest.miners.Excel import csv_to_json
 
 Log = Log("TableDataLoader")
 

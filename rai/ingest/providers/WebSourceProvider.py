@@ -9,16 +9,17 @@ import psutil
 import asyncio
 from PIL import Image
 from abc import abstractmethod
-
+from F import DICT
 from rai.ingest.IngestModels import IngestBrief
 from rai.ingest.utilities.TextUtils import TextProcessor
 from typing import List, Optional, Dict
 from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode, CrawlResult
-
+from crawl4ai.extraction_strategy import JsonCssExtractionStrategy
 # Append parent directory to system path
 __location__ = os.path.dirname(os.path.abspath(__file__))
 __output__ = os.path.join(__location__, "output")
 
+from rai.ingest.web.soup.BodyExtractor import WebBodyExtractor
 
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(parent_dir)
@@ -65,6 +66,10 @@ def register_web_config(name: str):
 
 class WebCrawlerConfig:
     # Minimal browser config
+
+    @staticmethod
+    @abstractmethod
+    def is_single_run() -> bool: pass
 
     @staticmethod
     @abstractmethod
@@ -130,7 +135,30 @@ class IngestWebSourceProvider:
         self.config = config
         return self
 
+    async def run_single(self) -> Optional[IngestBrief]:
+        try:
+            # Convert the tuple to a list if crawl_parallel expects a list
+            result = await self.crawl_parallel([self.start_url], max_concurrent=1)
+            crawl_result = DICT.get(self.start_url, result, None)
+            body = WebBodyExtractor.pipeline(crawl_result.html)
+            content = body.combined_text
+            return IngestBrief(
+                source=str(self.start_url),
+                success=TextProcessor.content_is_valid(content),
+                original_content=str(content),
+                content=TextProcessor.NORMALIZER(content),
+            )
+        except Exception as crawl_exc:
+            print("Error during parallel crawl execution.", crawl_exc)
+            return None
+
     async def run(self) -> Dict[str, 'IngestBrief']:
+
+        if self.config.is_single_run():
+            brief = await self.run_single()
+            self.briefings[self.start_url] = brief
+            return brief
+
         to_visit = set()
         visited = set()
 
@@ -182,7 +210,8 @@ class IngestWebSourceProvider:
                             new_links.append(temp_url)
                             self.all_links.append(temp_url)
 
-                    content = crawl_result.markdown
+                    body = WebBodyExtractor.pipeline(crawl_result.html)
+                    content = body.combined_text
 
                     try:
                         page = IngestBrief(
@@ -307,8 +336,43 @@ class IngestWebSourceProvider:
             print(f"\nPeak memory usage (MB): {peak_memory // (1024 * 1024)}")
         return self.raw_pages
 
+
+@register_web_config(name="injection")
+class WebCrawlerPlanDeep(WebCrawlerConfig):
+
+    @staticmethod
+    def is_single_run() -> bool: return True
+
+    @staticmethod
+    def max_concurrent() -> int: return 100
+
+    @staticmethod
+    def browser() -> BrowserConfig:
+        return BrowserConfig(
+            headless=True,
+            light_mode=True,
+            accept_downloads=False,
+            downloads_path=None,
+            verbose=False,  # corrected from 'verbos=False'
+            extra_args=["--disable-gpu", "--disable-dev-shm-usage", "--no-sandbox"],
+        )
+
+    @staticmethod
+    def crawl() -> CrawlerRunConfig:
+        return CrawlerRunConfig(
+            cache_mode=CacheMode.BYPASS,
+            scan_full_page=True,
+            pdf=False,
+            screenshot=False,
+            screenshot_wait_for=0,
+            prettiify=False,
+            wait_for_images=False,
+        )
 @register_web_config(name="speed")
 class WebCrawlerPlanDeep(WebCrawlerConfig):
+
+    @staticmethod
+    def is_single_run() -> bool: return False
 
     @staticmethod
     def max_concurrent() -> int: return 100
@@ -337,6 +401,10 @@ class WebCrawlerPlanDeep(WebCrawlerConfig):
 
 @register_web_config(name="deep")
 class WebCrawlerPlanDeep(WebCrawlerConfig):
+
+    @staticmethod
+    def is_single_run() -> bool: return False
+
     @staticmethod
     def max_concurrent() -> int: return 100
 
@@ -376,5 +444,5 @@ async def main():
 if __name__ == "__main__":
     # asyncio.run(main())
     # get_urls()
-    results = IngestWebSourceProvider.execute('speed', 'https://www.birminghamunited.com')
+    results = IngestWebSourceProvider.execute('injection', 'https://www.birminghamunited.com/youth_rec/sunday-soccer/#overview')
     print(results)

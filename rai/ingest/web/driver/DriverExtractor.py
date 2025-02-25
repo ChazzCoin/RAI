@@ -14,7 +14,7 @@ from selenium.webdriver.common.by import By
 from rai.ingest.web.driver.DriverActions import WebBaseActions
 from rai.ingest.web.soup.BaseExtractor import WebSoupExtractor
 
-from rai.ingest.parsers.Pdf import FPDF
+from rai.ingest.miners.Pdf import FPDF
 
 Log = Log("WebBaseExtract")
 

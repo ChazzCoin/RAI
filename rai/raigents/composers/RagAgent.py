@@ -174,6 +174,12 @@ class RaiRagAgent(ABC, RaiAi, TextProcessor):
         return f"""
         Current Date & Time: {now.strftime("%Y-%m-%d %H:%M:%S %Z%z")}
         """
+    def get_collections(self, prefix):
+        return [f"{prefix}.{c}" for c in self.collections]
+    def generate_rag_response(self, user_prompt:str, data, system_prompt:str):
+        ai_response = self.engine.generate(user=self.user(user_prompt, data), system=system_prompt)
+        final_response = f"{ai_response}"
+        return final_response
 
 
 """
@@ -199,21 +205,19 @@ class RagAgentBaseRunner(RaiRagAgent):
     def run(self, prefix: str, user_prompt: str):
         try:
             # self.switch_engine('ollama')
-            collection_list = [f"{prefix}.{c}" for c in self.collections]
             results = RaiBaseTextAgent.generates(
                 "objective",
                 user_prompt=user_prompt
             )
 
-            agent_results: RaiQueryAgentResults = RaiQueryAgent.execute("base", prefix, user_prompt)
+            agent_results: RaiQueryAgentResults = RaiQueryAgent.execute(self.name, prefix, user_prompt)
 
             objectives = DICT.get("objective", results, [])
             objective = LIST.get(0, objectives, "general")
 
             system_prompt = self.system(objective)
-            ai_response = self.engine.generate(user=self.user(user_prompt, agent_results.formatted), system=system_prompt)
-            final_response = f"{ai_response}"
-            return final_response
+            formatted = TextProcessor.clean_text_for_openai_embedding(agent_results.formatted)
+            return self.generate_rag_response(user_prompt, agent_results.formatted, system_prompt)
         except Exception as e:
             print(f"Error: {e}")
             return None

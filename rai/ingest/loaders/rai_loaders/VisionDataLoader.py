@@ -1,7 +1,7 @@
 from F.LOG import Log
 
 from rai.ingest.loaders.rai_loaders.BaseLoad import RaiBaseLoader, IngestLoaderDocument
-from rai.ingest.parsers.Vision import VisionExtractor
+from rai.ingest.miners.Vision import VisionExtractor
 Log = Log("VisionDataLoader")
 
 class VisionDataLoader(RaiBaseLoader):

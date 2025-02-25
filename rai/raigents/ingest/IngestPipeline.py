@@ -72,7 +72,7 @@ class RaiIngestPipeline(ABC, RaiAi, TextProcessor):
             return self.briefs
 
     def to_pages(self, briefs: {}) -> {}:
-       self.pages = IngestNLPAgent.executes(briefs=briefs)
+       self.pages = IngestNLPAgent.executes(name=self.name, briefs=briefs)
        return self.pages
 
     def create_and_attach_docs(self, pages: {}) -> {}:
@@ -95,6 +95,20 @@ What they do, how they do it...what they need...etc...
 - summarize data
 - 
 """
+@register_ingest_pipeline("injection")
+class IngestPipelineDocuments(RaiIngestPipeline):
+    def type(self): return "ai"
+    def parse(self, result): return result
+    def run(self, data):
+        """ 1. Source Provider """
+        self.get_briefs(data)
+        """ 2. Content Agent """
+        self.to_pages(self.briefs)
+        """ 3. Document Creator """
+        self.create_and_attach_docs(self.pages)
+        """ 4. Get All Documents """
+        self.get_all_docs()
+        return self.docs
 @register_ingest_pipeline("briefs")
 class IngestPipelineBriefs(RaiIngestPipeline):
     def type(self): return "briefs"
@@ -180,9 +194,9 @@ class IngestPipelineCacheDocuments(RaiIngestPipeline):
 
 if __name__ == "__main__":
     # from rai.ingest.utilities.text_data import schedule_text
-    pdf_file_path = "/Users/chazzromeo/Desktop/DocumentTestSet/Monthly Invoice Generation -Flow.pdf"
-    website = "https://www.parkcitysoccer.org"
-    pipe = "store"
-    prefix = 'rai2025.1'
+    pdf_file_path = "/Users/chazzromeo/Desktop/DocumentTestSet/LTADM.pdf"
+    website = "https://www.parkcitysoccer.org/tournaments"
+    pipe = "injection"
+    prefix = 'rai2025.2'
     docs = RaiIngestPipeline.pipeline(name=pipe, data=pdf_file_path, prefix=prefix)
     print(docs)

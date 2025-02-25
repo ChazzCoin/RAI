@@ -2,7 +2,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List
 
 from F import DICT
-from rai.ingest.parsers.PdfDiver import IngestPdfMiner
+from rai.ingest.miners.PdfDiver import IngestPdfMiner
 from rai.ingest.providers.WebSourceProvider import IngestWebSourceProvider
 from rai.ingest.utilities.TextUtils import TextProcessor
 from rai.ingest.utilities.text_data import schedule_text
@@ -278,6 +278,7 @@ class DataTypeUtils:
 
 
 class IngestSourceAgent:
+    name = "base"
     cleaner = TextProcessor()  # Assumes a TextProcessor with a TEXT_CLEANER and content_splitter is defined
 
     data_in = None
@@ -331,7 +332,7 @@ class IngestSourceAgent:
     def run(self):
         if not self.data_in: return self.briefings
         if self.data_type == 'URL':
-            crawl_result = IngestWebSourceProvider.execute('deep', self.data_in)
+            crawl_result = IngestWebSourceProvider.execute("injection", self.data_in)
             self.briefings = crawl_result.briefings
         elif self.data_type == 'PDF':
             diver = IngestPdfMiner.load_pdf(self.data_in)

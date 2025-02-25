@@ -7,7 +7,7 @@ import numpy as np
 from huggingface_hub import snapshot_download
 from rai.ingest.utilities.DataUtilities import get_project_base_directory
 from rai.ingest.utilities import DataUtilities as rag_tokenizer
-from rai.ingest.parsers.PDF.Recognizer import Recognizer
+from rai.ingest.miners.PDF.Recognizer import Recognizer
 
 
 class TableStructureRecognizer(Recognizer):

@@ -21,8 +21,6 @@ def register_query_agent(name: str):
     return decorator
 
 
-
-
 class RaiQueryAgent(ABC, RaiAi, TextProcessor):
     name = None
 
@@ -167,6 +165,9 @@ class RaiQueryAgent(ABC, RaiAi, TextProcessor):
         Current Date & Time: {now.strftime("%Y-%m-%d %H:%M:%S %Z%z")}
         """
 
+    def get_collections(self, prefix):
+        return [f"{prefix}.{c}" for c in self.collections]
+
 
 """
 pages = self.unwrap_collection('pages', wrapped_results)
@@ -195,12 +196,50 @@ class RaiQueryAgentResults(BaseModel):
 
 @register_query_agent("base")
 class QueryAgentBaseRunner(RaiQueryAgent):
+
+    def where_parent_id(self, parent_id):
+        return {"parent_id": {"$eq": parent_id}}
+    def where_page_id(self, page_id):
+        return {"page_id": {"$eq": page_id}}
+    def where_page_number(self, page_number):
+        return {"page_number": {"$eq": page_number}}
     def run(self, prefix: str, query: str):
         try:
-            collection_list = [f"{prefix}.{c}" for c in self.collections]
-            wrapped_results = self.store.queries(*collection_list, user_prompt=query, k=10)
+            wrapped_results = self.store.queries(
+                *self.get_collections(prefix),
+                user_prompt=query,
+                k=5
+            )
+
+            rank_1_result = self.unwrap_first(wrapped_results, k=1)
+
+            rank_1_top_doc: RaiLoaderDocument = LIST.get(0, rank_1_result, None)
+            rank_1_top_doc_meta = DICT.get("metadata", rank_1_top_doc, None)
+            top_parent_id = DICT.get("parent_id", top_doc_meta, None)
+            top_page_id = DICT.get("page_id", top_doc_meta, None)
+            top_page_number = DICT.get("page_number", top_doc_meta, None)
+            parent_where_query = {"parent_id": {"$eq": top_parent_id}}
+            page_where_query = {"page_id": {"$eq": top_page_id}}
+            number_where_query = {"page_number": {"$eq": top_page_number}}
+
+            where_results = VECTOR_DB_CLIENT.queries(
+                *self.get_collections(prefix),
+                user_prompt=user_prompt,
+                k=5,
+                where=page_where_query
+            )
+
+
+            rank_2_result = self.unwrap_second(wrapped_results, k=1)
+            rank_3_result = self.unwrap_third(wrapped_results, k=1)
+
+            where = {
+                "category": "sports",
+                "priority": {"$gte": 5}
+            }
+
             unwrapped_results = self.store.unwrap_results(wrapped_results)
-            formatted_results = self.store.unwrap_formatted(unwrapped_results, k=5)
+            formatted_results = self.store.unwrap_formatted(unwrapped_results, k=1)
             return RaiQueryAgentResults(
                 query=query,
                 query_expanded=query,

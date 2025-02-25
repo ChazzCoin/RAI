@@ -84,7 +84,7 @@ class RedisClient:
         :return: The value associated with the key (deserialized from JSON).
         """
         try:
-            value = self.redis_client.get(key, timeout=2)
+            value = self.redis_client.get(key)
             if value is not None:
                 try:
                     return json.loads(value)

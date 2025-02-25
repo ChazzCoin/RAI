@@ -1,5 +1,6 @@
 from rai.ingest.web.soup.WebExtractor import WebSoupExtractor
 from rai.ingest.web.WebModels import ContentGroup, WebBodyModel
+from bs4 import Comment
 
 class WebBodyExtractor(WebSoupExtractor):
 
@@ -234,7 +235,7 @@ class WebBodyExtractor(WebSoupExtractor):
                 lists=list_groups,
                 modals=modal_groups,
                 tiles=tile_groups,
-                combined_text=formatted_paragraph_content
+                combined_text=self.extract_body_content()
             )
 
             return body_data
@@ -242,4 +243,44 @@ class WebBodyExtractor(WebSoupExtractor):
             print(e)
             return WebBodyModel()
 
+    def extract_body_content(self) -> dict:
+        soup = self.soup
+        html = self.html
 
+        # Remove comments to avoid hidden or non-visible content
+        for comment in soup.find_all(string=lambda text: isinstance(text, Comment)):
+            comment.extract()
+
+        # Remove tags that generally contain non-relevant content
+        unwanted_tags = ["script", "style", "noscript", "iframe", "header", "footer", "nav", "form", "button"]
+        for tag in soup.find_all(unwanted_tags):
+            tag.decompose()
+
+        # If a <body> tag is present, focus on it; otherwise, process the whole document
+        body = soup.body if soup.body else soup
+
+        # Extract text content with newlines separating blocks for readability
+        text = body.get_text(separator="\n", strip=True)
+
+        # Extract hyperlinks with their text; ignore empty links
+        links = []
+        for a in body.find_all("a", href=True):
+            link_text = a.get_text(strip=True)
+            href = a["href"]
+            # Optionally filter out irrelevant links here if needed
+            if href and link_text:
+                links.append({"href": href, "text": link_text})
+
+        # Extract images and gather src with alt text
+        images = []
+        for img in body.find_all("img", src=True):
+            src = img["src"]
+            alt = img.get("alt", "").strip()
+            images.append({"src": src, "alt": alt})
+
+        # Extract tables as raw HTML strings for further processing if required
+        tables = []
+        for table in body.find_all("table"):
+            tables.append(str(table))
+
+        return text
