@@ -248,7 +248,7 @@ class PatentsProvider(BaseAPIProvider):
 
 async def main():
     print("Fetching Congress Latest Data...")
-    data = await BaseAPIProvider.execute("patents")
+    data = await BaseAPIProvider.execute("cerner")
     print(data)
 
     # print("\nFetching USPTO Patents Data (Last 12 Months)...")

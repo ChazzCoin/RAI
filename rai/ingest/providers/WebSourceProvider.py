@@ -460,5 +460,5 @@ async def main():
 if __name__ == "__main__":
     # asyncio.run(main())
     # get_urls()
-    results = IngestWebSourceProvider.execute('speed', 'https://www.wired.com/story/inside-the-telegram-groups-doxing-women-for-their-facebook-posts/')
+    results = IngestWebSourceProvider.execute('injection', 'https://www.wired.com/story/inside-the-telegram-groups-doxing-women-for-their-facebook-posts/')
     print(results)

@@ -50,6 +50,7 @@ class DocumentQueryUtils:
             metadatas = result.get("metadatas", [[]])[0]
             for dist, doc, meta in zip(distances, documents, metadatas):
                 combined_entries.append({
+                    "id": str(uuid.uuid4()),
                     "distance": dist,
                     "document": doc,
                     "metadata": meta,

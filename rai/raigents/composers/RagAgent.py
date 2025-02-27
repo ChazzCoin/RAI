@@ -8,7 +8,7 @@ from rai.assistant.connectors import RaiAi
 from rai.raigents.base.BaseContexts import RaiBaseContexts
 from rai.ingest.utilities.TextUtils import TextProcessor
 from rai.internal.connectors import VECTOR_DB_CLIENT
-from rai.raigents.composers.QueryAgent import RaiQueryAgent
+from rai.raigents.composers.QueryAgent import RaiQueryAgent, RaiQueryAgentResults
 
 OBJECTIVE_PROMPT_REGISTRY = {}
 RAG_AGENT_REGISTRY = {}
@@ -202,7 +202,7 @@ where_results = VECTOR_DB_CLIENT.queryThreaded(*collection_list, user_prompt=use
 
 @register_rag_agent("base")
 class RagAgentBaseRunner(RaiRagAgent):
-    def run(self, prefix: str, user_prompt: str):
+    def run(self, prefix: str, user_prompt: str) -> RaiQueryAgentResults:
         try:
             # self.switch_engine('ollama')
             results = RaiBaseTextAgent.generates(
@@ -216,8 +216,9 @@ class RagAgentBaseRunner(RaiRagAgent):
             objective = LIST.get(0, objectives, "general")
 
             system_prompt = self.system(objective)
-            formatted = TextProcessor.clean_text_for_openai_embedding(agent_results.formatted)
-            return self.generate_rag_response(user_prompt, agent_results.formatted, system_prompt)
+            # formatted = TextProcessor.clean_text_for_openai_embedding(agent_results.formatted)
+            agent_results.response = self.generate_rag_response(user_prompt, agent_results.formatted, system_prompt)
+            return agent_results
         except Exception as e:
             print(f"Error: {e}")
             return None

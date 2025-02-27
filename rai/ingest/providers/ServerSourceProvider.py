@@ -1,9 +1,8 @@
 from abc import abstractmethod
 
 import paramiko
-import json
 import threading
-from typing import Dict, List, Optional, Callable
+from typing import Dict, Callable
 
 # Central registry to hold all commands
 COMMAND_REGISTRY: Dict[str, Dict[str, str]] = {}

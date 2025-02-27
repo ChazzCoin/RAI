@@ -14,6 +14,7 @@ from F.DATE import get_timestamp_str as get_current_timestamp
 from rai.RaiModels import RAI_MODs, getRaiModels
 from rai.assistant.ai_models import AiModels
 from rai.assistant.connectors import RaiAi
+from rai.raigents.composers.QueryAgent import RaiQueryAgentResults
 from rai.raigents.composers.RagAgent import RaiRagAgent
 from rai.internal.connectors import REDIS_DB_CLIENT_0, REDIS_DB_CLIENT_1, PostgresTables
 from rai import env
@@ -102,6 +103,8 @@ class CombinedResult(BaseModel):
     generated: SearchResponseSummary
     response: SearchResponseResult
 
+class ApiResponseResult(BaseModel):
+    response: List[str]
 
 class UserRequest:
     chat_id: str = "guest"
@@ -127,21 +130,111 @@ class UserRequest:
             "user_email": self.user_email,
             "user_role": self.user_role
         }
-@app.route('/v1/query/{idx}', methods=['POST', 'OPTIONS'])
+
 @app.route('/v1/query', methods=['POST', 'OPTIONS'])
-async def query(idx:Optional[int]=None):
+async def query():
     data = await request.get_data(as_text=False)
     jbody: dict = json.loads(data.decode('utf-8'))
+    model: str = jbody.get('model')
+    parent_model = None
+    for item in RODELS:
+        if item.get('model') == model:
+            parent_model = item
     query: str = jbody.get('query')
     # agent_results: RaiQueryAgentResults = RaiQueryAgent.execute("base", "rai2025.1", query)
-    query_results = RaiRagAgent.pipeline(
+    query_results: RaiQueryAgentResults = RaiRagAgent.pipeline(
         name='base',
-        prefix="rai2025.1",
+        prefix=parent_model.get('prefix', "pcsc2025.4"),
         user_prompt=query
     )
+    return jsonify({ "status": 200, "data": query_results.model_dump() })
 
-    return jsonify({ "status": 200, "data": {"response": [query_results]} })
+RODELS = [
+    {
+        'id': 'RAI-2025-1',
+        'name': 'RAI:2025-1',
+        'model': 'RAI:2025-1',
+        'zip': '84098',
+        'address': '',
+        'title': 'Rai Testing Model 2025-1',
+        'initials': 'rai',
+        'ai_name': 'Raiko',
+        'ai_flow': 'QA',
+        'org_rep_type': 'Personal Customer Representative',
+        'collection': 'rai2025.1',
+        'prompt': "GENERAL_PROMPT_TEMPLATE",
+        'context_prompt': "context.SOCCER_CLUB_CONTEXT_EXPANDER",
+        'primary_functions': "ysc_primary",
+        'secondary_functions': "ysc_secondary",
+        'openai': 'gpt-4o',
+        'ollama': 'llama3:latest',
+        'org_type': "Youth Soccer Club",
+        'org_specialty': "",
+        'imageSupport': False,
+        'provider': ""
+    },
+    {
+        'id': 'park-city-soccer-club-2025-4',
+        'name': 'ParkCitySC:2025-4',
+        'model': 'ParkCitySC:2025-4',
+        'zip':'84098',
+        'address': '',
+        'title': 'Park City Soccer Club',
+        'initials': 'PCSC',
+        'ai_name': 'Bruno',
+        'ai_flow': 'QA',
+        'org_rep_type': 'Personal Customer Representative',
+        'collection': 'pcsc2025.4',
+        'prompt': "GENERAL_PROMPT_TEMPLATE",
+        'context_prompt': "context.SOCCER_CLUB_CONTEXT_EXPANDER",
+        'primary_functions': "ysc_primary",
+        'secondary_functions': "ysc_secondary",
+        'openai': 'gpt-4o',
+        'ollama': 'llama3:latest',
+        'org_type': "Youth Soccer Club",
+        'org_specialty': "",
+        'imageSupport': False,
+        'provider': ""
+     },
+    {
+        'id': 'park-city-soccer-club-2025-3',
+        'name': 'ParkCitySC:2025-3',
+        'model': 'ParkCitySC:2025-3',
+        'zip':'84098',
+        'address': '',
+        'title': 'Park City Soccer Club',
+        'initials': 'PCSC',
+        'ai_name': 'Bruno',
+        'ai_flow': 'QA',
+        'org_rep_type': 'Personal Customer Representative',
+        'collection': 'pcsc2025.3',
+        'prompt': "GENERAL_PROMPT_TEMPLATE",
+        'context_prompt': "context.SOCCER_CLUB_CONTEXT_EXPANDER",
+        'primary_functions': "ysc_primary",
+        'secondary_functions': "ysc_secondary",
+        'openai': 'gpt-4o',
+        'ollama': 'llama3:latest',
+        'org_type': "Youth Soccer Club",
+        'org_specialty': "",
+        'imageSupport': False,
+        'provider': ""
+     }
+]
+@app.route('/v1/models', methods=['GET'])
+def models():
+    return jsonify({"status": 200, "data": RODELS })
 
+@app.route('/v1/agents', methods=['GET', 'OPTIONS'])
+async def agents(idx:Optional[int]=None):
+    print("Calling Agents")
+    agent1 = {
+        "name": "Query",
+        "type": "base",
+        "details": "Similarity Search Agent.",
+        "imageSupport": False,
+    }
+
+    return jsonify({ "status": 200, "data": [agent1] })
 
 @app.route('/api/chat/{idx}', methods=['POST', 'OPTIONS'])
 @app.route('/api/chat', methods=['POST', 'OPTIONS'])
