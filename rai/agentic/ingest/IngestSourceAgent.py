@@ -2,11 +2,12 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List
 
 from F import DICT
+
+from rai.agentic.ai_tools.image_tools.r_tools import rImageTools
 from rai.ingest.miners.PdfDiver import IngestPdfMiner
 from rai.ingest.providers.WebSourceProvider import IngestWebSourceProvider
 from rai.ingest.utilities.TextUtils import TextProcessor
 from rai.ingest.utilities.text_data import schedule_text
-from rai.raigents.base.BaseImageAgents.BaseImageAgent import RaiBaseImageAgent
 
 DOC_SPLIT_SIZE = 10000
 
@@ -353,7 +354,7 @@ class IngestSourceAgent:
     def extract_from_images(name, images):
         results = []
         for image in images:
-            text = RaiBaseImageAgent.tool(name, image)
+            text = rImageTools.tool(name, image)
             results.append(text)
         return results
 
@@ -361,7 +362,7 @@ class IngestSourceAgent:
     def extracts_from_images(*names, images):
         results = []
         for image in images:
-            text = RaiBaseImageAgent.tools(*names, image)
+            text = rImageTools.tools(*names, image)
             results.append(text)
         return results
 

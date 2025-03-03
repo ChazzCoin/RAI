@@ -3,15 +3,15 @@ from typing import List
 
 from F import LIST
 
-from rai.raigents.ai_plugins.QCache import VectorCache
-from rai.raigents.ai_plugins.QStore import VectorStore
+from rai.agentic.ai_plugins.QCache import VectorCache
+from rai.agentic.ai_plugins.QStore import VectorStore
 from rai.assistant.connectors import rAI
 from rai.ingest.IngestModels import IngestRecord
 from rai.ingest.loaders.rai_loaders.BaseLoad import IngestLoaderDocument
 from rai.ingest.utilities.TextUtils import TextProcessor
-from rai.raigents.ingest.IngestNLPAgent import IngestNLPAgent
-from rai.raigents.ingest.IngestDocumentCreator import IngestDocumentCreator
-from rai.raigents.ingest.IngestSourceAgent import IngestSourceAgent
+from rai.agentic.ingest.IngestNLPAgent import IngestNLPAgent
+from rai.agentic.ingest.IngestDocumentCreator import IngestDocumentCreator
+from rai.agentic.ingest.IngestSourceAgent import IngestSourceAgent
 
 INGEST_PIPELINES = {}
 

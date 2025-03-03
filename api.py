@@ -12,10 +12,11 @@ from F.LOG import Log
 from F.DATE import get_timestamp_str as get_current_timestamp
 
 from rai.RaiModels import RAI_MODs, getRaiModels
+from rai.agentic.ai_flows.rag_flow import rRagFlow
+from rai.agentic.ai_tasks.query_task import RaiQueryAgentResults
 from rai.assistant.ai_models import AiModels
 from rai.assistant.connectors import rAI
-from rai.raigents.composers.QueryAgent import RaiQueryAgentResults
-from rai.raigents.composers.RagAgent import RaiRagAgent
+
 from rai.internal.connectors import REDIS_DB_CLIENT_0, REDIS_DB_CLIENT_1, PostgresTables
 from rai import env
 from rai.ingest.miners.Pdf import FPDF
@@ -142,7 +143,7 @@ async def query():
             parent_model = item
     query: str = jbody.get('query')
     # agent_results: RaiQueryAgentResults = RaiQueryAgent.execute("base", "rai2025.1", query)
-    query_results: RaiQueryAgentResults = RaiRagAgent.flow(
+    query_results: RaiQueryAgentResults = rRagFlow.flow(
         name='base',
         prefix=parent_model.get('prefix', "pcsc2025.4"),
         user_prompt=query
@@ -339,7 +340,7 @@ async def chat_completion(idx:Optional[int]=None):
     elif mod_flow == "QA":
         """ 1. Generate Context Expansion on Initial User Input """
         # TODO: RUN SETUP PIPELINES HERE, "objective", "subject", "context_expander"
-        query_results = await RaiRagAgent.pipeline_async(
+        query_results = await rRagFlow.flow_async(
             name='base',
             prefix=mod_collection_prefix,
             user_prompt=MessageContext.get_last_user_message
@@ -750,7 +751,7 @@ def heartbeat():
     return "beat"
 
 if __name__ == '__main__':
-    port = 11434
+    port = 5180
     debug = False
     host = "0.0.0.0"
     print(f"Starting Bruno Server. Host={host}, Port={port}, Debug={debug}")

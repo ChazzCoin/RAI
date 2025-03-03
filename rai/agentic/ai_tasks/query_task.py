@@ -6,8 +6,8 @@ from typing import List
 from F import DICT, LIST
 from pydantic import BaseModel
 
-from rai.raigents.ai_plugins.QCache import VectorCache
-from rai.raigents.ai_plugins.QStore import VectorStore
+from rai.agentic.ai_plugins.QCache import VectorCache
+from rai.agentic.ai_plugins.QStore import VectorStore
 from rai.assistant.connectors import rAI
 from rai.ingest.utilities.TextUtils import TextProcessor
 

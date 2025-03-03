@@ -5,8 +5,8 @@ from typing import List, Dict, Optional, Any, Tuple, Type
 from crawl4ai import CrawlResult
 from pydantic import BaseModel, Field
 
+from rai.agentic.ai_tools.text_tools.text_formats import TextModel, RaiContactFormat, BaseLocation, BaseEvent
 from rai.ingest.web.WebModels import ImageData
-from rai.raigents.base.BaseTextAgents.BaseTextFormats import TextModel, RaiContactFormat, BaseLocation, BaseEvent
 
 
 class TextLineClassification(BaseModel):

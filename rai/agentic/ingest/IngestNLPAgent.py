@@ -9,11 +9,12 @@ import nlp.Paragraphs
 import nlp.Re
 import nlp.Keywords
 from nlp.ext import NLPAssistant
+from rai.agentic.ai_tools.image_tools.r_tools import rImageTools
 from rai.ingest.IngestModels import IngestBrief, IngestPage, FNLPAssistantModel, NLPAssistantModel, TextNLPAgentModel
 from rai.ingest.miners.PdfDiver import IngestPdfMiner
 from rai.ingest.utilities.TextUtils import TextProcessor, to_sentences
 from rai.ingest.utilities.text_data import schedule_text
-from rai.raigents.ai_tools.text_tools.r_tools import rTextTools
+from rai.agentic.ai_tools.text_tools.r_tools import rTextTools
 
 INGEST_NLP_AGENT_REGISTRY = {}
 
@@ -419,7 +420,7 @@ class IngestNLPAgent(ABC):
         return ""
     def metadata_agent(self):
         try:
-            result = RaiBaseTextAgent.tool("metadata", self.cleaned_content + self.combine_nlp())
+            result = rTextTools.tool("metadata", self.cleaned_content + self.combine_nlp())
             self.metadata = DICT.lazy_merge_dicts(result, self.metadata or {})
             self.page.metadata = self.metadata
             return self.metadata
@@ -493,7 +494,7 @@ class IngestNLPAgent(ABC):
             return self.metadata
     def image_agent(self, name) -> Optional[str]:
         try:
-            return RaiBaseImageAgent.tool(name=name, image=self.image)
+            return rImageTools.tool(name=name, image=self.image)
         except Exception as e:
             print(e)
             return None

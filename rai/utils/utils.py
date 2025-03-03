@@ -6,8 +6,8 @@ from typing import Optional, Union
 import jwt
 from tqdm import tqdm
 
+from rai.internal.models.users import UsersTable
 from rai.internal.postgres import POSTGRES_CLIENT
-from rai.internal.models import UsersTable
 
 from rai.constants import ERROR_MESSAGES
 from rai.env import WEBUI_SECRET_KEY

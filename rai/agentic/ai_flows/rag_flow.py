@@ -3,12 +3,11 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from F import DICT, LIST
 
-from rai.raigents.base.BaseTextAgents.BaseTextAgent import RaiBaseTextAgent
+from rai.agentic.ai_tasks.query_task import RaiQueryAgentResults, rQueryTask
+from rai.agentic.ai_tools.text_tools.r_tools import rTextTools
 from rai.assistant.connectors import rAI
-from rai.raigents.base.BaseContexts import RaiBaseContexts
 from rai.ingest.utilities.TextUtils import TextProcessor
 from rai.internal.connectors import VECTOR_DB_CLIENT
-from rai.raigents.composers.QueryAgent import rQueryTask, RaiQueryAgentResults
 
 OBJECTIVE_PROMPT_REGISTRY = {}
 RAG_AGENT_REGISTRY = {}
@@ -61,9 +60,19 @@ class rRagFlow(ABC, rAI, TextProcessor):
         agent_cls = agent_classes[0]
         agent_instance = agent_cls()
         return agent_instance.run(prefix=prefix, user_prompt=user_prompt)
+
+    @classmethod
+    async def flow_async(cls, name: str, prefix: str, user_prompt: str):
+        agent_classes = RAG_AGENT_REGISTRY.get(name)
+        if not agent_classes: return None
+        cls.name = name
+        agent_cls = agent_classes[0]
+        agent_instance = agent_cls()
+        return await agent_instance.run_async(prefix=prefix, user_prompt=user_prompt)
     @abstractmethod
     def run(self, prefix:str, user_prompt:str): pass
-
+    @abstractmethod
+    async def run_async(self, prefix:str, user_prompt:str): pass
     def system(self, name:str): return OBJECTIVE_PROMPT_REGISTRY.get(name)
     def user(self, user_prompt:str, data:str):
         return f"""
@@ -180,6 +189,10 @@ class rRagFlow(ABC, rAI, TextProcessor):
         ai_response = self.engine.generate(user=self.user(user_prompt, data), system=system_prompt)
         final_response = f"{ai_response}"
         return final_response
+    async def generate_rag_response_async(self, user_prompt:str, data, system_prompt:str):
+        ai_response = await self.engine.generate_async(user=self.user(user_prompt, data), system=system_prompt)
+        final_response = f"{ai_response}"
+        return final_response
 
 
 """
@@ -205,7 +218,7 @@ class RagAgentBaseRunner(rRagFlow):
     def run(self, prefix: str, user_prompt: str) -> RaiQueryAgentResults:
         try:
             # self.switch_engine('ollama')
-            results = RaiBaseTextAgent.tools(
+            results = rTextTools.tools(
                 "objective",
                 user_prompt=user_prompt
             )
@@ -222,22 +235,41 @@ class RagAgentBaseRunner(rRagFlow):
         except Exception as e:
             print(f"Error: {e}")
             return None
+    async def run_async(self, prefix: str, user_prompt: str) -> RaiQueryAgentResults:
+        try:
+            # self.switch_engine('ollama')
+            results = rTextTools.tools(
+                "objective",
+                user_prompt=user_prompt
+            )
 
+            agent_results: RaiQueryAgentResults = rQueryTask.execute(self.name, prefix, user_prompt)
+
+            objectives = DICT.get("objective", results, [])
+            objective = LIST.get(0, objectives, "general")
+
+            system_prompt = self.system(objective)
+            # formatted = TextProcessor.clean_text_for_openai_embedding(agent_results.formatted)
+            agent_results.response = await self.generate_rag_response_async(user_prompt, agent_results.formatted, system_prompt)
+            return agent_results
+        except Exception as e:
+            print(f"Error: {e}")
+            return None
 @register_rag_agent("breakdown")
 class RagAgentBreakdownRunner(rRagFlow):
     async def run_async(self, prefix:str, user_prompt:str):
         try:
             collection_list = [f"{prefix}.{c}" for c in self.collections.keys()]
-            context_prompt = RaiBaseContexts.flow('soccer')
+            context_prompt = "RaiBaseContexts.flow('soccer')"
             prompts = []
             responses = []
-            is_question = await RaiBaseTextAgent.tool_async(
+            is_question = await rTextTools.tool_async(
                 name='is_true',
                 user_prompt=user_prompt,
                 system_prompt='Is the following User Prompt asking a Question?'
             )
             if is_question:
-                each_question = await RaiBaseTextAgent.tool_async(
+                each_question = await rTextTools.tool_async(
                     name='separate_prompt',
                     user_prompt=user_prompt
                 )
@@ -250,7 +282,7 @@ class RagAgentBreakdownRunner(rRagFlow):
             count = 1
 
             def thread_runner(prompt, user_prompt, context_prompt, count):
-                results = RaiBaseTextAgent.tools(
+                results = rTextTools.tools(
                     "context_expander", "objective",
                     user_prompt=user_prompt,
                     system_prompt=context_prompt
@@ -351,7 +383,7 @@ def create():
         **ALWAYS BE DATE/TIME AWARE AND INCLUDE WARNINGS FOR OLD/PAST DATES**
     """
 
-class AgentConfigRAG(RaiBaseTextAgent):
+class AgentConfigRAG(rTextTools):
     def type(self): return "base"
     def parse(self, result): return result
 
