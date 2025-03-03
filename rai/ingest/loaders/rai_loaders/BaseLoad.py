@@ -62,7 +62,7 @@ class RaiDocCreator(RaiBaseLoader, TextProcessor):
 
     def generate_metadata(self, content:str) -> dict:
         Log.i("Generating Metadata.")
-        metadata: RaiMetadata = RaiBaseTextAgent.generate(name='metadata', user_prompt=content)
+        metadata: RaiMetadata = RaiBaseTextAgent.tool(name='metadata', user_prompt=content)
         return metadata.model_dump()
 
     def are_docs_identical(self, doc1: IngestLoaderDocument, doc2: IngestLoaderDocument) -> bool:

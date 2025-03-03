@@ -7,7 +7,7 @@ import jwt
 from tqdm import tqdm
 
 from rai.internal.postgres import POSTGRES_CLIENT
-from rai.models.users import UsersTable
+from rai.internal.models import UsersTable
 
 from rai.constants import ERROR_MESSAGES
 from rai.env import WEBUI_SECRET_KEY

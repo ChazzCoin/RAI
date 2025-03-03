@@ -15,7 +15,7 @@ class DataProcessorAgent(DataBaseProcessor):
         for item in data:
             if self.is_within_model_token_limit(text=item, model=AiModels.DEFAULT_OPENAI):
                 try:
-                    qas = RaiBaseTextAgent.generate(name="faq", user_prompt=item)
+                    qas = RaiBaseTextAgent.tool(name="faq", user_prompt=item)
                     # if pipeline returns a string or empty, skip
                     if isinstance(qas, str) or not qas:
                         continue
@@ -32,7 +32,7 @@ class DataProcessorAgent(DataBaseProcessor):
                 item_split = self.split_text_to_paragraphs(text=item)
                 for isplit in item_split:
                     try:
-                        qas = RaiBaseTextAgent.generate(name="faq", user_prompt=isplit)
+                        qas = RaiBaseTextAgent.tool(name="faq", user_prompt=isplit)
                         if isinstance(qas, str) or not qas:
                             continue
                         if qas.results:

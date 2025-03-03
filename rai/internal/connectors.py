@@ -1,8 +1,7 @@
 from rai.RAG.Q import Q
-# from rai.internal.chromadb import ChromaClient
-from rai.internal.redisdb import RaiCache
+from rai.internal.redis_ext import RaiCache
 from rai.internal.registries import RaiRegistry
-from rai.models.connectors import PostgresTables
+from rai.internal.models.connectors import PostgresTables
 
 """ DATABASES """
 VECTOR_DB_CLIENT = Q()

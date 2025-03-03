@@ -8,7 +8,7 @@ from rai import app
 from F.LOG import Log
 from tqdm import tqdm
 
-from rai.assistant.connectors import RaiAi
+from rai.assistant.connectors import rAI
 from rai.ingest import RaiPath
 from rai.internal.connectors import VECTOR_DB_CLIENT
 from rai.assistant.openai_client import generate_embeddings
@@ -19,7 +19,7 @@ from rai.ingest.loaders.rai_loaders.RaiMetadataLoader import RaiMetadataLoader
 
 Log = Log("RaiFileExtractor")
 
-ai = RaiAi()
+ai = rAI()
 
 class RaiDataImportConfig(Flass):
     class Pipelines:

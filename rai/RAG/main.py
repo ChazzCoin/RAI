@@ -5,18 +5,16 @@ import os
 import shutil
 import socket
 import urllib.parse
-import uuid
-from datetime import datetime
 from pathlib import Path
-from typing import Iterator, Optional, Sequence, Union, Tuple
+from typing import Iterator, Sequence, Union
 import requests
 import validators
 from chromadb import Documents
-from fastapi import Depends, File, Form, HTTPException, UploadFile, status
-from rai.RAG.models import ConfigUpdateForm, UrlForm, TextRAGForm, ProcessDocForm, QueryDocForm
-from rai.models.documents import DocumentForm
+from fastapi import Depends, HTTPException, status
+from rai.RAG.models import ConfigUpdateForm, UrlForm
+from rai.internal.models.documents import DocumentForm
 from rai.internal.postgres import POSTGRES_CLIENT
-from rai.models.files import FilesTable
+from rai.internal.models.files import FilesTable
 
 Files = FilesTable(POSTGRES_CLIENT)
 
@@ -31,7 +29,6 @@ from rai.config import (
     CHUNK_OVERLAP,
     CHUNK_SIZE,
     CONTENT_EXTRACTION_ENGINE,
-    CORS_ALLOW_ORIGIN,
     DOCS_DIR,
     ENABLE_RAG_HYBRID_SEARCH,
     ENABLE_RAG_LOCAL_WEB_FETCH,
@@ -43,24 +40,17 @@ from rai.config import (
     PDF_EXTRACT_IMAGES,
     RAG_EMBEDDING_ENGINE,
     RAG_EMBEDDING_MODEL,
-    OPENAI_API_KEY,
     OLLAMA_HOST,
     OLLAMA_PORT,
     DEFAULT_OPENAI_EMBEDDING_MODEL,
     DEFAULT_OPENAI_MODEL,
-    RAG_EMBEDDING_MODEL_AUTO_UPDATE,
-    RAG_EMBEDDING_MODEL_TRUST_REMOTE_CODE,
     RAG_EMBEDDING_OPENAI_BATCH_SIZE,
     RAG_FILE_MAX_COUNT,
     RAG_FILE_MAX_SIZE,
     RAG_OPENAI_API_BASE_URL,
     OPENAI_API_KEY,
-    RAG_OPENAI_API_KEY,
     RAG_RELEVANCE_THRESHOLD,
     RAG_RERANKING_MODEL,
-    RAG_RERANKING_MODEL_AUTO_UPDATE,
-    RAG_RERANKING_MODEL_TRUST_REMOTE_CODE,
-    DEFAULT_RAG_TEMPLATE,
     RAG_TEMPLATE,
     RAG_TOP_K,
     RAG_WEB_SEARCH_CONCURRENT_REQUESTS,
@@ -78,10 +68,9 @@ from rai.config import (
     TIKA_SERVER_URL,
     UPLOAD_DIR,
     YOUTUBE_LOADER_LANGUAGE,
-    AppConfig,
 )
 from rai.constants import ERROR_MESSAGES
-from rai.env import SRC_LOG_LEVELS, DEVICE_TYPE, DOCKER
+from rai.env import SRC_LOG_LEVELS
 from rai.utils.misc import (
     calculate_sha256,
     calculate_sha256_string,
@@ -91,7 +80,6 @@ from rai.utils.misc import (
 from rai.utils.utils import get_admin_user, get_verified_user
 from rai.internal.connectors import VECTOR_DB_CLIENT
 
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import (
     BSHTMLLoader,
     CSVLoader,
@@ -353,7 +341,7 @@ def store_youtube_video(form_data: UrlForm, user=Depends(get_verified_user)):
         if collection_name == "":
             collection_name = calculate_sha256_string(form_data.url)[:63]
 
-        store_data_in_vector_db(data, collection_name, overwrite=True)
+        # store_data_in_vector_db(data, collection_name, overwrite=True)
         return {
             "status": True,
             "collection_name": collection_name,
@@ -378,7 +366,7 @@ def store_web(form_data: UrlForm, user=Depends(get_verified_user)):
         if collection_name == "":
             collection_name = calculate_sha256_string(form_data.url)[:63]
 
-        store_data_in_vector_db(data, collection_name, overwrite=True)
+        # store_data_in_vector_db(data, collection_name, overwrite=True)
         return {
             "status": True,
             "collection_name": collection_name,
@@ -643,8 +631,7 @@ def scan_docs_dir():
 
     return True
 
-def reset_vector_db(user=Depends(get_admin_user)):
-    VECTOR_DB_CLIENT.reset()
+
 
 def reset_upload_dir(user=Depends(get_admin_user)) -> bool:
     folder = f"{UPLOAD_DIR}"

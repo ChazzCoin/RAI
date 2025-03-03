@@ -1,14 +1,14 @@
 import base64
 import mimetypes
 import os
-from abc import ABC, abstractmethod, abstractproperty
+from abc import ABC, abstractmethod
 from typing import Optional, Dict, Type, Any, List
 import ollama
 from ollama import ChatResponse, EmbedResponse
-from openai import OpenAI, AsyncOpenAI, Audio
+from openai import OpenAI, AsyncOpenAI
 from pydantic import BaseModel
 from rai import app
-from rai.agents.Tools import find_RaiFunction
+from rai.assistant.Tools import find_RaiFunction
 from rai.assistant.ai_models import AiModels
 
 import math
@@ -69,9 +69,11 @@ class FusedResult(BaseModel):
 
 
 open_ai_key = os.getenv("OPENAI_API_KEY")
-print(open_ai_key)
+
+
 class FusedAI(ABC):
     engines: Dict[str, Type['FusedAI']] = {}
+    engine: str = 'openai'
     MODEL_OVERRIDE = None
     DEFAULT_MODEL: str = AiModels.DEFAULT_OLLAMA
     DEFAULT_EMBEDDING_MODEL: str = AiModels.DEFAULT_OLLAMA
@@ -91,11 +93,7 @@ class FusedAI(ABC):
             raise ValueError("Subclasses must define an 'engine' name.")
         cls.engine = engine
         FusedAI.engines[engine] = cls
-    # @property
-    # def default_model(self) -> str:
-    #     if self.engine == "openai":
-    #         return AiModels.DEFAULT_OPENAI
-    #     return AiModels.DEFAULT_OLLAMA
+
     @property
     def default_embedding_model(self) -> str:
         if self.engine == "openai":
@@ -111,6 +109,24 @@ class FusedAI(ABC):
         if self.engine == "openai":
             return AiModels.DEFAULT_OPENAI_FORMAT
         return AiModels.DEFAULT_OLLAMA_FORMAT
+
+    def fallback(self, method_name: str, error, *args, **kwargs):
+        print(f"Fallback method name: {method_name}, error: {error}")
+        if self.engine == "openai":
+            self.switch_engine('ollama')
+        else:
+            self.switch_engine('openai')
+        fallback_method = getattr(self.engine, method_name)
+        return fallback_method(*args, **kwargs)
+
+    def get_engine(self, override:str=None):
+        return self.engines.get(self.engine if override is None else override)
+
+    def switch_engine(self, engine_name: str):
+        if engine_name in self.engines.keys():
+            self.engine = engine_name
+        else:
+            return f"Engine [ {engine_name} ] Not Supported."
 
     @abstractmethod
     def engine_model(self) -> str: pass
@@ -192,8 +208,7 @@ class OpenAiEngine(FusedAI, engine="openai"):
             response = response.choices[0].message.content
             return response
         except Exception as e:
-            print(e)
-            return None
+            return self.fallback("generate", e, user, system, image=image)
     def generate_chat(self, messages:[{}]):
         print("Generating Chat - OpenAI")
         try:
@@ -205,8 +220,7 @@ class OpenAiEngine(FusedAI, engine="openai"):
             # If the model refuses to respond, you will get a refusal message
             return response
         except Exception as e:
-            print(e)
-            return None
+            return self.fallback("generate_chat", e, messages)
     def generate_embeddings(self, content: str):
         try:
             response = self.O.embeddings.create(
@@ -215,8 +229,7 @@ class OpenAiEngine(FusedAI, engine="openai"):
             )
             return response.data[0].embedding
         except Exception as e:
-            print(f"Failed to embed text with openai: {e}")
-            return []
+            return self.fallback("generate_embeddings", e, content)
     def generate_format(self, user: str, system: str, format: BaseModel, image=None):
         try:
             completion = self.O.beta.chat.completions.parse(
@@ -233,8 +246,7 @@ class OpenAiEngine(FusedAI, engine="openai"):
                 print("Parsed:", response.parsed)
                 return response.parsed
         except Exception as e:
-            print(e)
-            return f"Uh oh. Something has gone wrong!: {e}"
+            return self.fallback("generate_format", e, user, system, format, image=image)
     def generate_function(self, user: str, system: str, functions: [dict], image=None):
         try:
             completion = self.O.chat.completions.create(
@@ -251,8 +263,7 @@ class OpenAiEngine(FusedAI, engine="openai"):
                 return tool_results
             return None
         except Exception as e:
-            print(e)
-            return None
+            return self.fallback("generate_function", e, user, system, functions, image=image)
     """ ASYNC FUNCTIONS"""
     async def generate_async(self, user: str, system: str, image=None):
         try:
@@ -264,7 +275,7 @@ class OpenAiEngine(FusedAI, engine="openai"):
             return response
         except Exception as e:
             print(e)
-            return None
+            return e
     async def generate_chat_async(self, messages: [{}], image=None):
         try:
             completion = await self.OAsync.chat.completions.create(
@@ -275,7 +286,7 @@ class OpenAiEngine(FusedAI, engine="openai"):
             return response
         except Exception as e:
             print(e)
-            return None
+            return e
     async def generate_embeddings_async(self, content: str):
         try:
             response = await self.OAsync.embeddings.create(

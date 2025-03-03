@@ -2,8 +2,8 @@ import inspect
 import logging
 from typing import Awaitable, Callable, get_type_hints
 
-from rai.models.tools import Tools
-from rai.models.users import UserModel
+from rai.internal.models.tools import Tools
+from rai.internal.models import UserModel
 from rai.rtils import load_toolkit_module_by_id
 from rai.utils.schemas import json_schema_to_model
 

@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from rai.assistant.engines import OllamaEngine, OpenAiEngine, AiModels, FusedAI
 
 
-class RaiAi:
+class rAI:
     CURRENT_ENGINE = 'openai'
     DEFAULT_MODEL: str = AiModels.DEFAULT_OLLAMA
     KEY: str = ""
@@ -40,10 +40,7 @@ class RaiAi:
         return self.engines.get(self.CURRENT_ENGINE if override is None else override)
 
     def switch_engine(self, engine_name: str):
-        if engine_name in self.engines.keys():
-            self.CURRENT_ENGINE = engine_name
-        else:
-            return f"Engine [ {engine_name} ] Not Supported."
+        return self.engine.switch_engine(engine_name)
 
     def embed(self, text:str):
         return self.engine.generate_embeddings(text)
@@ -102,6 +99,6 @@ class RaiAi:
 
 
 if __name__ == '__main__':
-    engine = RaiAi()
-    result = engine.generate(user='Extract the table data from this image and return the data as json objects.', system='Extract the text data from the image provided and retain its structure.', image='/Users/chazzromeo/Desktop/pcsc2024/Complex Schedule.png')
+    engine = rAI()
+    result = engine.tool(user='Extract the table data from this image and return the data as json objects.', system='Extract the text data from the image provided and retain its structure.', image='/Users/chazzromeo/Desktop/pcsc2024/Complex Schedule.png')
     print(result)

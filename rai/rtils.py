@@ -4,8 +4,8 @@ import subprocess
 import sys
 import types
 import tempfile
-from rai.models.functions import Functions
-from rai.models.tools import Tools
+from rai.internal.models import Functions
+from rai.internal.models.tools import Tools
 
 def extract_frontmatter(content):
     """

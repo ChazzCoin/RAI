@@ -4,7 +4,7 @@ import json
 import os.path
 from concurrent.futures import ThreadPoolExecutor
 import aiohttp
-from quart import Quart, request, jsonify, Response, send_file, websocket
+from quart import Quart, request, jsonify, Response, send_file
 from quart_cors import cors
 import requests
 from F import DICT, LIST
@@ -13,7 +13,7 @@ from F.DATE import get_timestamp_str as get_current_timestamp
 
 from rai.RaiModels import RAI_MODs, getRaiModels
 from rai.assistant.ai_models import AiModels
-from rai.assistant.connectors import RaiAi
+from rai.assistant.connectors import rAI
 from rai.raigents.composers.QueryAgent import RaiQueryAgentResults
 from rai.raigents.composers.RagAgent import RaiRagAgent
 from rai.internal.connectors import REDIS_DB_CLIENT_0, REDIS_DB_CLIENT_1, PostgresTables
@@ -22,7 +22,7 @@ from rai.ingest.miners.Pdf import FPDF
 import base64
 import imghdr
 
-from rai.models.models import AIModelData
+from rai.internal.models.models import AIModelData
 
 from typing import List, Optional
 from pydantic import BaseModel
@@ -40,7 +40,7 @@ RAI_CACHE_SYSTEM = REDIS_DB_CLIENT_1
 RAI_MODELS = PostgresTables.AI_Models()
 CHAT_ARCHIVE = PostgresTables.ChatArchive()
 
-RAI_AI = RaiAi()
+RAI_AI = rAI()
 RAI_ENGINE = RAI_AI.get_engine("openai")
 
 STORED_RAI_MODELS: [AIModelData] = RAI_MODELS.get_all_ai_models()
@@ -142,7 +142,7 @@ async def query():
             parent_model = item
     query: str = jbody.get('query')
     # agent_results: RaiQueryAgentResults = RaiQueryAgent.execute("base", "rai2025.1", query)
-    query_results: RaiQueryAgentResults = RaiRagAgent.pipeline(
+    query_results: RaiQueryAgentResults = RaiRagAgent.flow(
         name='base',
         prefix=parent_model.get('prefix', "pcsc2025.4"),
         user_prompt=query

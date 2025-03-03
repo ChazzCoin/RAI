@@ -6,7 +6,7 @@ import os
 from F.CLASS import Flass
 from F.LOG import Log
 
-from rai.assistant.connectors import RaiAi
+from rai.assistant.connectors import rAI
 from rai.ingest.DataAgent import RaiBaseTextAgent
 from rai.ingest.loaders.rai_loaders.BaseLoad import IngestLoaderDocument
 
@@ -80,7 +80,7 @@ class DataLoaderMetadata(Flass):
 
 
 class RaiMetadataLoader:
-    ai = RaiAi()
+    ai = rAI()
     meta_ai = False
     meta_file = None
     meta_dict = None
@@ -143,7 +143,7 @@ class RaiMetadataLoader:
                 temp = text
             else:
                 return self.default_metadata()
-            meta_result = RaiBaseTextAgent.generate(name="metadata", user_prompt=temp)
+            meta_result = RaiBaseTextAgent.tool(name="metadata", user_prompt=temp)
             if meta_result:
                 meta_dict = json.loads(meta_result)
                 final_meta = {}
