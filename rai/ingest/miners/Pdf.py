@@ -5,7 +5,7 @@ from pdfminer.pdfpage import PDFPage
 import pytesseract
 from io import BytesIO, StringIO
 from PIL import Image
-from pyxnat.core.uriutil import file_path
+
 from rai.ingest.utilities.TextUtils import TextProcessor
 import re
 PDF_MODEL = lambda x: {}
