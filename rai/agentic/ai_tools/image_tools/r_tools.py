@@ -3,9 +3,6 @@ import threading
 from abc import abstractmethod, ABC
 from rai.assistant.connectors import rAI
 from rai.ingest.utilities.TextUtils import TextProcessor
-from rai.raigents.ai_tools.image_tools.image_formats import aiImageFormats
-from rai.raigents.ai_tools.image_tools.image_functions import aiImageFunctions
-from rai.raigents.ai_tools.image_tools.image_prompts import aiImagePrompts
 
 IMAGE_AGENT_REGISTRY = {}
 

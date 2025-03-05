@@ -7,13 +7,13 @@ class AiModels:
     DEFAULT_OLLAMA_EMBEDDING = "nomic-embed-text"
 
     DEFAULT_OPENAI = "o3-mini"
-    DEFAULT_OLLAMA = "llama3.2:latest"
+    DEFAULT_OLLAMA = "llama3.2:3b"
 
     DEFAULT_OPENAI_FUNCTION = "o3-mini"
-    DEFAULT_OLLAMA_FUNCTION = "llama3.2:latest"
+    DEFAULT_OLLAMA_FUNCTION = "qwen2.5:7b"
 
     DEFAULT_OPENAI_FORMAT = "o3-mini"
-    DEFAULT_OLLAMA_FORMAT = "llama3.2:latest"
+    DEFAULT_OLLAMA_FORMAT = "llama3.2:3b"
 
     class OpenAi:
         # GPT-4 Series

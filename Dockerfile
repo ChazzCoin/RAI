@@ -1,41 +1,51 @@
 # syntax=docker/dockerfile:1
-FROM python:3.9
 
-# Ensure Python output is sent straight to terminal without buffering
+FROM ubuntu:22.04
+
 ENV PYTHONUNBUFFERED=1
 
-# Set the working directory
 WORKDIR /python-docker
 
-# Install system dependencies required for Playwright to run headless browsers
+# Install Python and essential packages
 RUN apt-get update && apt-get install -y \
-    libnss3 \
-    libatk-bridge2.0-0 \
-    libgtk-3-0 \
-    libgbm1 \
+    python3 \
+    python3-pip \
+    python3-dev \
+    libsqlite3-dev \
+    libpq-dev \
+    libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 \
+    openssh-server sudo \
     && rm -rf /var/lib/apt/lists/*
+
+# Configure SSH to support SFTP operations using internal-sftp
+RUN sed -i 's|^Subsystem sftp.*|Subsystem sftp internal-sftp|' /etc/ssh/sshd_config
+
+# Create the SSH runtime directory
+RUN mkdir /var/run/sshd
+
+# Create a non-root user 'developer' with password 'developer' and add to sudoers
+RUN useradd -ms /bin/bash developer && \
+    echo "developer:developer" | chpasswd && \
+    adduser developer sudo
+
+RUN apt-get update && apt-get install sqlite3
+
+# Optional: Verify the SQLite version
+RUN python3 -c "import sqlite3; print('SQLite version:', sqlite3.sqlite_version)"
 
 # Copy and install Python dependencies from requirements.txt
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Playwright browsers (using the Python module to ensure proper path resolution)
-RUN python -m playwright install
-RUN python -m tf-playwright-stealth install
-
-# Pre-download NLTK corpora and SpaCy English model for production readiness
-RUN python -c "import nltk; nltk.download('popular', quiet=True)" && \
-    python -m spacy download en_core_web_sm
-
 # Copy the rest of the application code
 COPY . .
 
 # Expose the desired port
-EXPOSE 11434
+EXPOSE 5180
 
 # (Optional) Create and switch to a non-root user for improved security in production
 RUN useradd -m appuser && chown -R appuser /python-docker
 USER appuser
 
 # Start the Quart app with Hypercorn
-CMD ["hypercorn", "--bind", "0.0.0.0:11434", "api:app"]
+CMD ["hypercorn", "--bind", "0.0.0.0:5180", "api:app"]

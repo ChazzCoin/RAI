@@ -1022,11 +1022,7 @@ DEFAULT_RAG_TEMPLATE = """You are given a user query, some textual context and r
 </user_query>
 """
 
-RAG_TEMPLATE = PersistentConfig(
-    "RAG_TEMPLATE",
-    "rag.template",
-    os.environ.get("RAG_TEMPLATE", DEFAULT_RAG_TEMPLATE),
-)
+
 
 RAG_OPENAI_API_BASE_URL = PersistentConfig(
     "RAG_OPENAI_API_BASE_URL",

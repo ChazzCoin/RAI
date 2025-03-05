@@ -411,12 +411,10 @@ async def main(name, user_prompt):
 
 def mains(*names:str, user_prompt):
     # from rai.ingest.utilities.text_data import schedule_text
-    results = rTextTools.tools(
+    results = rTextTools.tool(
             *names,
-            user_prompt=user_prompt,
-            image="/Users/chazzromeo/Desktop/soccer.png"
+            user_prompt=user_prompt
         )
-    print(user_prompt)
     if type(results) in [list, tuple]:
         for item in results:
             print(item)
@@ -427,9 +425,9 @@ def mains(*names:str, user_prompt):
         print(results)
 
 if __name__ == "__main__":
-    # from rai.ingest.utilities.text_data import schedule_text
+    from rai.ingest.utilities.text_data import schedule_text
     user_prompt = ""
-    mains("image_text_extractor", user_prompt=user_prompt)
+    mains("text_sentiment", user_prompt=schedule_text)
     # asyncio.run(
     #     main(
     #         name="objective",

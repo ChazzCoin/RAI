@@ -3,14 +3,10 @@ import imghdr
 import os
 from abc import ABC, abstractmethod
 from typing import Optional
-
-from F import DICT, LIST
 from pydantic import BaseModel
 from rai.ingest.miners.Pdf import FPDF
-from rai.agentic.ai_tasks.query_task import RaiQueryAgentResults, rQueryTask
-from rai.agentic.ai_tools.text_tools.r_tools import rTextTools
+from rai.agentic.ai_tasks.query_task import RaiQueryAgentResults
 from rai.assistant.connectors import rAI
-from rai.ingest.miners.PdfDiver import IngestPdfMiner
 from rai.ingest.utilities.TextUtils import TextProcessor
 
 assistant_role = 'Take the following pdf document and determine which category the referral should be scheduled under. Only provide the results and why you chose that category.'

@@ -4,6 +4,7 @@ from datetime import datetime
 from F import DICT, LIST
 
 from rai.agentic.ai_tasks.query_task import RaiQueryAgentResults, rQueryTask
+from rai.agentic.ai_tools.image_tools.r_tools import rImageTools
 from rai.agentic.ai_tools.text_tools.r_tools import rTextTools
 from rai.assistant.connectors import rAI
 from rai.ingest.utilities.TextUtils import TextProcessor
@@ -218,11 +219,10 @@ class RagAgentBaseRunner(rRagFlow):
     def run(self, prefix: str, user_prompt: str) -> RaiQueryAgentResults:
         try:
             # self.switch_engine('ollama')
-            results = rTextTools.tools(
+            results = rTextTools.tool(
                 "objective",
                 user_prompt=user_prompt
             )
-
             agent_results: RaiQueryAgentResults = rQueryTask.execute(self.name, prefix, user_prompt)
 
             objectives = DICT.get("objective", results, [])

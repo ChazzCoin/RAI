@@ -40,6 +40,7 @@ class rAI:
         return self.engines.get(self.CURRENT_ENGINE if override is None else override)
 
     def switch_engine(self, engine_name: str):
+        self.CURRENT_ENGINE = engine_name
         return self.engine.switch_engine(engine_name)
 
     def embed(self, text:str):
@@ -53,8 +54,9 @@ class rAI:
     def generate(self, user: str, system: str, image=None):
         return self.engine.generate(user, system, image)
 
-    def generate_function(self, user: str, system: str, functions: [dict], image=None):
-        result = self.engine.generate_function(user, system, functions, image)
+    def generate_function(self, user: str, system: str, functions: [dict], image=None, raw_result=False):
+        result = self.engine.generate_function(user, system, functions, image, raw_result)
+        if raw_result: return result
         return self.parse_function_names(result)
 
     def generate_format(self, user: str, system: str, format: Type[BaseModel], image=None):

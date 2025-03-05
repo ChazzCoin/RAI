@@ -110,14 +110,14 @@ class FusedAI(ABC):
             return AiModels.DEFAULT_OPENAI_FORMAT
         return AiModels.DEFAULT_OLLAMA_FORMAT
 
-    def fallback(self, method_name: str, error, *args, **kwargs):
+    def fallback(self, method_name: str, error, **kwargs):
         print(f"Fallback method name: {method_name}, error: {error}")
         if self.engine == "openai":
             self.switch_engine('ollama')
         else:
             self.switch_engine('openai')
-        fallback_method = getattr(self.engine, method_name)
-        return fallback_method(*args, **kwargs)
+        fallback_method = getattr(self, method_name)
+        return fallback_method(**kwargs)
 
     def get_engine(self, override:str=None):
         return self.engines.get(self.engine if override is None else override)
@@ -140,7 +140,7 @@ class FusedAI(ABC):
     @abstractmethod
     def generate_format(self, user: str, system: str, format: Type[BaseModel], image=None): pass
     @abstractmethod
-    def generate_function(self, user: str, system: str, functions: [dict], image=None): pass
+    def generate_function(self, user: str, system: str, functions: [dict], image=None, raw_result=False): pass
     """ ASYNC """
     @abstractmethod
     async def generate_async(self, user: str, system: str, image=None): pass
@@ -208,7 +208,7 @@ class OpenAiEngine(FusedAI, engine="openai"):
             response = response.choices[0].message.content
             return response
         except Exception as e:
-            return self.fallback("generate", e, user, system, image=image)
+            return self.fallback("generate", e, **{"user":user, "system":system, "image":image })
     def generate_chat(self, messages:[{}]):
         print("Generating Chat - OpenAI")
         try:
@@ -220,7 +220,7 @@ class OpenAiEngine(FusedAI, engine="openai"):
             # If the model refuses to respond, you will get a refusal message
             return response
         except Exception as e:
-            return self.fallback("generate_chat", e, messages)
+            return self.fallback("generate_chat", e, **messages)
     def generate_embeddings(self, content: str):
         try:
             response = self.O.embeddings.create(
@@ -229,7 +229,7 @@ class OpenAiEngine(FusedAI, engine="openai"):
             )
             return response.data[0].embedding
         except Exception as e:
-            return self.fallback("generate_embeddings", e, content)
+            return self.fallback("generate_embeddings", e, **{"content":content})
     def generate_format(self, user: str, system: str, format: BaseModel, image=None):
         try:
             completion = self.O.beta.chat.completions.parse(
@@ -246,8 +246,8 @@ class OpenAiEngine(FusedAI, engine="openai"):
                 print("Parsed:", response.parsed)
                 return response.parsed
         except Exception as e:
-            return self.fallback("generate_format", e, user, system, format, image=image)
-    def generate_function(self, user: str, system: str, functions: [dict], image=None):
+            return self.fallback("generate_format", e, **{"user":user, "system":system, "format":format, "image":image })
+    def generate_function(self, user: str, system: str, functions: [dict], image=None, raw_result=False):
         try:
             completion = self.O.chat.completions.create(
                 model=self.default_function_model,
@@ -255,6 +255,9 @@ class OpenAiEngine(FusedAI, engine="openai"):
                 tools=functions,
             )
             response = completion.choices[0].message.tool_calls
+
+            if raw_result: return response
+
             if response:
                 tool_results = []
                 for tool in response or []:
@@ -263,7 +266,7 @@ class OpenAiEngine(FusedAI, engine="openai"):
                 return tool_results
             return None
         except Exception as e:
-            return self.fallback("generate_function", e, user, system, functions, image=image)
+            return self.fallback("generate_function", e, **{"user":user, "system":system, "functions":functions, "image":image, "raw_result":raw_result })
     """ ASYNC FUNCTIONS"""
     async def generate_async(self, user: str, system: str, image=None):
         try:
@@ -343,8 +346,9 @@ class OllamaEngine(FusedAI, engine="ollama"):
     OAsync: ollama.AsyncClient = None
 
     def __init__(self):
-        self.O = ollama.Client(host=app.state.config.OLLAMA_HOST)
-        self.OAsync = ollama.AsyncClient(host=app.state.config.OLLAMA_HOST)
+        host = os.getenv('OLLAMA_HOST')
+        self.O = ollama.Client(host=host)
+        self.OAsync = ollama.AsyncClient(host=host)
 
     def engine_model(self):
         if self.MODEL_OVERRIDE: return self.MODEL_OVERRIDE
@@ -402,7 +406,7 @@ class OllamaEngine(FusedAI, engine="ollama"):
         except Exception as e:
             print(e)
             return None
-    def generate_function(self, user:str, system:str, functions: [dict], image=None):
+    def generate_function(self, user:str, system:str, functions: [dict], image=None, raw_result=False):
         try:
             data: ChatResponse = self.O.chat(
                 model=self.default_function_model,
@@ -412,6 +416,7 @@ class OllamaEngine(FusedAI, engine="ollama"):
                 ],
                 tools=functions
             )
+            if raw_result: return data.message.tool_calls
             tool_results = []
             for tool in data.message.tool_calls or []:
                 rai_func_def = find_RaiFunction(tool.function.name, functions)

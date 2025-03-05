@@ -3,7 +3,7 @@ import os
 import chromadb
 from chromadb import Settings
 from chromadb.utils.batch_utils import create_batches
-from typing import Optional
+from typing import Optional, List, Union
 from tqdm import tqdm
 from rai.RAG.models import VectorItem, SearchResult, GetResult
 from F.LOG import Log
@@ -28,7 +28,12 @@ else:
 CHROMA_HTTP_SSL = os.environ.get("CHROMA_HTTP_SSL", "false").lower() == "true"
 
 class ChromaClient:
+    client = None
+
     def __init__(self, host=CHROMA_HTTP_HOST, port=CHROMA_HTTP_PORT):
+        self.init(host, port)
+
+    def init(self, host=CHROMA_HTTP_HOST, port=CHROMA_HTTP_PORT):
 
         if CHROMA_HTTP_HOST == "local":
             Log.w("\n--Chroma PersistentClient--\n")
@@ -135,18 +140,20 @@ class ChromaClient:
             )
         return None
 
-    def get(self, collection_name: str) -> Optional[GetResult]:
+    def get(self, collection_name: str, combined=False):
         # Get all the items in the collection.
         collection = self.client.get_collection(name=collection_name)
         if collection:
             result = collection.get()
-            return GetResult(
+            getResult = GetResult(
                 **{
                     "ids": [result["ids"]],
                     "documents": [result["documents"]],
                     "metadatas": [result["metadatas"]],
                 }
             )
+            if combined: return self.combine_get_result(getResult)
+            return getResult
         return None
 
     def insert(self, collection_name: str, items: list[VectorItem]):
@@ -191,3 +198,36 @@ class ChromaClient:
     def reset(self):
         # Resets the database. This will delete all collections and item entries.
         return self.client.reset()
+
+    def combine_get_result(self, get_result: GetResult) -> List[dict]:
+        """
+        Combines the nested lists in a GetResult instance into a single list of document objects.
+
+        Each returned dictionary contains:
+          - 'id': The document ID.
+          - 'document': The document content.
+          - 'metadata': Associated metadata.
+
+        Assumes that get_result.ids, get_result.documents, and get_result.metadatas are lists
+        of lists and that their flattened lengths are equal.
+        """
+        # Flatten the lists (if they exist) into a single list each.
+        flattened_ids = [item for sublist in get_result.ids for item in sublist] if get_result.ids else []
+        flattened_documents = [doc for sublist in get_result.documents for doc in
+                               sublist] if get_result.documents else []
+        flattened_metadatas = [meta for sublist in get_result.metadatas for meta in
+                               sublist] if get_result.metadatas else []
+
+        if not (len(flattened_ids) == len(flattened_documents) == len(flattened_metadatas)):
+            raise ValueError("Mismatched lengths in ids, documents, and metadatas")
+
+        combined = [
+            {
+                "id": id_val,
+                "document": doc,
+                "metadata": meta
+            }
+            for id_val, doc, meta in zip(flattened_ids, flattened_documents, flattened_metadatas)
+        ]
+
+        return combined

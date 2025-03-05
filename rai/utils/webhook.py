@@ -2,7 +2,6 @@ import json
 import logging
 
 import requests
-from rai.config import WEBUI_FAVICON_URL, WEBUI_NAME
 from rai.env import SRC_LOG_LEVELS, VERSION
 
 log = logging.getLogger(__name__)
@@ -34,8 +33,8 @@ def post_webhook(url: str, message: str, event_data: dict) -> bool:
                 "sections": [
                     {
                         "activityTitle": message,
-                        "activitySubtitle": f"{WEBUI_NAME} ({VERSION}) - {action}",
-                        "activityImage": WEBUI_FAVICON_URL,
+                        # "activitySubtitle": f"{WEBUI_NAME} ({VERSION}) - {action}",
+                        # "activityImage": WEBUI_FAVICON_URL,
                         "facts": facts,
                         "markdown": True,
                     }

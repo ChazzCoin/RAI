@@ -51,7 +51,6 @@ from rai.config import (
     OPENAI_API_KEY,
     RAG_RELEVANCE_THRESHOLD,
     RAG_RERANKING_MODEL,
-    RAG_TEMPLATE,
     RAG_TOP_K,
     RAG_WEB_SEARCH_CONCURRENT_REQUESTS,
     RAG_WEB_SEARCH_DOMAIN_FILTER_LIST,
@@ -311,19 +310,7 @@ async def update_rag_config(form_data: ConfigUpdateForm, user=Depends(get_admin_
             },
         },
     }
-async def get_rag_template(user=Depends(get_verified_user)):
-    return {
-        "status": True,
-        "template": app.state.config.RAG_TEMPLATE,
-    }
-async def get_query_settings(user=Depends(get_admin_user)):
-    return {
-        "status": True,
-        "template": app.state.config.RAG_TEMPLATE,
-        "k": app.state.config.TOP_K,
-        "r": app.state.config.RELEVANCE_THRESHOLD,
-        "hybrid": app.state.config.ENABLE_RAG_HYBRID_SEARCH,
-    }
+
 
 
 
