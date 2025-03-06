@@ -4,10 +4,16 @@ import numpy as np
 from F import DICT
 from pydantic import BaseModel
 
-from rai.agentic.ai_tools.image_tools.r_tools import rImageTools
-from rai.agentic.ai_tools.text_tools.r_tools import rTextTools
+# from rai.agentic.ai_tools.image_tools.r_tools import rImageTools
+# from rai.agentic.ai_tools.text_tools.r_tools import rTextTools
+# from rai.agentic.ai_tools.text_tools.text_formats import aiTextFormats
+# from rai.agentic.ai_tools.text_tools.text_functions import aiTextFunctions
+# from rai.agentic.ai_tools.text_tools.text_prompts import aiTextPrompts
 from rai.assistant.engines import OllamaEngine, OpenAiEngine, AiModels, FusedAI
 
+# from rai.agentic.ai_tools.image_tools.image_formats import aiImageFormats
+# from rai.agentic.ai_tools.image_tools.image_functions import aiImageFunctions
+# from rai.agentic.ai_tools.image_tools.image_prompts import aiImagePrompts
 
 
 class rAI:
@@ -26,10 +32,18 @@ class rAI:
     MODEL_FUNCTION = AiModels.DEFAULT_OPENAI
     MODEL_FORMAT = AiModels.DEFAULT_OPENAI
 
-    @staticmethod
-    def text_tool(name, user_prompt): return rTextTools.tool(name, user_prompt)
-    @staticmethod
-    def image_tool(name, user_prompt): return rImageTools.tool(name, user_prompt)
+    # @staticmethod
+    # def text_tool(name, user_prompt): return rTextTools.tool(name, user_prompt)
+    # @staticmethod
+    # def image_tool(name, user_prompt): return rImageTools.tool(name, user_prompt)
+    #
+    # TEXT_TOOL_PROMPTS = aiTextPrompts
+    # TEXT_TOOL_FORMATS = aiTextFormats
+    # TEXT_TOOL_FUNCTIONS = aiTextFunctions
+    #
+    # IMAGE_TOOL_PROMPTS = aiImagePrompts
+    # IMAGE_TOOL_FORMATS = aiImageFormats
+    # IMAGE_TOOL_FUNCTIONS = aiImageFunctions
 
     def __init__(self, engine_name:str='openai'):
         self.engines: Dict[str, FusedAI] = {}
@@ -107,5 +121,3 @@ class rAI:
     def set_default_model(self, model: str):
         self.DEFAULT_MODEL = model
 
-
-R = rAI('openai')

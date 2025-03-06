@@ -9,7 +9,7 @@ from typing_extensions import Any  # noqa: F401
 
 from rai.RAG.QHelp import DocumentQueryUtils
 from rai.RAG.models import VectorItem
-from rai.assistant.connectors import R
+from rai.assistant.connectors import rAI
 from rai.ingest.IngestModels import IngestLoaderDocument
 from rai.ingest.utilities.DataUtilities import ensure_metadata_is_string_for_chroma
 from rai.internal.chromadb import ChromaClient
@@ -19,6 +19,7 @@ from rai.internal.connectors import VECTOR_DB_CLIENT
 
 Log = Log("Rai Data Loader")
 
+R = rAI('openai')
 ###############################################################################
 #                Chroma (Vector-Based) Query Handler                          #
 ###############################################################################

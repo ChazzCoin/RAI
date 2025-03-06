@@ -1,10 +1,25 @@
 from rai.agentic.ai_flows.r_flows import rFlows, register_flow
-from rai.agentic.ai_plugins.curator_plugin import CuratorPlugin, TestCaller
-from rai.assistant.connectors import rAI
+from rai.agentic.ai_plugins.curator_plugin import CuratorPlugin
 from rai.internal.chromadb import ChromaClient
 from F.LOG import Log
 
 Log = Log("KnowledgeFlow")
+
+"""
+
+<public>
+"ask" : purely designed to have the AI drive the entire process.
+
+"flow" : a manual configuration that is run.
+
+"exec" : 
+
+"request" : 
+
+<private>
+"run" :
+
+"""
 
 
 @register_flow("knowledge-curator")
@@ -15,7 +30,7 @@ class rKnowledgeFlow(CuratorPlugin, ChromaClient, rFlows):
     """
     name = None
     @classmethod
-    def flow(cls, name:str, prefix:str, user_prompt:str, engine='openai'):
+    def request(cls, name:str, prefix:str, user_prompt:str, engine='openai'):
         return cls(name=name, prefix=prefix, engine=engine).decide_and_call(user_prompt)
     @classmethod
     def exec(cls, name, prefix:str, user_prompt:str, engine='openai'):
@@ -89,7 +104,7 @@ class rKnowledgeFlow(CuratorPlugin, ChromaClient, rFlows):
         item = {
             "id": doc_id,
             "text": new_text,
-            "vector": rAI('openai').embed(new_text),
+            "vector": self.R.embed(new_text),
             "metadata": {'type': 'ai modifications'}
         }
         self.upsert(self.prefix, [item])
@@ -97,5 +112,5 @@ class rKnowledgeFlow(CuratorPlugin, ChromaClient, rFlows):
 
 
 if __name__ == "__main__":
-    results = rKnowledgeFlow.flow("rai2025.1", "show the document with id 6765fcfb-68ca-41f8-a0c1-58ee67587094:0", engine='ollama')
+    results = rKnowledgeFlow.request("", "rai2025.1", "show the document with id 6765fcfb-68ca-41f8-a0c1-58ee67587094:0", engine='ollama')
     print(results)

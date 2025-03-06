@@ -1,30 +1,36 @@
 import json
 import inspect
-
 from F import LIST, DICT
-
-from rai.assistant.connectors import rAI
+from rai.internal.connectors import rAI
 from rai.internal.redis_session import RedisSession
 
 
 class CuratorPlugin(RedisSession):
+
+    data_memory = {}
     engine = 'openai'
-    ai = None
+    R = rAI('openai')
+
 
     def __init__(self, engine='openai'):
         super().__init__()
         self.engine = engine
-        self.ai = rAI(engine)
 
     @classmethod
-    def request(cls, user_prompt):
-        return cls().decide_and_call(user_prompt)
+    def ask(cls, user_prompt, **kwargs):
+        return cls().decide_and_call(user_prompt, **kwargs)
 
     def switch_engine(self, name):
-        self.ai.switch_engine(name)
+        return self.R.switch_engine(name)
+    @staticmethod
+    def attach_data(user_prompt, **kwargs):
+        return f"Attached Data: {str(kwargs)}\nUser Prompt: {user_prompt}"
+    def attach_data_memory(self, user_prompt, **kwargs):
+        return f"Attached Data: {str(self.data_memory)}\n{str(kwargs)}\nUser Prompt: {user_prompt}"
+
     def get_functions_map(self):
         """
-        Inspect the instance for callable public methods (excluding methods starting with an underscore)
+        Inspect the class for callable public methods (excluding methods starting with an underscore)
         and returns a list of dictionaries for each function formatted in a JSON-schema style:
 
         {
@@ -42,7 +48,8 @@ class CuratorPlugin(RedisSession):
         }
         """
         functions = []
-        for name, member in inspect.getmembers(self, predicate=inspect.ismethod):
+        # Inspect the class to include static methods.
+        for name, member in inspect.getmembers(self.__class__, predicate=inspect.isfunction):
             if name.startswith("_"):
                 continue  # Skip private or built-in methods
 
@@ -53,6 +60,7 @@ class CuratorPlugin(RedisSession):
             required = []
 
             for param_name, param in sig.parameters.items():
+                # Static methods do not have a "self" parameter.
                 if param_name == "self":
                     continue
 
@@ -105,7 +113,6 @@ class CuratorPlugin(RedisSession):
         return """
             Based on the User Prompt below, determine the best Function/Tool to select and call.
         """
-
     def parse_and_call(self, json_str):
         """
         Parses a JSON string representing a function call and its arguments, then calls the corresponding method.
@@ -188,15 +195,19 @@ class CuratorPlugin(RedisSession):
         except Exception as e:
             # Here you might want to log the error details in a production environment.
             raise e
-
     def decide_function(self, user_prompt):
         tools = self.get_json_tools()
-        decision = self.ai.generate_function(user=user_prompt, system=self.system_prompt(), functions=tools,
-                                                 raw_result=True)
+        decision = self.R.generate_function(
+            user=user_prompt,
+            system=self.system_prompt(),
+            functions=tools,
+            raw_result=True
+        )
         print("Curator Decision:", decision)
         return decision
-    def decide_and_call(self, user_prompt):
-        result = self.decide_function(user_prompt)
+    def decide_and_call(self, user_prompt, **kwargs):
+        merged_user_prompt = self.attach_data(user_prompt, **kwargs)
+        result = self.decide_function(merged_user_prompt)
         call_result = self.parse_and_call(result)
         print("Curator Functon Call Result:", call_result)
         return call_result

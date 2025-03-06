@@ -1,6 +1,10 @@
 
 import threading
 from abc import abstractmethod, ABC
+
+from rai.agentic.ai_tools.image_tools.image_formats import aiImageFormats
+from rai.agentic.ai_tools.image_tools.image_functions import aiImageFunctions
+from rai.agentic.ai_tools.image_tools.image_prompts import aiImagePrompts
 from rai.assistant.connectors import rAI
 from rai.ingest.utilities.TextUtils import TextProcessor
 
