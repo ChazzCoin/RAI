@@ -1,6 +1,4 @@
-from typing import overload
 import redis, json, os
-from torch.cuda.nccl import unique_id
 
 from F.LOG import Log
 Log = Log("Redis Database Client")
@@ -11,17 +9,10 @@ redis_pass = os.environ.get("REDIS_DB_PASSWORD", None) # "local" -OR- os.environ
 redis_host = os.environ.get("REDIS_DB_HOST", "192.168.1.6")
 redis_port = int(os.environ.get("REDIS_DB_PORT", 6379))
 
-class RedisClient:
+class RedisDB:
     redis_client: redis.client = None
 
     def __init__(self, db:int=redis_name):
-        """
-        Initialize the Redis client.
-        :param host: Redis server hostname (default: 'localhost')
-        :param port: Redis server port (default: 6379)
-        :param db: Redis database index (default: 0)
-        :param password: Password for Redis server (default: None)
-        """
         try:
             self.host = redis_host
             self.port = redis_port
@@ -30,22 +21,17 @@ class RedisClient:
             self.connect()
         except Exception as e:
             Log.e(e)
-
-    def ping(self):
-        return self.redis_client.ping()
-
-    def is_connected(self):
-        return self.ping()
-
-    def get_keys_by_prefix(self, prefix):
-        return self.keys(f"{prefix}*")
-
-    def keys(self, query):
-        return self.redis_client.keys(query)
-
+    def ping(self): return self.redis_client.ping()
+    def is_connected(self): return self.ping()
+    def get_keys_by_prefix(self, prefix): return self.keys(f"{prefix}*")
+    def keys(self, query): return self.redis_client.keys(query)
     def connect(self):
         """Establish a connection to the Redis server."""
         try:
+            self.host = redis_host
+            self.port = redis_port
+            self.db = redis_name
+            self.password = redis_pass
             self.redis_client = redis.Redis(
                 host=self.host,
                 port=self.port,
@@ -57,6 +43,8 @@ class RedisClient:
             Log.s("Successfully Connected to Remote Redis Client.")
         except redis.ConnectionError as e:
             print(f"Failed to connect to Remote Redis Client: {e}")
+
+class RedisClient(RedisDB):
 
     def set_key(self, key, value, ttl=None):
         """

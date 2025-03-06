@@ -7,5 +7,4 @@ from rai.ingest.loaders.rai_loaders import RaiMetadataLoader
 from rai.ingest.loaders.rai_loaders import RawTextDataLoader
 from rai.ingest.loaders.rai_loaders import TableDataLoader
 from rai.ingest.loaders.rai_loaders import VisionDataLoader
-from rai.ingest.loaders.rai_loaders import WebLoader
 from rai.ingest.loaders.rai_loaders import WordDocDataLoader

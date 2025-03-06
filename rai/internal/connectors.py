@@ -3,6 +3,8 @@ from rai.internal.redis_ext import RaiCache
 from rai.internal.registries import RaiRegistry
 from rai.internal.models.connectors import PostgresTables
 
+
+
 """ DATABASES """
 VECTOR_DB_CLIENT = Q()
 REDIS_DB_CLIENT_0 = RaiCache(db=0)

@@ -1,11 +1,11 @@
 import json
 from F import DICT
 
+from rai.agentic.BaseLoaders_dep import register_loader
 from rai.ingest.loaders.rai_loaders.BaseLoad import RaiBaseLoader, IngestLoaderDocument
 from rai.ingest.loaders.rai_loaders.Utils import ensure_string
 from F.LOG import Log
 
-from rai.raigents.base.BaseLoaders import register_loader
 
 Log = Log("JSONDataLoader")
 

@@ -104,7 +104,8 @@ class rTextTools(ABC, rAI, TextProcessor):
 
     @classmethod
     def get_registry(cls): return AGENT_REGISTRY
-
+    @classmethod
+    def get_tool_names(cls): return list(AGENT_REGISTRY.keys())
     @classmethod
     def tool(cls, name: str, user_prompt: str= "", system_prompt: str=None, sub=False):
         agent_classes = AGENT_REGISTRY.get(name)
@@ -425,9 +426,11 @@ def mains(*names:str, user_prompt):
         print(results)
 
 if __name__ == "__main__":
-    from rai.ingest.utilities.text_data import schedule_text
+    # from rai.ingest.utilities.text_data import schedule_text
     user_prompt = ""
-    mains("text_sentiment", user_prompt=schedule_text)
+    # mains("text_sentiment", user_prompt=schedule_text)
+    names = rTextTools.get_tool_names()
+    print(names)
     # asyncio.run(
     #     main(
     #         name="objective",

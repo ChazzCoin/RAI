@@ -2,12 +2,12 @@ import threading
 import json
 from typing import Callable
 from redis.client import PubSub
-from rai.internal.redis_db import RedisClient
+from rai.internal.redis_db import RedisDB
 
 from F.LOG import Log
 Log = Log("Redis Messenger Client")
 
-class PluginPubSub(RedisClient):
+class PluginPubSub(RedisDB):
     pubsub: PubSub = None
     subscriber_threads = {}
 

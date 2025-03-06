@@ -4,19 +4,24 @@ import inspect
 from F import LIST, DICT
 
 from rai.assistant.connectors import rAI
+from rai.internal.redis_session import RedisSession
 
 
-class FunctionCallPlugin:
+class CuratorPlugin(RedisSession):
     engine = 'openai'
     ai = None
 
     def __init__(self, engine='openai'):
+        super().__init__()
         self.engine = engine
         self.ai = rAI(engine)
 
+    @classmethod
+    def request(cls, user_prompt):
+        return cls().decide_and_call(user_prompt)
+
     def switch_engine(self, name):
         self.ai.switch_engine(name)
-
     def get_functions_map(self):
         """
         Inspect the instance for callable public methods (excluding methods starting with an underscore)
@@ -90,51 +95,16 @@ class FunctionCallPlugin:
             }
             functions.append(function_json)
         return functions
-
     def get_json_tools(self) -> [dict]:
         """
         Returns a JSON string that describes all tool-callable functions available on this instance.
         The output can be sent to an AI tool to describe what function calls are available.
         """
         return self.get_functions_map()
-
     def system_prompt(self):
         return """
             Based on the User Prompt below, determine the best Function/Tool to select and call.
         """
-
-    def parse_and_call1(self, json_str):
-        """
-        Parses a JSON string representing a function call and its arguments, then calls the corresponding method.
-
-        Expected JSON format:
-        {
-          "name": "function_name",
-          "arguments": {
-              "param1": value1,
-              "param2": value2,
-              ...
-          }
-        }
-
-        Returns the result of the function call.
-        """
-        if type(json_str) in [list]:
-            temp = LIST.get(0, json_str, "browse_documents")
-            data = DICT.get("function", temp, None)
-
-        func_name = data.name
-        arguments = json.loads(data.arguments)
-
-        # Ensure the function exists on the instance
-        if not hasattr(self, func_name):
-            raise AttributeError(f"Function '{func_name}' not found.")
-        func = getattr(self, func_name)
-        if not callable(func):
-            raise AttributeError(f"'{func_name}' is not callable.")
-
-        # Call the function with the provided arguments (assumes arguments is a dict)
-        return func(**arguments)
 
     def parse_and_call(self, json_str):
         """
@@ -219,20 +189,21 @@ class FunctionCallPlugin:
             # Here you might want to log the error details in a production environment.
             raise e
 
-    def decide_function_to_call(self, user_prompt):
+    def decide_function(self, user_prompt):
         tools = self.get_json_tools()
-        return self.ai.generate_function(user=user_prompt, system=self.system_prompt(), functions=tools,
+        decision = self.ai.generate_function(user=user_prompt, system=self.system_prompt(), functions=tools,
                                                  raw_result=True)
+        print("Curator Decision:", decision)
+        return decision
     def decide_and_call(self, user_prompt):
-        result = self.decide_function_to_call(user_prompt)
+        result = self.decide_function(user_prompt)
         call_result = self.parse_and_call(result)
+        print("Curator Functon Call Result:", call_result)
         return call_result
-
-
 
 # Example of a child class inheriting from FunctionToolCaller
 
-class TestCaller(FunctionCallPlugin):
+class TestCaller(CuratorPlugin):
     def greet(self, name: str, punctuation: str = "!"):
         """Return a greeting message."""
         return f"Hello, {name}{punctuation}"

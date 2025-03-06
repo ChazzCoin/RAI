@@ -4,8 +4,9 @@ import os
 from F import DICT
 from F.LOG import Log
 from jsonlines import jsonlines
+
+from rai.agentic.BaseLoaders_dep import register_loader
 from rai.ingest.loaders.rai_loaders.BaseLoad import RaiBaseLoader, IngestLoaderDocument
-from rai.raigents.base.BaseLoaders import register_loader
 
 Log = Log("JSONLDataLoader")
 

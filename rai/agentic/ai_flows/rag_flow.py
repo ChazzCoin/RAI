@@ -3,8 +3,8 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from F import DICT, LIST
 
+from rai.agentic.ai_flows.r_flows import register_flow
 from rai.agentic.ai_tasks.query_task import RaiQueryAgentResults, rQueryTask
-from rai.agentic.ai_tools.image_tools.r_tools import rImageTools
 from rai.agentic.ai_tools.text_tools.r_tools import rTextTools
 from rai.assistant.connectors import rAI
 from rai.ingest.utilities.TextUtils import TextProcessor
@@ -35,7 +35,7 @@ def register_objective_prompt(name: str):
         return wrapper
     return decorator
 
-
+@register_flow("rag")
 class rRagFlow(ABC, rAI, TextProcessor):
     name = None
     first = []
@@ -53,6 +53,14 @@ class rRagFlow(ABC, rAI, TextProcessor):
         "agentnlp": 1
     }
 
+    @classmethod
+    def exec(cls, name: str, prefix: str, user_prompt: str):
+        agent_classes = RAG_AGENT_REGISTRY.get(name)
+        if not agent_classes: return None
+        cls.name = name
+        agent_cls = agent_classes[0]
+        agent_instance = agent_cls()
+        return agent_instance.run(prefix=prefix, user_prompt=user_prompt)
     @classmethod
     def flow(cls, name: str, prefix: str, user_prompt: str):
         agent_classes = RAG_AGENT_REGISTRY.get(name)

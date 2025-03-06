@@ -1,4 +1,6 @@
 from F import DICT, LIST
+
+from rai.agentic.ai_flows.r_flows import rFlows
 from rai.ingest.files.read import read_file
 from rai.ingest.DataImport import RaiDataImporter, RaiDataImportConfig
 from rai.internal.connectors import VECTOR_DB_CLIENT
@@ -37,8 +39,29 @@ def run_import():
     importer.setup(config)
     importer.import_file(config.base_path)
 
+def main(name, prefix, user_prompt):
+    # from rai.ingest.utilities.text_data import schedule_text
+    results = rFlows.flow(
+            name=name,
+            prefix=prefix,
+            user_prompt=user_prompt
+        )
+    if type(results) in [list, tuple]:
+        for item in results:
+            print(item)
+    elif type(results) in [dict]:
+        for item in results.items():
+            print(item)
+    else:
+        print(results)
 
-if __name__ == '__main__':
-    run_import()
+
+if __name__ == "__main__":
+    from rai.ingest.utilities.text_data import schedule_text
+    user_prompt = "I wanna see the last 10 documents."
+    main("knowledge_flow", prefix="rai2025.1", user_prompt=user_prompt)
+
+# if __name__ == '__main__':
+#     run_import()
     # get_all("pcsc2025.3.web.locations")
     # list_all_collections_by_prefix("pcsc2025", "3")

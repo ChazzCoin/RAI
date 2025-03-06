@@ -1,10 +1,9 @@
 import os
-import PyPDF2
 from langchain_community.document_loaders import PDFMinerLoader
 
 from F.LOG import Log
 
-from rai.raigents.base.BaseLoaders import register_loader
+from rai.agentic.BaseLoaders_dep import register_loader
 
 Log = Log("PdfDataLoader")
 
@@ -57,17 +56,3 @@ class PdfDataLoader:
         if self.cache: return self.cache
         return self.run()
 
-    @staticmethod
-    def format_pdf(reader: PyPDF2.PdfReader) -> [str]:
-        """
-        Formats the PDF content into a list of strings,
-        each representing a page in a consistent and structured format.
-        """
-        Log.i("Formatting Pdf...")
-        formatted_pages = []
-        for page_num in range(len(reader.pages)):
-            page = reader.pages[page_num]
-            page_text = page.extract_text() if page.extract_text() else ""
-            formatted_pages.append(f"Page {page_num + 1}: {page_text}")
-
-        return formatted_pages

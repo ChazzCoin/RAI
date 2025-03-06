@@ -6,8 +6,6 @@ from pathlib import Path
 from typing import Generic, Optional, TypeVar
 from urllib.parse import urlparse
 from sqlalchemy.ext.declarative import declarative_base
-import chromadb
-import requests
 from pydantic import BaseModel
 from sqlalchemy import JSON, Column, DateTime, Integer, func
 
@@ -849,8 +847,6 @@ VECTOR_DB = os.environ.get("VECTOR_DB", "chroma")
 
 # Chroma
 CHROMA_DATA_PATH = f"{DATA_DIR}/chroma"
-CHROMA_TENANT = os.environ.get("CHROMA_TENANT", chromadb.DEFAULT_TENANT)
-CHROMA_DATABASE = os.environ.get("CHROMA_DATABASE", chromadb.DEFAULT_DATABASE)
 CHROMA_HTTP_HOST = os.environ.get("DEFAULT_CHROMA_SERVER_HOST", "localhost")
 CHROMA_HTTP_PORT = int(os.environ.get("DEFAULT_CHROMA_SERVER_PORT", "8000"))
 # Comma-separated list of header=value pairs

@@ -4,7 +4,7 @@ import docx
 from F.LOG import Log
 from langchain_community.document_loaders import Docx2txtLoader
 
-from rai.raigents.base.BaseLoaders import register_loader
+from rai.agentic.BaseLoaders_dep import register_loader
 from rai.ingest.loaders import verify_loader_data
 from rai.ingest.loaders.rai_loaders.BaseLoad import RaiBaseLoader, IngestLoaderDocument
 from rai.ingest.loaders.rai_loaders.LastResortDataLoader import LastResortDataLoader

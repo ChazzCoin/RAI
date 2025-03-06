@@ -4,11 +4,11 @@ from typing import List
 from F import LIST
 from F.LOG import Log
 
+from rai.agentic.ai_tools.text_tools.r_tools import rTextTools
+from rai.agentic.ai_tools.text_tools.text_formats import RaiMetadata
 from rai.ingest.IngestModels import IngestPage
 from rai.ingest.utilities.DataUtilities import ensure_metadata_is_string_for_chroma
 from rai.ingest.utilities.TextUtils import TextProcessor
-from rai.raigents.base.BaseTextAgents.BaseTextAgent import RaiBaseTextAgent
-from rai.raigents.base.BaseTextAgents.BaseTextFormats import RaiMetadata
 
 Log = Log("RaiLoaderDocument")
 
@@ -62,7 +62,7 @@ class RaiDocCreator(RaiBaseLoader, TextProcessor):
 
     def generate_metadata(self, content:str) -> dict:
         Log.i("Generating Metadata.")
-        metadata: RaiMetadata = RaiBaseTextAgent.tool(name='metadata', user_prompt=content)
+        metadata: RaiMetadata = rTextTools.tool(name='metadata', user_prompt=content)
         return metadata.model_dump()
 
     def are_docs_identical(self, doc1: IngestLoaderDocument, doc2: IngestLoaderDocument) -> bool:

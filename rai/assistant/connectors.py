@@ -4,7 +4,10 @@ import numpy as np
 from F import DICT
 from pydantic import BaseModel
 
+from rai.agentic.ai_tools.image_tools.r_tools import rImageTools
+from rai.agentic.ai_tools.text_tools.r_tools import rTextTools
 from rai.assistant.engines import OllamaEngine, OpenAiEngine, AiModels, FusedAI
+
 
 
 class rAI:
@@ -22,6 +25,11 @@ class rAI:
     MODEL_DEFAULT = AiModels.DEFAULT_OPENAI
     MODEL_FUNCTION = AiModels.DEFAULT_OPENAI
     MODEL_FORMAT = AiModels.DEFAULT_OPENAI
+
+    @staticmethod
+    def text_tool(name, user_prompt): return rTextTools.tool(name, user_prompt)
+    @staticmethod
+    def image_tool(name, user_prompt): return rImageTools.tool(name, user_prompt)
 
     def __init__(self, engine_name:str='openai'):
         self.engines: Dict[str, FusedAI] = {}
@@ -100,7 +108,4 @@ class rAI:
         self.DEFAULT_MODEL = model
 
 
-if __name__ == '__main__':
-    engine = rAI()
-    result = engine.tool(user='Extract the table data from this image and return the data as json objects.', system='Extract the text data from the image provided and retain its structure.', image='/Users/chazzromeo/Desktop/pcsc2024/Complex Schedule.png')
-    print(result)
+R = rAI('openai')

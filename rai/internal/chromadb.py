@@ -12,8 +12,8 @@ Log = Log("Chromadb Database Client")
 
 # Chroma
 CHROMA_DATA_PATH = f"/chroma"
-CHROMA_TENANT = os.environ.get("CHROMA_TENANT", chromadb.DEFAULT_TENANT)
-CHROMA_DATABASE = os.environ.get("CHROMA_DATABASE", chromadb.DEFAULT_DATABASE)
+CHROMA_TENANT = os.environ.get("CHROMA_TENANT", "")
+CHROMA_DATABASE = os.environ.get("CHROMA_DATABASE", "")
 CHROMA_HTTP_HOST = os.environ.get("DEFAULT_CHROMA_SERVER_HOST", "local") # "local" -OR- os.environ.get("DEFAULT_CHROMA_SERVER_HOST", "local")
 CHROMA_HTTP_PORT = int(os.environ.get("DEFAULT_CHROMA_SERVER_PORT", 8000))
 
@@ -27,9 +27,8 @@ else:
     CHROMA_HTTP_HEADERS = None
 CHROMA_HTTP_SSL = os.environ.get("CHROMA_HTTP_SSL", "false").lower() == "true"
 
-class ChromaClient:
+class ChromaDB:
     client = None
-
     def __init__(self, host=CHROMA_HTTP_HOST, port=CHROMA_HTTP_PORT):
         self.init(host, port)
 
@@ -38,8 +37,8 @@ class ChromaClient:
         if CHROMA_HTTP_HOST == "local":
             Log.w("\n--Chroma PersistentClient--\n")
             self.client = chromadb.PersistentClient(
-                tenant=chromadb.DEFAULT_TENANT,
-                database=chromadb.DEFAULT_DATABASE,
+                tenant=CHROMA_TENANT,
+                database=CHROMA_DATABASE,
             )
             Log.s("Successfully Connected to Local Chromadb Client.")
         else:
@@ -50,7 +49,7 @@ class ChromaClient:
                 headers=CHROMA_HTTP_HEADERS,
                 ssl=CHROMA_HTTP_SSL,
                 tenant=chromadb.DEFAULT_TENANT,
-                database=chromadb.DEFAULT_DATABASE,
+                database=CHROMA_DATABASE,
                 settings=Settings(allow_reset=True, anonymized_telemetry=False),
             )
             Log.w("Chroma Host:", CHROMA_HTTP_HOST)
@@ -58,6 +57,11 @@ class ChromaClient:
             Log.w("Chroma Database:", CHROMA_DATABASE)
             Log.w("Chroma Tenant:", CHROMA_TENANT)
             Log.s("Successfully Connected to Remote Chromadb Client.")
+
+class ChromaClient(ChromaDB):
+
+    def __init__(self):
+        super().__init__()
 
     def get_all_collections_by_chain(self, *collection_paths: str):
         try:
@@ -113,7 +117,7 @@ class ChromaClient:
                 }
             )
         return None
-    def search_vector(self, collection_name: str, vectors: list[list[float]], limit: int, where:dict=None) -> Optional[SearchResult]:
+    def search_vector(self, collection_name: str, vectors: list[list[float]], limit: int, where:dict=None, combined=False):
         # Search for the nearest neighbor items based on the vectors and return 'limit' number of results.
         collection = self.client.get_collection(name=collection_name)
         if collection:
@@ -129,8 +133,7 @@ class ChromaClient:
                     n_results=limit,
                     where=where,
                 )
-
-            return SearchResult(
+            getResult = SearchResult(
                 **{
                     "ids": result["ids"],
                     "distances": result["distances"],
@@ -138,6 +141,8 @@ class ChromaClient:
                     "metadatas": result["metadatas"],
                 }
             )
+            if combined: return self.combine_get_result(getResult)
+            return getResult
         return None
 
     def get(self, collection_name: str, combined=False):
@@ -160,10 +165,16 @@ class ChromaClient:
         # Insert the items into the collection, if the collection does not exist, it will be created.
         collection = self.client.get_or_create_collection(name=collection_name)
 
-        ids = [item["id"] for item in items]
-        documents = [item["text"] for item in items]
-        embeddings = [item["vector"] for item in items]
-        metadatas = [item["metadata"] for item in items]
+        if type(items[0]) in [VectorItem]:
+            ids = [item.id for item in items]
+            documents = [item.text for item in items]
+            embeddings = [item.vector for item in items]
+            metadatas = [item.metadata for item in items]
+        else:
+            ids = [item["id"] for item in items]
+            documents = [item["text"] for item in items]
+            embeddings = [item["vector"] for item in items]
+            metadatas = [item["metadata"] for item in items]
 
         batches = create_batches(
             api=self.client,
