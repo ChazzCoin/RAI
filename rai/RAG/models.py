@@ -3,7 +3,10 @@ from __future__ import annotations
 from pydantic import BaseModel
 from typing import Optional, List, Any
 
-
+class StoreDocument(BaseModel):
+    id: str
+    document: str
+    metadata: dict[str, Any]
 class VectorItem(BaseModel):
     id: str
     text: str

@@ -312,6 +312,10 @@ class AgentConfigMetadata(rTextTools):
             print(e)
             return {}
 
+@register_agent("chain-of-steps")
+class AgentConfigChainOfStepsExtractor(rTextTools):
+    def type(self): return "format"
+    def parse(self, result): return result.chain_of_steps
 
 @register_agent("form_extractor")
 class AgentConfigFormExtractor(rTextTools):
@@ -350,7 +354,14 @@ class AgentConfigIsEvent(rTextTools):
 @register_agent("is_true")
 class AgentConfigIsTrue(rTextTools):
     def type(self): return "format"
-    def parse(self, result): return result.answer
+    def parse(self, result):
+        return result.answer or False
+
+@register_agent("complete-objective")
+class AgentConfigIsTrue(rTextTools):
+    def type(self): return "generate"
+    def parse(self, result):
+        return result or "I was unable to complete the objective."
 
 @register_agent("events")
 class AgentConfigEvents(rTextTools):

@@ -1,6 +1,6 @@
 import threading
 import uuid
-from typing import Optional, List, Dict
+from typing import List, Dict
 
 from FNLP.Regex import Re
 from F import DICT, LIST

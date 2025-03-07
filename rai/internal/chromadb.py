@@ -4,8 +4,10 @@ import chromadb
 from chromadb import Settings
 from chromadb.utils.batch_utils import create_batches
 from typing import Optional, List, Union
+
+from pydantic import ValidationError
 from tqdm import tqdm
-from rai.RAG.models import VectorItem, SearchResult, GetResult
+from rai.RAG.models import VectorItem, SearchResult, GetResult, StoreDocument
 from F.LOG import Log
 
 Log = Log("Chromadb Database Client")
@@ -141,7 +143,7 @@ class ChromaClient(ChromaDB):
                     "metadatas": result["metadatas"],
                 }
             )
-            if combined: return self.combine_get_result(getResult)
+            if combined: return self.parse_from_result_to_dict(getResult)
             return getResult
         return None
 
@@ -157,7 +159,7 @@ class ChromaClient(ChromaDB):
                     "metadatas": [result["metadatas"]],
                 }
             )
-            if combined: return self.combine_get_result(getResult)
+            if combined: return self.parse_from_result_to_dict(getResult)
             return getResult
         return None
 
@@ -206,23 +208,21 @@ class ChromaClient(ChromaDB):
         if collection:
             collection.delete(ids=ids)
 
-    def reset(self):
-        # Resets the database. This will delete all collections and item entries.
-        return self.client.reset()
+    def reset(self): return self.client.reset()
 
-    def combine_get_result(self, get_result: GetResult) -> List[dict]:
-        """
-        Combines the nested lists in a GetResult instance into a single list of document objects.
+    @staticmethod
+    def parse_dict_to_store_document(doc_list: List[dict]) -> List[StoreDocument]:
+        store_documents = []
+        for doc in doc_list:
+            try:
+                store_doc = StoreDocument(**doc)
+                store_documents.append(store_doc)
+            except ValidationError as e:
+                print(f"Validation error for document {doc.get('id', 'unknown')}: {e}")
+        return store_documents
 
-        Each returned dictionary contains:
-          - 'id': The document ID.
-          - 'document': The document content.
-          - 'metadata': Associated metadata.
-
-        Assumes that get_result.ids, get_result.documents, and get_result.metadatas are lists
-        of lists and that their flattened lengths are equal.
-        """
-        # Flatten the lists (if they exist) into a single list each.
+    @staticmethod
+    def parse_from_result_to_dict(get_result: GetResult) -> List[dict]:
         flattened_ids = [item for sublist in get_result.ids for item in sublist] if get_result.ids else []
         flattened_documents = [doc for sublist in get_result.documents for doc in
                                sublist] if get_result.documents else []

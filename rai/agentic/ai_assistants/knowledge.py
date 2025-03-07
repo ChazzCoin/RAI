@@ -1,8 +1,11 @@
 import time
-
-from rai.agentic.ai_flows.r_flows import rFlows, register_flow
-from rai.agentic.ai_plugins.curator import rCuratorPlugin
+from typing import List
+from rai.RAG.models import StoreDocument
+from rai.agentic.ai_assistants.memory import MemoryAssistant
+from rai.agentic.ai_flows.r_flows import register_flow
+from rai.agentic.ai_plugins.assistant import rAssistantPlugin
 from F.LOG import Log
+from rai.internal.chromadb import ChromaClient
 
 Log = Log("KnowledgeFlow")
 
@@ -22,16 +25,29 @@ Log = Log("KnowledgeFlow")
 
 
 @register_flow("knowledge")
-class KnowledgeAssistant(rCuratorPlugin):
+class KnowledgeAssistant(rAssistantPlugin):
     """
     A Document Manager that extends the ChromaClient to support AI-driven document management.
     It uses a provided 'prefix' to namespace and manage documents within a specific collection.
+
+    List[dict] / Documents
+    {
+        "id": id_val,
+        "document": doc,
+        "metadata": meta
+    }
     """
     assistant = "knowledge"
     sub_collection: str = "pages"
+
     @classmethod
     def request(cls, prefix:str, user_prompt:str):
-        return cls(prefix=prefix).decide_and_call(user_prompt)
+        self = cls(prefix=prefix)
+        results = self.decide_and_call(user_prompt)
+        if type(results) in [list]:
+            parsed = self.safe_parse_out(results)
+            if len(parsed) > 0: return parsed
+        return results
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__()
@@ -42,10 +58,18 @@ class KnowledgeAssistant(rCuratorPlugin):
         self.prefix = f"{prefix}.{self.sub_collection}"
         Log.s(f"Document Manager initialized with prefix: {self.prefix}")
 
-    def get_all_documents(self):
+    @staticmethod
+    def safe_parse_out(results: List[dict]) -> List[StoreDocument]:
+        try:
+            return ChromaClient.parse_dict_to_store_document(results)
+        except Exception as e:
+            print(e)
+            return []
+
+    def get_all_documents(self) -> List[dict]:
         return self.rStore().get(self.prefix, combined=True)
 
-    def browse_documents(self, limit: int = None):
+    def browse_documents(self, limit: int = None) -> List[dict]:
         """
         Retrieve and format all documents from the collection into a browsable list.
         Each document is represented as a dictionary with keys: 'id', 'document', 'metadata'.
@@ -58,26 +82,22 @@ class KnowledgeAssistant(rCuratorPlugin):
         if limit is not None:
             result = result[:limit]
         return result
-    def get_document_by_id(self, doc_id="1"):
-        """
-        Retrieve a single document by its ID.
 
-        :param doc_id: The unique identifier for the document.
-        :return: A dictionary with keys 'id', 'document', 'metadata' if found, else None.
-        """
+    def get_document_by_id(self, doc_id="1") -> List[dict]:
+        """Retrieve a single document by its ID."""
         documents = self.browse_documents()
         for doc in documents:
             if doc["id"] == doc_id:
-                return doc
+                return [doc]
         Log.w(f"Document with ID '{doc_id}' not found.")
-        return None
+        return []
+
     def delete_document(self, doc_id: str="1"):
-        """
-        Delete a document from the collection based on its ID.
-        """
+        """Delete a document from the collection based on its ID."""
         Log.s(f"Attempting to delete document with ID: {doc_id}")
         self.rStore().delete(self.prefix, [doc_id])
         Log.s(f"Document with ID '{doc_id}' deleted.")
+
     def update_document(self, doc_id: str="1", new_text: str="new"):
         """
         Update an existing document with new text, vector, and optionally new metadata.

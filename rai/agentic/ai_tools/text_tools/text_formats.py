@@ -133,8 +133,16 @@ class TextsModel(BaseModel):
 class StepModel(BaseModel):
     answer: str
 @register_format("step_by_step")
-class BaseEvents(BaseModel):
+class BaseStepByStepModel(BaseModel):
     steps: List[StepModel]
+
+
+class ChainedStepModel(BaseModel):
+    order_index: int
+    step_action: str
+@register_format("chain-of-steps")
+class ChainOfStepsToolFormat(BaseModel):
+    chain_of_steps: List[ChainedStepModel]
 
 @register_format("event")
 class BaseEvent(BaseModel):

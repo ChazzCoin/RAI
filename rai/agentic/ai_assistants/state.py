@@ -1,30 +1,34 @@
-from rai.agentic.ai_exts.curator import rCuratorPlugin
-from rai.internal.redis_db import RedisDB
-
+from rai.agentic.ai_plugins.assistant import rAssistantPlugin, rAssistantWithChainOfStepsPlugin
 import json
-from typing import List, Dict, Optional
-import redis
+from typing import List, Dict
 
-redisdb = RedisDB()
-redisdb.connect()
 
-class StateAssistant(rCuratorPlugin):
+
+class StateAssistant(rAssistantWithChainOfStepsPlugin):
     """
     A robust, stateless state manager for handling agent flows with Redis as the sole source of truth.
     All methods are static so that no class instance is required; every operation loads, modifies, and
     saves state directly to Redis.
     """
 
-    @staticmethod
-    def get_redis_client() -> redis.Redis:
+    def context(self) -> str:
+        return """
+        You will already have state_id.
+        IF load_state is NONE or EMPTY: create_new_state
+        DEFAULT STATE should be: 'started'
+        IF data is required: generate_prompt_for_missing
+        IF NO data is required: attempt_to_proceed_forward
+        LAST STEP SHOULD ALWAYS BE EITHER
+         1. attempt_to_proceed_forward
+         2. generate_prompt_for_missing
         """
-        Returns a Redis client instance.
-        Adjust the connection parameters as needed for your environment.
-        """
-        return redisdb.redis_client
+
+    @classmethod
+    def request(cls, user_prompt:str, **attached_data):
+        return cls().decide_and_call(user_request=user_prompt, **attached_data)
 
     @staticmethod
-    def create_new_state(state_name: str, required_fields: List[str], state_id: Optional[str] = None) -> str:
+    def create_new_state(state_id:str, state_name: str, required_fields: List[str]) -> str:
         """
         Initialize a new state and store it in Redis.
 
@@ -33,7 +37,6 @@ class StateAssistant(rCuratorPlugin):
         :param state_id: Optional unique identifier; if not provided, a slugified state name is used.
         :return: A success message including the state_id.
         """
-        redis_client = StateAssistant.get_redis_client()
         state_id = state_id if state_id else state_name.replace(" ", "_").lower()
         state_dict = {
             "state_name": state_name,
@@ -42,63 +45,65 @@ class StateAssistant(rCuratorPlugin):
             "status": "created"
         }
         key = f"agent_state:{state_id}"
-        redis_client.set(key, json.dumps(state_dict))
-        return f"New state created with state_id '{state_id}'."
+        StateAssistant.rRedis().set(key, json.dumps(state_dict))
+        out = f"create_new_state: New state created with state_id '{state_id}' \n {state_dict}."
+        StateAssistant.log_to_chain(out)
+        return out
 
     @staticmethod
     def load_state(state_id: str) -> Dict:
-        """
-        Load the state from Redis.
-        """
-        redis_client = StateAssistant.get_redis_client()
+        """Load the state from Redis."""
         key = f"agent_state:{state_id}"
-        state_str = redis_client.get(key)
-        if state_str:
-            return json.loads(state_str)
+        state_str = StateAssistant.rRedis().get(key)
+        out = f"load_state: State has been loaded. [ Session key '{key}' ] [ {state_str} ]"
+        StateAssistant.log_to_chain(out)
+        if state_str: return json.loads(state_str)
         return {}
 
     @staticmethod
     def save_state(state_id: str, state: Dict) -> str:
-        """
-        Persist the state to Redis.
-        """
-        redis_client = StateAssistant.get_redis_client()
+        """Persist the state to Redis."""
         key = f"agent_state:{state_id}"
-        redis_client.set(key, json.dumps(state))
-        return f"State has been saved. [ Redis key '{key}' ]"
+        StateAssistant.rRedis().set(key, json.dumps(state))
+        out = f"save_state: State has been saved. [ Session key '{key}' ]"
+        StateAssistant.log_to_chain(out)
+        return out
+
 
     @staticmethod
     def is_complete(state_id: str) -> bool:
-        """
-        Check if all required fields for the given state have been provided.
-        """
+        """Check if all required fields for the given state have been provided."""
         state = StateAssistant.load_state(state_id)
         data = state.get("data", {})
         required_fields = state.get("required_fields", [])
+        out = f"is_complete: {required_fields}"
+        StateAssistant.log_to_chain(out)
         return all(field in data and data[field] is not None for field in required_fields)
 
     @staticmethod
     def missing_fields(state_id: str) -> List[str]:
-        """
-        Retrieve a list of required fields that are missing data for the given state.
-        """
+        """Retrieve a list of required fields that are missing data for the given state."""
         state = StateAssistant.load_state(state_id)
         data = state.get("data", {})
         required_fields = state.get("required_fields", "[]")
         parsed_fields = json.loads(required_fields.replace("\'", "\""))
         result = [field for field in parsed_fields if field not in data or data[field] is None]
+        out = "missing_fields: '{}'".format(", ".join(result))
+        StateAssistant.log_to_chain(out)
         return result
 
     @staticmethod
     def attach_data(state_id: str, field: str, value: str) -> str:
-        """
-        Attach data to a specific field for the given state.
-        """
+        """Attach data to a specific field for the given state."""
         state = StateAssistant.load_state(state_id)
         if not state:
-            return f"No state found with state_id '{state_id}'."
+            out = f"No state found with state_id '{state_id}'."
+            StateAssistant.log_to_chain(out)
+            return out
         if field not in state.get("required_fields", []):
-            return f"Field '{field}' is not a valid required field for state '{state.get('state_name')}'."
+            out = f"Field '{field}' is not a valid required field for state '{state.get('state_name')}'."
+            StateAssistant.log_to_chain(out)
+            return out
 
         # Update data for the field.
         data = state.get("data", {})
@@ -112,60 +117,88 @@ class StateAssistant(rCuratorPlugin):
             state["status"] = "in_progress"
 
         StateAssistant.save_state(state_id, state)
-        return f"Data for field '{field}' attached."
+        out = f"Data for field '{field}' attached."
+        StateAssistant.log_to_chain(out)
+        return out
+
+    @staticmethod
+    def update_required_fields(state_id: str, new_required_fields: List[str]) -> str:
+        """Update the required_fields of the state with the given state_id."""
+        state = StateAssistant.load_state(state_id)
+        if not state:
+            out = f"No state found with state_id '{state_id}'."
+            StateAssistant.log_to_chain(out)
+            return out
+
+        state["required_fields"] = new_required_fields
+        data = state.get("data", {})
+        # Update the status based on whether all new required fields have corresponding non-None data.
+        if all(field in data and data[field] is not None for field in new_required_fields):
+            state["status"] = "completed"
+        else:
+            state["status"] = "in_progress"
+
+        StateAssistant.save_state(state_id, state)
+        out = f"update_required_fields: Required fields updated to {new_required_fields} for state_id '{state_id}'."
+        StateAssistant.log_to_chain(out)
+        return out
 
     @staticmethod
     def generate_prompt_for_missing(state_id: str) -> str:
-        """
-        Generate a prompt listing the missing required data for the given state.
-        """
+        """Generate a prompt listing the missing required data for the given state."""
         state = StateAssistant.load_state(state_id)
         if not state:
             return "No state found!"
         missing = StateAssistant.missing_fields(state_id)
         state_name = state.get("state_name", "")
         if missing:
-            return f"Please provide the following data for state '{state_name}': {str(missing)}."
+            out = f"Please provide the following data for state '{state_name}': {str(missing)}."
+            StateAssistant.log_to_chain(out)
+            return out
         else:
-            return f"All required data has been provided for state '{state_name}'."
+            out = f"All required data has been provided for state '{state_name}'."
+            StateAssistant.log_to_chain(out)
+            return out
 
     @staticmethod
     def attempt_to_proceed_forward(state_id: str) -> str:
-        """
-        Attempt to proceed to the next state by checking for completeness.
-        Updates the status accordingly.
-        """
+        """Attempt to proceed to the next state by checking for completeness."""
         state = StateAssistant.load_state(state_id)
         if not state:
-            return f"No state found with state_id '{state_id}'."
+            out = f"No state found with state_id '{state_id}'."
+            StateAssistant.log_to_chain(out)
+            return out
 
         if all(field in state.get("data", {}) and state["data"][field] is not None
                for field in state.get("required_fields", [])):
             state["status"] = "completed"
             StateAssistant.save_state(state_id, state)
-            return f"State '{state.get('state_name')}' is complete. Proceeding to next state..."
+            out = f"State '{state.get('state_name')}' is complete. Proceeding to next state..."
+            StateAssistant.log_to_chain(out)
+            return out
         else:
             # Update status to in_progress if any data exists.
             if any(field in state.get("data", {}) for field in state.get("required_fields", [])):
                 state["status"] = "in_progress"
                 StateAssistant.save_state(state_id, state)
-            return StateAssistant.generate_prompt_for_missing(state_id)
-
+            out = StateAssistant.generate_prompt_for_missing(state_id)
+            StateAssistant.log_to_chain(out)
+            return out
 
 if __name__ == "__main__":
     # Define a sample state with required fields
     state_name = "Deep Brain Stimulation Lead Placement"
     required_fields = [
-        "Confirm Side",
-        "Confirm company",
-        "Confirm target",
-        "Confirm targeting system",
-        "Confirm nexframe array"
+        "side",
+        "company",
+        "target",
+        "targeting",
+        "nexframe"
     ]
 
     # Initialize the state manager
     # state_manager = AgentStateManager()
-    result = StateAssistant.ask("I am confirming the side to be the right side of the head.", state_id="dpslp1")
+    result = StateAssistant.request("Where do I stand currently?", state_id="raiko2")
     print(result)
     # state_manager.create_new_state(state_name, required_fields)
     #

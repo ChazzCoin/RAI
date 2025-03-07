@@ -1,12 +1,12 @@
 from typing import Optional
 
-from rai.agentic.ai_plugins.curator import rCuratorPlugin
+from rai.agentic.ai_plugins.assistant import rAssistantPlugin
 
 import json
 from datetime import datetime
 import logging
 
-class SessionAssistant(rCuratorPlugin):
+class SessionAssistant(rAssistantPlugin):
     def __init__(self):
         super().__init__()
         self.rCache().connect()

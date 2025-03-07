@@ -12,6 +12,7 @@ from F.LOG import Log
 from F.DATE import get_timestamp_str as get_current_timestamp
 
 from rai.RaiModels import RAI_MODs, getRaiModels
+from rai.agentic.ai_assistants.knowledge import KnowledgeAssistant
 from rai.agentic.ai_flows.rag_flow import rRagFlow
 from rai.agentic.ai_tasks.query_task import RaiQueryAgentResults
 from rai.assistant.ai_models import AiModels
@@ -131,7 +132,21 @@ class UserRequest:
             "user_email": self.user_email,
             "user_role": self.user_role
         }
-
+@app.route('/v1/knowledge', methods=['POST', 'OPTIONS'])
+async def query():
+    data = await request.get_data(as_text=False)
+    jbody: dict = json.loads(data.decode('utf-8'))
+    model: str = jbody.get('model')
+    parent_model = None
+    for item in RODELS:
+        if item.get('model') == model:
+            parent_model = item
+    query: str = jbody.get('query')
+    knowledge_results: RaiQueryAgentResults = KnowledgeAssistant.request(
+        prefix=parent_model.get('prefix', "pcsc2025.4"),
+        user_prompt=query
+    )
+    return jsonify({ "status": 200, "data": knowledge_results.model_dump() })
 @app.route('/v1/query', methods=['POST', 'OPTIONS'])
 async def query():
     data = await request.get_data(as_text=False)

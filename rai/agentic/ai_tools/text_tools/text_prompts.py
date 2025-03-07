@@ -33,6 +33,19 @@ class aiTextPrompts(ABC):
 @register_prompt("generate")
 def prompt_generate(): return """You are a highly professional and intelligent AI Assistant named Raiko."""
 
+@register_prompt("chain-of-steps")
+def prompt_chain_of_steps():
+    return """
+        Based on the following User Prompt, create a chained plan of ordered steps to accomplish the task.
+        Analyze each contextual group and be very concise with each step.
+    """
+
+@register_prompt("complete-objective")
+def prompt_complete_objective():
+    return """
+        Based on the following User Prompt, complete the objective, goal or answer the question based on the information provided.
+    """
+
 @register_prompt("faq_pcsc")
 def prompt_faq_pcsc():
     return """
