@@ -1,7 +1,4 @@
-import json
-from typing import List, Dict, Optional
-
-from rai.agentic.ai_plugins.curator_plugin import CuratorPlugin
+from rai.agentic.ai_exts.curator import rCuratorPlugin
 from rai.internal.redis_db import RedisDB
 
 import json
@@ -11,7 +8,7 @@ import redis
 redisdb = RedisDB()
 redisdb.connect()
 
-class AgentStateManager(CuratorPlugin, ):
+class StateAssistant(rCuratorPlugin):
     """
     A robust, stateless state manager for handling agent flows with Redis as the sole source of truth.
     All methods are static so that no class instance is required; every operation loads, modifies, and
@@ -36,7 +33,7 @@ class AgentStateManager(CuratorPlugin, ):
         :param state_id: Optional unique identifier; if not provided, a slugified state name is used.
         :return: A success message including the state_id.
         """
-        redis_client = AgentStateManager.get_redis_client()
+        redis_client = StateAssistant.get_redis_client()
         state_id = state_id if state_id else state_name.replace(" ", "_").lower()
         state_dict = {
             "state_name": state_name,
@@ -53,7 +50,7 @@ class AgentStateManager(CuratorPlugin, ):
         """
         Load the state from Redis.
         """
-        redis_client = AgentStateManager.get_redis_client()
+        redis_client = StateAssistant.get_redis_client()
         key = f"agent_state:{state_id}"
         state_str = redis_client.get(key)
         if state_str:
@@ -65,7 +62,7 @@ class AgentStateManager(CuratorPlugin, ):
         """
         Persist the state to Redis.
         """
-        redis_client = AgentStateManager.get_redis_client()
+        redis_client = StateAssistant.get_redis_client()
         key = f"agent_state:{state_id}"
         redis_client.set(key, json.dumps(state))
         return f"State has been saved. [ Redis key '{key}' ]"
@@ -75,7 +72,7 @@ class AgentStateManager(CuratorPlugin, ):
         """
         Check if all required fields for the given state have been provided.
         """
-        state = AgentStateManager.load_state(state_id)
+        state = StateAssistant.load_state(state_id)
         data = state.get("data", {})
         required_fields = state.get("required_fields", [])
         return all(field in data and data[field] is not None for field in required_fields)
@@ -85,7 +82,7 @@ class AgentStateManager(CuratorPlugin, ):
         """
         Retrieve a list of required fields that are missing data for the given state.
         """
-        state = AgentStateManager.load_state(state_id)
+        state = StateAssistant.load_state(state_id)
         data = state.get("data", {})
         required_fields = state.get("required_fields", "[]")
         parsed_fields = json.loads(required_fields.replace("\'", "\""))
@@ -97,7 +94,7 @@ class AgentStateManager(CuratorPlugin, ):
         """
         Attach data to a specific field for the given state.
         """
-        state = AgentStateManager.load_state(state_id)
+        state = StateAssistant.load_state(state_id)
         if not state:
             return f"No state found with state_id '{state_id}'."
         if field not in state.get("required_fields", []):
@@ -114,7 +111,7 @@ class AgentStateManager(CuratorPlugin, ):
         else:
             state["status"] = "in_progress"
 
-        AgentStateManager.save_state(state_id, state)
+        StateAssistant.save_state(state_id, state)
         return f"Data for field '{field}' attached."
 
     @staticmethod
@@ -122,10 +119,10 @@ class AgentStateManager(CuratorPlugin, ):
         """
         Generate a prompt listing the missing required data for the given state.
         """
-        state = AgentStateManager.load_state(state_id)
+        state = StateAssistant.load_state(state_id)
         if not state:
             return "No state found!"
-        missing = AgentStateManager.missing_fields(state_id)
+        missing = StateAssistant.missing_fields(state_id)
         state_name = state.get("state_name", "")
         if missing:
             return f"Please provide the following data for state '{state_name}': {str(missing)}."
@@ -138,21 +135,21 @@ class AgentStateManager(CuratorPlugin, ):
         Attempt to proceed to the next state by checking for completeness.
         Updates the status accordingly.
         """
-        state = AgentStateManager.load_state(state_id)
+        state = StateAssistant.load_state(state_id)
         if not state:
             return f"No state found with state_id '{state_id}'."
 
         if all(field in state.get("data", {}) and state["data"][field] is not None
                for field in state.get("required_fields", [])):
             state["status"] = "completed"
-            AgentStateManager.save_state(state_id, state)
+            StateAssistant.save_state(state_id, state)
             return f"State '{state.get('state_name')}' is complete. Proceeding to next state..."
         else:
             # Update status to in_progress if any data exists.
             if any(field in state.get("data", {}) for field in state.get("required_fields", [])):
                 state["status"] = "in_progress"
-                AgentStateManager.save_state(state_id, state)
-            return AgentStateManager.generate_prompt_for_missing(state_id)
+                StateAssistant.save_state(state_id, state)
+            return StateAssistant.generate_prompt_for_missing(state_id)
 
 
 if __name__ == "__main__":
@@ -168,7 +165,7 @@ if __name__ == "__main__":
 
     # Initialize the state manager
     # state_manager = AgentStateManager()
-    result = AgentStateManager.ask("I am confirming the side to be the right side of the head.", state_id="dpslp1")
+    result = StateAssistant.ask("I am confirming the side to be the right side of the head.", state_id="dpslp1")
     print(result)
     # state_manager.create_new_state(state_name, required_fields)
     #

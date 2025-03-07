@@ -127,7 +127,7 @@ def search_name(master_tag, terms):
     """ -> CORE SEARCH OF TAG NAME <- """
     if not is_tag(master_tag):
         return False
-    tagName = master_tag.name
+    tagName = master_tag.assistant
     tagTemp = Regex.contains_any(terms, content=tagName)
     if tagTemp:
         return "name", tagName, master_tag

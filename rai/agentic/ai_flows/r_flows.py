@@ -1,3 +1,4 @@
+from rai.agentic.ai_modules import rModule
 
 FLOW_REGISTRY = {}
 
@@ -8,7 +9,7 @@ def register_flow(name: str):
 
     return decorator
 
-class rFlows:
+class rFlows(rModule):
     name = None
 
     def __init_subclass__(cls, flow_name=None, **kwargs):
@@ -50,7 +51,7 @@ def main(name, prefix, user_prompt):
 if __name__ == "__main__":
     from rai.ingest.utilities.text_data import schedule_text
     user_prompt = "I wanna see the last 10 documents."
-    main("knowledge_flow", prefix="rai2025.1", user_prompt=user_prompt)
+    main("knowledge-curator", prefix="rai2025.1", user_prompt=user_prompt)
     # asyncio.run(
     #     main(
     #         name="objective",

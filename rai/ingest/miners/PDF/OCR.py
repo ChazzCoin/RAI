@@ -321,7 +321,7 @@ class TextRecognizer(object):
             norm_img_batch = norm_img_batch.copy()
 
             input_dict = {}
-            input_dict[self.input_tensor.name] = norm_img_batch
+            input_dict[self.input_tensor.assistant] = norm_img_batch
             for i in range(100000):
                 try:
                     outputs = self.predictor.run(None, input_dict)
@@ -433,7 +433,7 @@ class TextDetector(object):
         shape_list = np.expand_dims(shape_list, axis=0)
         img = img.copy()
         input_dict = {}
-        input_dict[self.input_tensor.name] = img
+        input_dict[self.input_tensor.assistant] = img
         for i in range(100000):
             try:
                 outputs = self.predictor.run(None, input_dict)

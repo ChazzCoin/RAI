@@ -562,9 +562,9 @@ def get_loader(filename: str, file_content_type: str, file_path: str):
 def scan_docs_dir():
     for path in Path(DOCS_DIR).rglob("./**/*"):
         try:
-            if path.is_file() and not path.name.startswith("."):
+            if path.is_file() and not path.assistant.startswith("."):
                 tags = extract_folders_after_data_docs(path)
-                filename = path.name
+                filename = path.assistant
                 file_content_type = mimetypes.guess_type(path)
 
                 f = open(path, "rb")

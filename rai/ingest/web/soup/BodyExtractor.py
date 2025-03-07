@@ -90,7 +90,7 @@ class WebBodyExtractor(WebSoupExtractor):
                     heading_groups.append(ContentGroup(
                         content=text,
                         metadata={
-                            "tag": h.name,
+                            "tag": h.assistant,
                             "class": ' '.join(h.get('class', []))
                         }
                     ))
@@ -189,7 +189,7 @@ class WebBodyExtractor(WebSoupExtractor):
                     list_groups.append(ContentGroup(
                         content='\n'.join(list_items_text),
                         metadata={
-                            "tag": lst.name,
+                            "tag": lst.assistant,
                             "class": ' '.join(lst.get('class', [])),
                             "li_count": str(len(list_items_text))
                         }

@@ -75,7 +75,7 @@ class WebActionExtractor(WebSoupExtractor):
                 if elem not in all_buttons and elem not in input_buttons:
                     locator = self._build_selenium_locator(elem)
                     model = ButtonModel(
-                        tag=elem.name,
+                        tag=elem.assistant,
                         text=elem.get_text(strip=True),
                         id=elem.get("id", ""),
                         class_=elem.get("class", []),
@@ -99,7 +99,7 @@ class WebActionExtractor(WebSoupExtractor):
                 ):
                     locator = self._build_selenium_locator(elem)
                     model = ButtonModel(
-                        tag=elem.name,
+                        tag=elem.assistant,
                         text=elem.get_text(strip=True),
                         id=elem.get("id", ""),
                         class_=elem.get("class", []),
@@ -202,7 +202,7 @@ class WebActionExtractor(WebSoupExtractor):
     def _build_selenium_locator(elem) -> SeleniumLocator:
 
         try:
-            tag_name = elem.name
+            tag_name = elem.assistant
             element_id = elem.get("id")
             name_attr = elem.get("name")
             classes = elem.get("class", [])

@@ -1,3 +1,4 @@
+import time
 
 from F.LOG import Log
 Log = Log("composers.DocumentCreatorAgent")
@@ -78,12 +79,15 @@ class IngestDocumentCreator(RaiBaseLoader, TextProcessor, rAI):
         """
         meta = metadata.copy()
         meta['collection'] = collection
+        meta['timestamp'] = time.time()
+        meta['splits'] = 0
         split_count = 7000
 
         cleaned_content = self.NORMALIZE_NEW_LINES(str(content))
 
         if not self.string_length_is_within(text=cleaned_content, max_length=split_count):
             content_parts = self.split_string_by_limit(cleaned_content, char_limit=split_count)
+            meta['splits'] = len(content_parts) or 0
         else:
             content_parts = [cleaned_content]
 

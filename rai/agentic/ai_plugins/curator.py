@@ -1,33 +1,20 @@
 import json
 import inspect
 from F import LIST, DICT
-from rai.internal.connectors import rAI
-from rai.internal.redis_session import RedisSession
+from rai.agentic.ai_modules import rModule
 
 
-class CuratorPlugin(RedisSession):
+class rCuratorPlugin(rModule):
 
-    data_memory = {}
-    engine = 'openai'
-    R = rAI('openai')
-
-
-    def __init__(self, engine='openai'):
-        super().__init__()
-        self.engine = engine
+    def __init__(self): super().__init__()
 
     @classmethod
     def ask(cls, user_prompt, **kwargs):
         return cls().decide_and_call(user_prompt, **kwargs)
 
-    def switch_engine(self, name):
-        return self.R.switch_engine(name)
     @staticmethod
     def attach_data(user_prompt, **kwargs):
         return f"Attached Data: {str(kwargs)}\nUser Prompt: {user_prompt}"
-    def attach_data_memory(self, user_prompt, **kwargs):
-        return f"Attached Data: {str(self.data_memory)}\n{str(kwargs)}\nUser Prompt: {user_prompt}"
-
     def get_functions_map(self):
         """
         Inspect the class for callable public methods (excluding methods starting with an underscore)
@@ -197,7 +184,7 @@ class CuratorPlugin(RedisSession):
             raise e
     def decide_function(self, user_prompt):
         tools = self.get_json_tools()
-        decision = self.R.generate_function(
+        decision = self.rAI().generate_function(
             user=user_prompt,
             system=self.system_prompt(),
             functions=tools,
@@ -214,7 +201,7 @@ class CuratorPlugin(RedisSession):
 
 # Example of a child class inheriting from FunctionToolCaller
 
-class TestCaller(CuratorPlugin):
+class TestCaller(rCuratorPlugin):
     def greet(self, name: str, punctuation: str = "!"):
         """Return a greeting message."""
         return f"Hello, {name}{punctuation}"

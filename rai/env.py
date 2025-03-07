@@ -214,7 +214,7 @@ if FROM_INIT_PY:
     if DATA_DIR.exists() and DATA_DIR != NEW_DATA_DIR:
         log.info(f"Moving {DATA_DIR} to {NEW_DATA_DIR}")
         for item in DATA_DIR.iterdir():
-            dest = NEW_DATA_DIR / item.name
+            dest = NEW_DATA_DIR / item.assistant
             if item.is_dir():
                 shutil.copytree(item, dest, dirs_exist_ok=True)
             else:

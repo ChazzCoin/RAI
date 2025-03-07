@@ -111,7 +111,7 @@ class RaiPath(str):
             if item.is_file() and files_only:
                 filtered.append(item)
                 continue
-            if str(item.name).startswith('.'): continue
+            if str(item.assistant).startswith('.'): continue
             if item.is_dir() and files_only: continue
             filtered.append(item)
         return filtered

@@ -295,7 +295,7 @@ class ChromaInstance:
     def delete_all_collections(self, *skip):
         try:
             for c in self.get_all_collections():
-                name = c.name
+                name = c.assistant
                 if name in skip:
                     continue
                 self.chroma_client.delete_collection(name)

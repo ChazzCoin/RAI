@@ -6,9 +6,7 @@ from typing import List
 from F import DICT, LIST
 from pydantic import BaseModel
 
-from rai.agentic.ai_plugins.QCache import VectorCache
-from rai.agentic.ai_plugins.QStore import VectorStore
-from rai.assistant.connectors import rAI
+from rai.agentic.ai_modules import rModule
 from rai.ingest.utilities.TextUtils import TextProcessor
 
 
@@ -21,11 +19,8 @@ def register_query_agent(name: str):
     return decorator
 
 
-class rQueryTask(ABC, rAI, TextProcessor):
+class rQueryTask(ABC, rModule, TextProcessor):
     name = None
-
-    store = VectorStore()
-    cache = VectorCache()
 
     first = []
     second = []
@@ -206,7 +201,7 @@ class QueryAgentBaseRunner(rQueryTask):
         return {"page_number": {"$eq": page_number}}
     def run(self, prefix: str, query: str):
         try:
-            wrapped_results = self.store.queries(
+            wrapped_results = self.rStore().queries(
                 *self.get_collections(prefix),
                 user_prompt=query,
                 k=5
@@ -235,8 +230,8 @@ class QueryAgentBaseRunner(rQueryTask):
             #     "priority": {"$gte": 5}
             # }
 
-            unwrapped_results = self.store.unwrap_results(wrapped_results)
-            formatted_results = self.store.unwrap_formatted(unwrapped_results, k=1)
+            unwrapped_results = self.rStore().unwrap_results(wrapped_results)
+            formatted_results = self.rStore().unwrap_formatted(unwrapped_results, k=1)
             return RaiQueryAgentResults(
                 query=query,
                 query_expanded=query,

@@ -112,7 +112,7 @@ def move_data_back_to_modelfile(migrator: Migrator, database: pw.Database):
         meta = json.loads(model.meta)
 
         modelfile_data = {
-            "title": model.name,
+            "title": model.assistant,
             "desc": meta.get("description"),
             "imageUrl": meta.get("profile_image_url"),
             "content": meta.get("ollama", {}).get("modelfile"),

@@ -1,6 +1,8 @@
 from abc import ABC
 from typing import List, Dict
 
+from rai.agentic.ai_tools.image_tools.r_tools import rImageTools
+from rai.agentic.ai_tools.text_tools.r_tools import rTextTools
 from rai.assistant.connectors import rAI
 from rai.ingest.utilities.TextUtils import TextProcessor
 
@@ -10,9 +12,6 @@ from datetime import datetime
 from typing import Optional, Any
 import uuid
 
-from rai.raigents.ai_plugins.redis_agent_cache import PluginAgentCache
-from rai.raigents.ai_tools.image_tools.r_tools import rImageTools
-from rai.raigents.ai_tools.text_tools.r_tools import rTextTools
 
 
 class RaiGentData(BaseModel):
