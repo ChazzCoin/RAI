@@ -8,6 +8,10 @@ rStore = VectorStore()
 rCache = VectorCache()
 
 class rModule:
+
+    @staticmethod
+    def chain_data(*data:str) -> str: return "\n".join(data)
+
     @staticmethod
     def r_engine() -> str: return rAI.CURRENT_ENGINE
     @staticmethod

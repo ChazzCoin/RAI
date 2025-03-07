@@ -247,6 +247,11 @@ class AgentConfigObjective(rTextTools):
     def type(self): return "function"
     def parse(self, result): return self.parse_function_names(result)
 
+@register_agent("objective-summary")
+class AgentConfigObjectiveSummary(rTextTools):
+    def type(self): return "generate"
+    def parse(self, result) -> str: return str(result)
+
 @register_agent("text_sentiment")
 class AgentConfigTextSentiment(rTextTools):
     def type(self): return "function"

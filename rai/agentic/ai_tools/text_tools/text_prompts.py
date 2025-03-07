@@ -38,6 +38,7 @@ def prompt_chain_of_steps():
     return """
         Based on the following User Prompt, create a chained plan of ordered steps to accomplish the task.
         Analyze each contextual group and be very concise with each step.
+        Less Steps the better, if only 1 step is needed, that is golden.
     """
 
 @register_prompt("complete-objective")
@@ -45,7 +46,12 @@ def prompt_complete_objective():
     return """
         Based on the following User Prompt, complete the objective, goal or answer the question based on the information provided.
     """
-
+@register_prompt("objective-summary")
+def prompt_objective_summary():
+    return """
+        Based on the following User Prompt, and the provided Context, determine what the Goal/Objective is.
+        Be short and concise.
+    """
 @register_prompt("faq_pcsc")
 def prompt_faq_pcsc():
     return """
