@@ -3,7 +3,7 @@ import time
 import uuid
 
 from F import LIST
-from rai.agentic.ai_plugins.assistant import rAssistantPlugin
+from rai.agentic.ai_plugins.reason import rAssistantPlugin
 from rai.agentic.ai_tools.text_tools.r_tools import rTextTools
 
 

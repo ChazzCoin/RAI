@@ -37,9 +37,17 @@ def prompt_generate(): return """You are a highly professional and intelligent A
 def prompt_chain_of_steps():
     return """
         Based on the following User Prompt, create a chained plan of ordered steps to accomplish the task.
-        Analyze each contextual group and be very concise with each step.
-        Less Steps the better, if only 1 step is needed, that is golden.
+        Less Steps the better, IF only 1 step is needed, that is golden.
+        ONLY 1 SINGLE ACTION/STEP AT A TIME **AND** should also include a function/tool call, if available.
     """
+@register_prompt("next-step")
+def prompt_next_step():
+    return """
+        BASED on the following User Prompt/Data Provided, what is the next step/action to take?.
+        ONLY 1 SINGLE ACTION/STEP 
+        INCLUDE a function/tool call, if available.
+    """
+
 
 @register_prompt("complete-objective")
 def prompt_complete_objective():

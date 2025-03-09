@@ -3,7 +3,7 @@ from typing import List
 from rai.RAG.models import StoreDocument
 from rai.agentic.ai_assistants.memory import MemoryAssistant
 from rai.agentic.ai_flows.r_flows import register_flow
-from rai.agentic.ai_plugins.assistant import rAssistantPlugin
+from rai.agentic.ai_plugins.reason import rAssistantPlugin
 from F.LOG import Log
 from rai.internal.chromadb import ChromaClient
 

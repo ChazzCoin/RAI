@@ -1,8 +1,10 @@
 
 import threading
 from abc import abstractmethod, ABC
+from typing import Type
 
 from F import DICT
+from pydantic import BaseModel
 
 from rai.agentic.ai_tools.text_tools.text_formats import aiTextFormats
 from rai.agentic.ai_tools.text_tools.text_functions import aiTextFunctions
@@ -215,6 +217,13 @@ class rTextTools(ABC, rAI, TextProcessor):
             print(f"Error: {e}")
             return None
 
+    @classmethod
+    def extraction_parser(cls, text, model: Type[BaseModel]) -> Type[BaseModel]:
+        return cls().engine.generate_format(
+            user=text,
+            system="Extract the necessary data/attributes for the provided response format.",
+            format=model
+        )
 """
 These seem to be turning into Configurations for agents.
 What they do, how they do it...what they need...etc...
@@ -332,6 +341,13 @@ class AgentConfigHerbal(rTextTools):
     def type(self): return "format"
     def parse(self, result):
         try: return result.herbs
+        except: return result
+
+@register_agent("next-step")
+class AgentConfigHerbal(rTextTools):
+    def type(self): return "format"
+    def parse(self, result):
+        try: return result.next_step_or_action
         except: return result
 @register_agent("urls")
 class AgentConfigUrls(rTextTools):

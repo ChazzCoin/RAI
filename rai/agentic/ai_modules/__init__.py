@@ -1,3 +1,5 @@
+from abc import abstractmethod
+from typing import Any
 
 from rai.agentic.ai_assistants.QCache import VectorCache
 from rai.agentic.ai_assistants.QStore import VectorStore
@@ -10,7 +12,15 @@ rCache = VectorCache()
 class rModule:
 
     @staticmethod
-    def chain_data(*data:str) -> str: return "\n".join(data)
+    @abstractmethod
+    def module_name() -> str: pass
+
+    @staticmethod
+    def chain_data(*args: Any) -> str:
+        """
+        Join provided arguments into a single string. Non-string types are converted to strings.
+        """
+        return "\n".join(str(arg) for arg in args)
 
     @staticmethod
     def r_engine() -> str: return rAI.CURRENT_ENGINE

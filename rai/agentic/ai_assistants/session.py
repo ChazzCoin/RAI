@@ -1,6 +1,6 @@
 from typing import Optional
 
-from rai.agentic.ai_plugins.assistant import rAssistantPlugin
+from rai.agentic.ai_plugins.reason import rAssistantPlugin
 
 import json
 from datetime import datetime

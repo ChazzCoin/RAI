@@ -131,11 +131,14 @@ class TextsModel(BaseModel):
 
 @register_format("step")
 class StepModel(BaseModel):
-    answer: str
+    step: str
 @register_format("step_by_step")
 class BaseStepByStepModel(BaseModel):
     steps: List[StepModel]
 
+@register_format("next-step")
+class NextStepModel(BaseModel):
+    next_step_or_action: str
 
 class ChainedStepModel(BaseModel):
     order_index: int
