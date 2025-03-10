@@ -205,6 +205,22 @@ class TextProcessor(DictComparator, StringComparator):
         return text
 
     @staticmethod
+    def ensure_within_limit(text: str, limit: int) -> str:
+        """
+        Ensures that the provided text is within the specified character limit.
+        If text exceeds the limit, it will be truncated to exactly match the limit.
+
+        Args:
+            text (str): The input string to check and potentially truncate.
+            limit (int): The maximum allowed length of the string.
+
+        Returns:
+            str: Original text if within the limit; otherwise, truncated text.
+        """
+        if limit < 0: return text
+        return text if len(text) <= limit else text[:limit]
+
+    @staticmethod
     def NORMALIZE_SPACES(text: str) -> str:
         cleaned_text = re.sub(r'\s\s+', ' ', text).strip()
         return cleaned_text

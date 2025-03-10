@@ -387,11 +387,11 @@ class rAssistantReasoningPlugin(rModule, ABC):
         self.assistant_log(f"Functon Call Result: [ {call_result} ]")
         return call_result
 
-    def ask_master_assistant(self, user_prompt: str) -> Any:
+    def ask_role_master(self, user_prompt: str) -> Any:
         """Generate a decision on which function/tool to call based on the user prompt."""
         try:
             tools = self.get_external_json_tools()
-            self.assistant_log("Asking 'Master' Assistant.")
+            self.assistant_log("Asking 'Role' Master.")
             response = self.rAI().generate_function(
                 user=user_prompt,
                 system=self.chain_data(self.assistant_system_prompt, self.assistant_objective),

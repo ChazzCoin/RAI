@@ -355,4 +355,4 @@ if __name__ == "__main__":
         status="new"
     )
 
-    StateAssistant.request("whats next?", state_id=state_id)
+    StateAssistant.request("Show me the current state breakdown...", state=obj)

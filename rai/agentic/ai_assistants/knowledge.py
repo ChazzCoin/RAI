@@ -1,10 +1,13 @@
 import time
-from typing import List
+from typing import List, Type
+
+from pydantic import BaseModel
+
 from rai.RAG.models import StoreDocument
-from rai.agentic.ai_assistants.memory import MemoryAssistant
 from rai.agentic.ai_flows.r_flows import register_flow
-from rai.agentic.ai_plugins.reason import rAssistantPlugin
 from F.LOG import Log
+
+from rai.agentic.ai_plugins.assist import rAssistantPlugin
 from rai.internal.chromadb import ChromaClient
 
 Log = Log("KnowledgeFlow")
@@ -37,6 +40,23 @@ class KnowledgeAssistant(rAssistantPlugin):
         "metadata": meta
     }
     """
+
+    @staticmethod
+    def assistant_rules() -> str:
+        return """
+        
+        """
+
+    class KnowledgeResult(BaseModel):
+        answer: str
+        prefix: str
+        documents: List[dict]
+
+
+    @staticmethod
+    def _required_model() -> Type[BaseModel]:
+        return KnowledgeAssistant.KnowledgeResult
+
     assistant = "knowledge"
     sub_collection: str = "pages"
 
@@ -115,5 +135,5 @@ class KnowledgeAssistant(rAssistantPlugin):
 
 
 if __name__ == "__main__":
-    results = KnowledgeAssistant.request("rai2025.1", "show the document with id 6765fcfb-68ca-41f8-a0c1-58ee67587094:0")
+    results = KnowledgeAssistant.request("rai2025.1", "Show me the last 10 documents.")
     print(results)

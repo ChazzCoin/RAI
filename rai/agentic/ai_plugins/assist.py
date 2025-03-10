@@ -1,9 +1,67 @@
 import json
 import inspect
+from abc import abstractmethod
+from typing import Any, Type, List
+
 from F import LIST, DICT
+from pydantic import BaseModel
+
 from rai.agentic.ai_modules import rModule
+from rai.ingest.utilities.TextUtils import TextProcessor
+
+ASSIST_LOG = []
 
 class rAssistantPlugin(rModule):
+
+    initial_request_tagged = f"<USER REQUEST> </USER REQUEST>"
+
+    class AssistResponse(BaseModel):
+        answer: str
+        data: Any
+
+    data = None
+
+    @staticmethod
+    def module_name() -> str: pass
+
+    @staticmethod
+    @abstractmethod
+    def assistant_rules() -> str:
+        """Return the assistant rules as a string."""
+        pass
+    @staticmethod
+    @abstractmethod
+    def _required_model() -> Type[BaseModel]:
+        """Return the required data model for the assistant."""
+        pass
+
+    @classmethod
+    def assistant_log(cls, *data: str) -> str:
+        """Log messages to the assistant log chain."""
+        for line in data:
+            info_message = "INFO: " + line
+            print(f"r{cls.module_name()}", info_message)
+            ASSIST_LOG.append(info_message)
+        return str(data)
+
+    @classmethod
+    def assistant_error_log(cls, *data: str) -> str:
+        """Log error messages with an 'ERROR:' prefix."""
+        for line in data:
+            error_message = "ERROR: " + line
+            print(f"r{cls.module_name()}", error_message)
+            ASSIST_LOG.append(error_message)
+        return str(data)
+
+    @staticmethod
+    def get_assistant_log() -> List[str]:
+        """Retrieve the assistant log as a list of strings."""
+        return ASSIST_LOG
+
+    @staticmethod
+    def get_assistant_log_str() -> str:
+        """Retrieve the assistant log as a single string."""
+        return str(ASSIST_LOG)
 
     def __init__(self): super().__init__()
 
@@ -186,11 +244,37 @@ class rAssistantPlugin(rModule):
             functions=tools,
             raw_result=True
         )
-        print("Curator Decision:", decision)
+        self.assistant_log(f"Decision Made: {str(decision) or 'Unable to parse decision for assistant log.'}")
         return decision
+    def generate_final_response(self) -> str:
+        """AI CALL: Attempt to establish an objective based on the provided prompt."""
+        try:
+            self.assistant_log("Generating final response for user.")
+            final_response_request = self.chain_data(
+                self.get_assistant_log_str(),
+                self.initial_request_tagged,
+            )
+            response = self.rAI().generate(
+                user=final_response_request,
+                system="You are a personal assistant, analyze the data provided, create the appropriate summarized response of what happen to send back to the user."
+            )
+            self.assistant_log("Final Response Generated", response)
+            return response
+        except Exception as e:
+            return self.assistant_error_log(f"<FINAL RESPONSE>\n Failed to generate final response with error: [ {e} ]\n</FINAL RESPONSE>")
+
     def decide_and_call(self, user_prompt, **kwargs):
-        merged_user_prompt = f"Attached Data: {kwargs}\nUser Prompt: {user_prompt}"
-        result = self.decide_function(merged_user_prompt)
+        self.initial_request_tagged = f"\n<User Prompt>\n {user_prompt} \n {kwargs} \n<User Prompt>\n"
+        self.assistant_log(f"Initial Request: {self.initial_request_tagged}")
+        result = self.decide_function(self.initial_request_tagged)
         call_result = self.parse_and_call(result)
-        print("Curator Functon Call Result:", call_result)
-        return call_result
+        for_log = TextProcessor.ensure_within_limit(str(call_result) or 'No Result', limit=1000)
+        self.assistant_log(f"Function Call Result: {for_log}")
+        if call_result:
+            self.data = call_result
+        self.assistant_log("Generating and Returning Final Response for the User.")
+        final_response = self.generate_final_response()
+        return rAssistantPlugin.AssistResponse(
+            answer=final_response,
+            data=self.data,
+        )

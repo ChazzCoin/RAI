@@ -1,13 +1,14 @@
-
 import time
 import uuid
-
 from F import LIST
-from rai.agentic.ai_plugins.reason import rAssistantPlugin
+from rai.agentic.ai_plugins.assist import rAssistantPlugin
 from rai.agentic.ai_tools.text_tools.r_tools import rTextTools
 
 
 class MemoryAssistant(rAssistantPlugin):
+
+    @staticmethod
+    def module_name() -> str: return "MemoryAssistant"
 
     @staticmethod
     def key(session_id) -> str: return f"memory.{session_id}"
@@ -25,6 +26,7 @@ class MemoryAssistant(rAssistantPlugin):
 
     @staticmethod
     def search_notes(session_id: str, user_prompt: str) -> str:
+        """ """
         query_embedding = MemoryAssistant.rAI().embed(user_prompt)
         collection_name = MemoryAssistant.key(session_id)
         results = MemoryAssistant.rStore().search_vector(
@@ -39,7 +41,8 @@ class MemoryAssistant(rAssistantPlugin):
         return top_result['document']
 
     @staticmethod
-    def remember_note(session_id: str, note:str, **attached_data):
+    def save_note(session_id: str, note:str, **attached_data):
+        """ """
         interaction_text = f"Data: {attached_data}\n Note: {note}"
         interaction_id = str(uuid.uuid4())
         collection_name = MemoryAssistant.key(session_id)
@@ -49,6 +52,7 @@ class MemoryAssistant(rAssistantPlugin):
 
     @staticmethod
     def retrieve_notes(session_id: str) -> str:
+        """ """
         collection_name = MemoryAssistant.key(session_id)
         results = MemoryAssistant.rStore().get_all(collection_name)
         if not results:
@@ -57,6 +61,7 @@ class MemoryAssistant(rAssistantPlugin):
 
     @staticmethod
     def retrieve_last_note(session_id: str) -> str:
+        """ """
         collection_name = MemoryAssistant.key(session_id)
         results = MemoryAssistant.rStore().get_all(collection_name)
         if not results:
@@ -70,8 +75,10 @@ class MemoryAssistant(rAssistantPlugin):
 
     """ LONG TERM MEMORY """
 
+
     @staticmethod
-    def search_memory(session_id: str, user_prompt: str) -> str:
+    def search_long_term_memory(session_id: str, user_prompt: str) -> str:
+        """ """
         query_embedding = MemoryAssistant.rAI().embed(user_prompt)
         collection_name = MemoryAssistant.key(session_id)
         results = MemoryAssistant.rStore().search_vector(
@@ -85,7 +92,7 @@ class MemoryAssistant(rAssistantPlugin):
         return top_result['document']
 
     @staticmethod
-    def remember(session_id: str, memory_data:str, **attached_data):
+    def save_to_long_term(session_id: str, memory_data:str, **attached_data):
         """ SAVE a General Memory """
         interaction_text = f"Data: {attached_data}\n Memory: {memory_data}"
         context_prompt = rTextTools.tool('summarize', user_prompt=interaction_text)
@@ -97,7 +104,8 @@ class MemoryAssistant(rAssistantPlugin):
         print(f"Stored interaction {interaction_id} for session {session_id}.")
 
     @staticmethod
-    def retrieve_memories(session_id: str) -> str:
+    def retrieve_from_long_term(session_id: str) -> str:
+        """ """
         collection_name = MemoryAssistant.key(session_id)
         results = MemoryAssistant.rStore().get_all(collection_name)
         if not results:
@@ -105,7 +113,8 @@ class MemoryAssistant(rAssistantPlugin):
         return results
 
     @staticmethod
-    def retrieve_last_memory(session_id: str) -> str:
+    def retrieve_last_long_term_memory(session_id: str) -> str:
+        """ """
         collection_name = MemoryAssistant.key(session_id)
         results = MemoryAssistant.rStore().get_all(collection_name)
         if not results:
@@ -121,5 +130,5 @@ class MemoryAssistant(rAssistantPlugin):
 # Example usage:
 if __name__ == "__main__":
     user_id = "user_123"
-    user_prompt = "What do i need to do on Saturday March 8th 2025?"
+    user_prompt = "What memories do you have?"
     MemoryAssistant.request(user_id, user_prompt)
