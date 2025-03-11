@@ -38,6 +38,7 @@ class NLPAssistant:
         self.nlp = None
         self.text = None
 
+
     @classmethod
     def analyze(cls, content:str) -> NLPAssistantModel:
         """

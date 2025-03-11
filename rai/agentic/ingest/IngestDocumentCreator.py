@@ -1,4 +1,4 @@
-import time
+from datetime import datetime
 
 from F.LOG import Log
 Log = Log("composers.DocumentCreatorAgent")
@@ -27,7 +27,7 @@ class IngestDocumentCreator(RaiBaseLoader, TextProcessor, rAI):
         super().__init__(file_path="")
 
     @classmethod
-    def execute(cls, page: IngestPage) -> List['IngestLoaderDocument']:
+    def execute(cls, page: IngestPage) -> IngestPage:
         self = cls()
         self.load_page(page)
         return self.run()
@@ -71,7 +71,7 @@ class IngestDocumentCreator(RaiBaseLoader, TextProcessor, rAI):
                 return True
         return False
 
-    def add_doc(self, content: str, metadata: Dict[str, Any], collection: str, split: bool = False) -> None:
+    def add_doc(self, content: str, metadata: Dict[str, Any], collection: str) -> None:
         """
         Clean the text and add a document to the appropriate collection.
         If split is True (used for the "parts" collection), only add documents
@@ -79,7 +79,7 @@ class IngestDocumentCreator(RaiBaseLoader, TextProcessor, rAI):
         """
         meta = metadata.copy()
         meta['collection'] = collection
-        meta['timestamp'] = time.time()
+        meta['timestamp'] = int(datetime.utcnow().timestamp())
         meta['splits'] = 0
         split_count = 7000
 
@@ -104,7 +104,7 @@ class IngestDocumentCreator(RaiBaseLoader, TextProcessor, rAI):
             self.cache.append(doc)
             self.documents.append(doc)
 
-    def run(self) -> List['IngestLoaderDocument']:
+    def run(self) -> IngestPage:
         """
         Combine the various fields from the IngestPage into six condensed documents:
          - pages: the full page content (even if very long)
@@ -119,14 +119,14 @@ class IngestDocumentCreator(RaiBaseLoader, TextProcessor, rAI):
 
         # --- Full page content as a single document (no splitting) ---
         Log.i("Creating full page document. -> [ pages ]")
-        self.add_doc(self.page.content, base_metadata, "pages", split=False)
+        self.add_doc(self.page.content, base_metadata, "pages")
 
         # --- Combine basic NLP fields (only those useful for embeddings/similarity) ---
         try:
             if self.page.nlp:
                 if self.page.nlp.combined:
                     Log.i("Creating combined basic NLP document. -> [ nlp ]")
-                    self.add_doc(self.page.nlp.combined, base_metadata, "nlp", split=False)
+                    self.add_doc(self.page.nlp.combined, base_metadata, "nlp")
         except Exception as e:
             Log.w(f"Error creating basic NLP document. -> [ {e} ]")
         # --- Combine FNLP fields (detailed text analytics) ---
@@ -134,7 +134,7 @@ class IngestDocumentCreator(RaiBaseLoader, TextProcessor, rAI):
             if self.page.fnlp:
                 if self.page.fnlp.combined:
                     Log.i("Creating combined FNLP document. -> [ fnlp ]")
-                    self.add_doc(self.page.fnlp.combined, base_metadata, "fnlp", split=False)
+                    self.add_doc(self.page.fnlp.combined, base_metadata, "fnlp")
         except Exception as e:
             Log.w(f"Error creating combined NLP document: {e}")
         # --- Combine NLP Agent Fields as agentnlp ---
@@ -157,7 +157,7 @@ class IngestDocumentCreator(RaiBaseLoader, TextProcessor, rAI):
             combined_agent = "\n\n".join(agent_parts)
             if combined_agent.strip():
                 Log.i("Creating combined NLP Agent document. -> [ agentnlp ]")
-                self.add_doc(combined_agent, base_metadata, "agentnlp", split=False)
+                self.add_doc(combined_agent, base_metadata, "agentnlp")
         except Exception as e:
             Log.w(f"Error creating combined Agent NLP document: {e}")
 
@@ -173,7 +173,7 @@ class IngestDocumentCreator(RaiBaseLoader, TextProcessor, rAI):
             combined_images = "\n\n".join(image_parts)
             if combined_images.strip():
                 Log.i("Creating combined Images document. -> [ images ]")
-                self.add_doc(combined_images, base_metadata, "images", split=False)
+                self.add_doc(combined_images, base_metadata, "images")
         except Exception as e:
             Log.w(f"Error creating Image document: {e}")
 
@@ -183,7 +183,7 @@ class IngestDocumentCreator(RaiBaseLoader, TextProcessor, rAI):
                 combined_tables = "\n\n".join(str(table) for table in self.page.tables)
                 if combined_tables.strip():
                     Log.i("Creating combined Tables document. -> [ tables ]")
-                    self.add_doc(combined_tables, base_metadata, "tables", split=False)
+                    self.add_doc(combined_tables, base_metadata, "tables")
         except Exception as e:
             Log.w(f"Error creating Tables document: {e}")
 

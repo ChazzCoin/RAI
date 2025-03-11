@@ -226,9 +226,7 @@ class StateAssistant(rAssistantReasoningPlugin):
         return self.assistant_log(f"State saved for key '{key}'.")
 
     def save_state(self, state: Union["StateObject", dict]) -> str:
-        """
-        Save the state to Redis. Accepts either a StateObject instance or a dictionary.
-        """
+        """Save the state to Redis. Accepts either a StateObject instance or a dictionary."""
         if isinstance(state, dict):
             try:
                 state = self.StateObject.parse_obj(state)
@@ -238,18 +236,14 @@ class StateAssistant(rAssistantReasoningPlugin):
         return self.assistant_log(f"State with state_id '{state.state_id}' saved.")
 
     def is_complete(self, state_id: str) -> bool:
-        """
-        Check if all required fields have been provided with non-empty values.
-        """
+        """Check if all required fields have been provided with non-empty values."""
         state = self.get_state(state_id)
         if not state:
             return False
         return all(value is not None and value != "" for value in state.required_fields.values())
 
     def missing_fields(self, state_id: str) -> List[str]:
-        """
-        Retrieve a list of required fields that have missing or empty data.
-        """
+        """Retrieve a list of required fields that have missing or empty data."""
         state = self.get_state(state_id)
         if not state:
             self.assistant_log(f"No state found for state_id '{state_id}' to check missing fields.")
@@ -259,9 +253,7 @@ class StateAssistant(rAssistantReasoningPlugin):
         return missing
 
     def attach_data(self, state_id: str, field: str, value: str) -> str:
-        """
-        Attach data to a specific field in required_fields and update the state status accordingly.
-        """
+        """Attach data to a specific field in required_fields and update the state status accordingly."""
         state = self.get_state(state_id)
         if not state:
             return self.assistant_log(f"No state found with state_id '{state_id}'.")
@@ -284,9 +276,7 @@ class StateAssistant(rAssistantReasoningPlugin):
         return self.assistant_log(f"Data for field '{field}' attached in state '{state.state_name}'.")
 
     def update_required_fields(self, state_id: str, new_required_fields: Union[str, Dict[str, str]]) -> str:
-        """
-        Update the required_fields dictionary for the state and recalculate completeness.
-        """
+        """Update the required_fields dictionary for the state and recalculate completeness."""
         state = self.get_state(state_id)
         if not state:
             return self.assistant_log(f"No state found with state_id '{state_id}'.")
@@ -339,14 +329,22 @@ class StateAssistant(rAssistantReasoningPlugin):
 
 if __name__ == "__main__":
     # Define a sample state with required fields
-    state_id = "raiko7"
-    state_name = "tryouts for 2025"
+    """
+    Deep Brain Stimulation Lead Placement
+    • Confirm Side
+    • Confirm company
+    • Confirm target
+    • Confirm targeting system
+    • Confirm nexframe array
+    """
+    state_id = "nora1"
+    state_name = "Deep Brain Stimulation Lead Placement"
     required_fields = {
-        "player has registered": "",
-        "player has accepted": "",
-        "player name": "",
-        "player tag": "",
-        "player email": ""
+        "side": "",
+        "company": "",
+        "target": "",
+        "targeting system": "",
+        "nexframe array": "",
     }
     obj = StateAssistant.StateObject(
         state_id=state_id,
@@ -355,4 +353,4 @@ if __name__ == "__main__":
         status="new"
     )
 
-    StateAssistant.request("Show me the current state breakdown...", state=obj)
+    StateAssistant.request("Update the side to right inner lobe", state_id=state_id)

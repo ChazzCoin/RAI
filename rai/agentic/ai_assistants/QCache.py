@@ -12,7 +12,7 @@ from rai.assistant.connectors import rAI
 from F.LOG import Log
 
 from rai.ingest.IngestModels import IngestLoaderDocument
-from rai.ingest.utilities.DataUtilities import ensure_metadata_is_string_for_chroma
+from rai.ingest.utilities.DataUtilities import ensure_metadata_format_for_chroma
 from rai.ingest.utilities.text_data import schedule_text
 from rai.internal.redis_db import RedisClient
 
@@ -74,7 +74,7 @@ class VectorCache(RedisClient, rAI, DocumentQueryUtils):
             return self.redis_client.hset(set_id, mapping={
                 "vector": self.embed_for_cache(text),
                 "text": text,
-                "metadata": str(ensure_metadata_is_string_for_chroma(meta)),
+                "metadata": str(ensure_metadata_format_for_chroma(meta)),
                 "tag": prefix
             })
         except Exception as e:
@@ -86,7 +86,7 @@ class VectorCache(RedisClient, rAI, DocumentQueryUtils):
             return self.redis_client.hset(set_id, mapping={
                 "vector": self.embed_for_cache(doc.page_content),
                 "text": doc.page_content,
-                "metadata": str(ensure_metadata_is_string_for_chroma(doc.metadata)),
+                "metadata": str(ensure_metadata_format_for_chroma(doc.metadata)),
                 "tag": prefix
             })
         except Exception as e:

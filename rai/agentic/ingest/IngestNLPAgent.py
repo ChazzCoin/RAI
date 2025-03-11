@@ -509,6 +509,16 @@ class IngestNLPAgentInjection(IngestNLPAgent):
         self.metadata_nlp()
         return self.page_passthrough(page=self.page)
 
+@register_ingest_nlp_agent_plan("store")
+class IngestNLPAgentStore(IngestNLPAgent):
+    def plan(self) -> IngestPage:
+        print("INGEST: Starting Plan [ Store ]")
+        self.page.content = self.cleaner.NORMALIZER(self.original_content)
+        self.setup_metadata()
+        self.nlp(self.original_content)
+        self.metadata_nlp()
+        return self.page_passthrough(page=self.page)
+
 @register_ingest_nlp_agent_plan("deep")
 class IngestNLPAgentInjection(IngestNLPAgent):
     def plan(self) -> IngestPage:

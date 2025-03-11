@@ -43,7 +43,7 @@ looper = asyncio.get_event_loop()
 executor = ThreadPoolExecutor(max_workers=2)
 
 @app.route('/v1/knowledge', methods=['POST', 'OPTIONS'])
-async def query():
+async def knowledge_base():
     data = await request.get_data(as_text=False)
     jbody: dict = json.loads(data.decode('utf-8'))
     model: str = jbody.get('model')
@@ -52,8 +52,8 @@ async def query():
         if item.get('model') == model:
             parent_model = item
     query: str = jbody.get('query')
-    knowledge_results: RaiQueryAgentResults = KnowledgeAssistant.request(
-        prefix=parent_model.get('prefix', "pcsc2025.4"),
+    knowledge_results = KnowledgeAssistant.request(
+        prefix=parent_model.get('collection', "pcsc2025.4"),
         user_prompt=query
     )
     return jsonify({ "status": 200, "data": knowledge_results.model_dump() })
@@ -72,7 +72,7 @@ async def query():
     # agent_results: RaiQueryAgentResults = RaiQueryAgent.execute("base", "rai2025.1", query)
     query_results: RaiQueryAgentResults = rRagFlow.flow(
         name='base',
-        prefix=parent_model.get('prefix', "pcsc2025.4"),
+        prefix=parent_model.get('collection', "pcsc2025.4"),
         user_prompt=query
     )
     return jsonify({ "status": 200, "data": query_results.model_dump() })
@@ -165,7 +165,7 @@ async def agents(idx:Optional[int]=None):
     return jsonify({ "status": 200, "data": [agent1] })
 
 if __name__ == '__main__':
-    port = 5180
+    port = 5182
     debug = False
     host = "0.0.0.0"
     print(f"Starting Bruno Server. Host={host}, Port={port}, Debug={debug}")

@@ -28,6 +28,8 @@ from hanziconv import HanziConv
 from nltk import word_tokenize
 from nltk.stem import PorterStemmer, WordNetLemmatizer
 
+import nlp.Re
+
 """
 
         DEPRECATED FOR TEXT-PROCESSOR
@@ -38,11 +40,14 @@ PROJECT_BASE = os.getenv("RAG_PROJECT_BASE") or os.getenv("RAG_DEPLOY_BASE")
 RAG_BASE = os.getenv("RAG_BASE")
 
 
-def ensure_metadata_is_string_for_chroma(dic: {}, default={}):
+def ensure_metadata_format_for_chroma(dic: {}, default={}):
     final_meta = {}
     try:
         for key, value in dic.items():
-            final_meta[str(key)] = str(value)
+            if nlp.Re.contains("timestamp", content=str(key)):
+                final_meta[str(key)] = int(value)
+            else:
+                final_meta[str(key)] = str(value)
         return final_meta
     except Exception as e:
         print(e)

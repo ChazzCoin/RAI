@@ -11,7 +11,7 @@ from rai.RAG.QHelp import DocumentQueryUtils
 from rai.RAG.models import VectorItem
 from rai.assistant.connectors import rAI
 from rai.ingest.IngestModels import IngestLoaderDocument
-from rai.ingest.utilities.DataUtilities import ensure_metadata_is_string_for_chroma
+from rai.ingest.utilities.DataUtilities import ensure_metadata_format_for_chroma
 from rai.internal.chromadb import ChromaClient
 from F.LOG import Log
 
@@ -99,7 +99,7 @@ class VectorStore(ChromaClient, DocumentQueryUtils):
                 "id": f"{str(uuid.uuid4())}:{str(idx)}",
                 "text": str(doc.page_content),
                 "vector": R.embed(text=doc.page_content),
-                "metadata": ensure_metadata_is_string_for_chroma(doc.metadata),
+                "metadata": ensure_metadata_format_for_chroma(doc.metadata),
                 "tag": prefix
             }
             collection = doc.metadata.get('collection', 'general')

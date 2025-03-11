@@ -3,8 +3,8 @@ from typing import List
 
 from F import LIST
 
-from rai.agentic.ai_plugins.QCache import VectorCache
-from rai.agentic.ai_plugins.QStore import VectorStore
+from rai.agentic.ai_assistants.QCache import VectorCache
+from rai.agentic.ai_assistants.QStore import VectorStore
 from rai.assistant.connectors import rAI
 from rai.ingest.IngestModels import IngestRecord
 from rai.ingest.loaders.rai_loaders.BaseLoad import IngestLoaderDocument
@@ -191,9 +191,9 @@ class IngestPipelineCacheDocuments(rIngestWorkFlow):
 
 if __name__ == "__main__":
     # from rai.ingest.utilities.text_data import schedule_text
-    pdf_file_path = "/Users/chazzromeo/Desktop/DocumentTestSet/LTADM.pdf"
+    pdf_file_path = "/Users/chazzromeo/Desktop/portal/docs/Neuro101.pdf"
     website = "https://www.parkcitysoccer.org/tournaments"
-    pipe = "injection"
-    prefix = 'rai2025.2'
+    pipe = "store"
+    prefix = 'rai2025.3'
     docs = rIngestWorkFlow.pipeline(name=pipe, data=pdf_file_path, prefix=prefix)
     print(docs)

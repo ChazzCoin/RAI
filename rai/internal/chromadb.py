@@ -211,6 +211,14 @@ class ChromaClient(ChromaDB):
     def reset(self): return self.client.reset()
 
     @staticmethod
+    def parse_to_store_documents(docs):
+        if type(docs) in [GetResult, SearchResult]:
+            temp = ChromaClient.parse_from_result_to_dict(docs)
+            return ChromaClient.parse_dict_to_store_document(temp)
+        else:
+            return ChromaClient.parse_dict_to_store_document(docs)
+
+    @staticmethod
     def parse_dict_to_store_document(doc_list: List[dict]) -> List[StoreDocument]:
         store_documents = []
         for doc in doc_list:
