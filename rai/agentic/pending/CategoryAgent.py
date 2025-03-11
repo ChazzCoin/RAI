@@ -41,7 +41,7 @@ class RaiCategoryAgent(ABC, rAI, TextProcessor):
 
 
 async def main(user_prompt):
-    # from rai.ingest.utilities.text_data import schedule_text
+    # from rai.pipeline.utilities.text_data import schedule_text
     results = await RaiCategoryAgent.pipeline_async(
             user_prompt=user_prompt
         )
@@ -57,7 +57,7 @@ async def main(user_prompt):
 
 
 if __name__ == "__main__":
-    # from rai.ingest.utilities.text_data import schedule_text as user_prompt
+    # from rai.pipeline.utilities.text_data import schedule_text as user_prompt
     user_prompt = "How do i register for tryouts with the soccer club?"
     asyncio.run(
         main(

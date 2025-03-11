@@ -1,4 +1,4 @@
-
+from rai.assistant.connectors import rAI
 
 """
 

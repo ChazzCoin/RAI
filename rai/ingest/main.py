@@ -40,7 +40,7 @@ def run_import():
     importer.import_file(config.base_path)
 
 def main(name, prefix, user_prompt):
-    # from rai.ingest.utilities.text_data import schedule_text
+    # from rai.pipeline.utilities.text_data import schedule_text
     results = rFlows.flow(
             name=name,
             prefix=prefix,

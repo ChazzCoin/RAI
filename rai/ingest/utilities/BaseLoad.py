@@ -6,11 +6,11 @@ from F.LOG import Log
 
 from rai.agentic.ai_tools.text_tools.r_tools import rTextTools
 from rai.agentic.ai_tools.text_tools.text_formats import RaiMetadata
-from rai.ingest.IngestModels import IngestPage
+from rai.ingest.utilities.IngestModels import IngestPage
 from rai.ingest.utilities.DataUtilities import ensure_metadata_format_for_chroma
 from rai.ingest.utilities.TextUtils import TextProcessor
 
-Log = Log("RaiLoaderDocument")
+Log = Log("IngestLoaderDocument")
 
 class IngestLoaderDocument:
     page_content:str

@@ -10,8 +10,8 @@ import nlp.Re
 import nlp.Keywords
 from nlp.ext import NLPAssistant
 from rai.agentic.ai_tools.image_tools.r_tools import rImageTools
-from rai.ingest.IngestModels import IngestBrief, IngestPage, FNLPAssistantModel, NLPAssistantModel, TextNLPAgentModel
-from rai.ingest.miners.PdfDiver import IngestPdfMiner
+from rai.ingest.utilities.IngestModels import IngestBrief, IngestPage, FNLPAssistantModel, NLPAssistantModel, TextNLPAgentModel
+from rai.ingest.miners.PdfMiner import IngestPdfMiner
 from rai.ingest.utilities.TextUtils import TextProcessor, to_sentences
 from rai.ingest.utilities.text_data import schedule_text
 from rai.agentic.ai_tools.text_tools.r_tools import rTextTools

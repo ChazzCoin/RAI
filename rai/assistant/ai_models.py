@@ -6,7 +6,7 @@ class AiModels:
     DEFAULT_OPENAI_EMBEDDING = "text-embedding-3-large"
     DEFAULT_OLLAMA_EMBEDDING = "nomic-embed-text"
 
-    DEFAULT_OPENAI = "o3-mini"
+    DEFAULT_OPENAI = "gpt-4o"
     DEFAULT_OLLAMA = "llama3.2:3b"
 
     DEFAULT_OPENAI_FUNCTION = "o3-mini"

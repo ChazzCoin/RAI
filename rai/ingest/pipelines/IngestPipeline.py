@@ -6,12 +6,12 @@ from F import LIST
 from rai.agentic.ai_assistants.QCache import VectorCache
 from rai.agentic.ai_assistants.QStore import VectorStore
 from rai.assistant.connectors import rAI
-from rai.ingest.IngestModels import IngestRecord
+from rai.ingest.utilities.IngestModels import IngestRecord
 from rai.ingest.loaders.rai_loaders.BaseLoad import IngestLoaderDocument
 from rai.ingest.utilities.TextUtils import TextProcessor
-from rai.agentic.ingest.IngestNLPAgent import IngestNLPAgent
-from rai.agentic.ingest.IngestDocumentCreator import IngestDocumentCreator
-from rai.agentic.ingest.IngestSourceAgent import IngestSourceAgent
+from rai.ingest.pipelines.IngestNLPAgent import IngestNLPAgent
+from rai.ingest.pipelines.IngestDocumentCreator import IngestDocumentCreator
+from rai.ingest.pipelines.IngestSourceAgent import IngestSourceAgent
 
 INGEST_PIPELINES = {}
 
@@ -58,14 +58,14 @@ class rIngestWorkFlow(ABC, rAI, TextProcessor):
     def run(self, data): pass
 
     def get_all_briefs(self, datas) -> {}:
-        self.briefs = IngestSourceAgent.executes(datas)
+        self.briefs = IngestSourceAgent.executes(name=self.name, datas=datas)
         return self.briefs
 
     def get_briefs(self, data) -> {}:
         if type(data) is list:
             self.get_all_briefs(data)
         else:
-            self.briefs = IngestSourceAgent.execute(data)
+            self.briefs = IngestSourceAgent.execute(name=self.name, data=data)
             return self.briefs
 
     def to_pages(self, briefs: {}) -> {}:
@@ -106,6 +106,22 @@ class IngestPipelineDocuments(rIngestWorkFlow):
         """ 4. Get All Documents """
         self.get_all_docs()
         return self.docs
+
+@register_ingest_pipeline("injection-store")
+class IngestPipelineDocuments(rIngestWorkFlow):
+    def type(self): return "ai"
+    def parse(self, result): return result
+    def run(self, data):
+        """ 1. Source Provider """
+        self.get_briefs(data)
+        """ 2. Content Agent """
+        self.to_pages(self.briefs)
+        """ 3. Document Creator """
+        self.create_and_attach_docs(self.pages)
+        """ 4. Get All Documents """
+        self.get_all_docs()
+        """ 5. Save to Storage """
+        return self.add_to_store()
 @register_ingest_pipeline("briefs")
 class IngestPipelineBriefs(rIngestWorkFlow):
     def type(self): return "briefs"
@@ -190,9 +206,9 @@ class IngestPipelineCacheDocuments(rIngestWorkFlow):
         return self.add_to_cache()
 
 if __name__ == "__main__":
-    # from rai.ingest.utilities.text_data import schedule_text
+    # from rai.pipeline.utilities.text_data import schedule_text
     pdf_file_path = "/Users/chazzromeo/Desktop/portal/docs/Neuro101.pdf"
-    website = "https://www.parkcitysoccer.org/tournaments"
+    website = "https://www.cnn.com/2025/03/10/us/mahmoud-khalil-columbia-university-israel-hnk/index.html"
     pipe = "store"
     prefix = 'rai2025.3'
     docs = rIngestWorkFlow.pipeline(name=pipe, data=pdf_file_path, prefix=prefix)

@@ -396,7 +396,7 @@ class AgentConfigRAG(rTextTools):
     def parse(self, result): return result
 
 def mains(name:str, prefix, user_prompt):
-    # from rai.ingest.utilities.text_data import schedule_text
+    # from rai.pipeline.utilities.text_data import schedule_text
     results = rRagFlow.flow(
             name=name,
             prefix=prefix,

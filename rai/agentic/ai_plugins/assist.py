@@ -22,9 +22,6 @@ class rAssistantPlugin(rModule):
     data = None
 
     @staticmethod
-    def module_name() -> str: pass
-
-    @staticmethod
     @abstractmethod
     def assistant_rules() -> str:
         """Return the assistant rules as a string."""

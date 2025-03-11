@@ -5,7 +5,7 @@ from nltk import word_tokenize, sent_tokenize, FreqDist
 from nltk.util import ngrams
 from nltk.sentiment import SentimentIntensityAnalyzer
 
-from rai.ingest.IngestModels import NLPAssistantModel
+from rai.ingest.utilities.IngestModels import NLPAssistantModel
 
 # Ensure necessary NLTK resources are available
 nltk.download("punkt", quiet=True)

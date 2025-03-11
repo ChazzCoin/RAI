@@ -36,7 +36,7 @@ class RaiContinuousAgent(ABC, rAI, TextProcessor):
 
 
 async def main(user_prompt):
-    # from rai.ingest.utilities.text_data import schedule_text
+    # from rai.pipeline.utilities.text_data import schedule_text
     results = await RaiContinuousAgent.pipeline_async(
             name="step_by_step",
             user_prompt=user_prompt,
@@ -54,7 +54,7 @@ async def main(user_prompt):
 
 
 if __name__ == "__main__":
-    # from rai.ingest.utilities.text_data import schedule_text as user_prompt
+    # from rai.pipeline.utilities.text_data import schedule_text as user_prompt
     user_prompt = "How do you build an engine?"
     asyncio.run(
         main(

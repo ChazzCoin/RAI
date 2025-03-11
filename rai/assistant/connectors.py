@@ -4,17 +4,7 @@ import numpy as np
 from F import DICT
 from pydantic import BaseModel
 
-# from rai.agentic.ai_tools.image_tools.r_tools import rImageTools
-# from rai.agentic.ai_tools.text_tools.r_tools import rTextTools
-# from rai.agentic.ai_tools.text_tools.text_formats import aiTextFormats
-# from rai.agentic.ai_tools.text_tools.text_functions import aiTextFunctions
-# from rai.agentic.ai_tools.text_tools.text_prompts import aiTextPrompts
 from rai.assistant.engines import OllamaEngine, OpenAiEngine, AiModels, FusedAI
-
-# from rai.agentic.ai_tools.image_tools.image_formats import aiImageFormats
-# from rai.agentic.ai_tools.image_tools.image_functions import aiImageFunctions
-# from rai.agentic.ai_tools.image_tools.image_prompts import aiImagePrompts
-
 
 class rAI:
     CURRENT_ENGINE = 'openai'
@@ -51,6 +41,7 @@ class rAI:
         self.switch_engine(engine_name)
 
     def initialize_engines(self):
+        if not self.engines: self.engines: Dict[str, FusedAI] = {}
         self.engines['openai'] = self.OPENAI
         self.engines['ollama'] = self.OLLAMA
 

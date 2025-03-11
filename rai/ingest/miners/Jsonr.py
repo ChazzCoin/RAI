@@ -55,20 +55,18 @@ def read_json_file(file_path):
 # for item in f:
 #     print(item["file_no"])
 
-import json
-import csv
 
 
 
+if __name__ == "__main__":
+    # Read the JSON file
+    f = read_json_file("/Users/chazzromeo/Desktop/RelayFuse_2025_2_18_10_6.json")
 
-# Read the JSON file
-f = read_json_file("/Users/chazzromeo/Desktop/RelayFuse_2025_2_18_10_6.json")
+    # Define the output CSV file path
+    csv_file_path = "/Users/chazzromeo/Desktop/RelayFuse_2025_2_18_10_6_file_numbers.csv"
 
-# Define the output CSV file path
-csv_file_path = "/Users/chazzromeo/Desktop/RelayFuse_2025_2_18_10_6_file_numbers.csv"
+    # Write the "file_no" values into a CSV file
+    with open(csv_file_path, 'w', encoding='utf-8') as csv_file:
+        csv_file.write(",".join(str(item["file_no"]) for item in f))
 
-# Write the "file_no" values into a CSV file
-with open(csv_file_path, 'w', encoding='utf-8') as csv_file:
-    csv_file.write(",".join(str(item["file_no"]) for item in f))
-
-print(f"File numbers saved to {csv_file_path}")
+    print(f"File numbers saved to {csv_file_path}")

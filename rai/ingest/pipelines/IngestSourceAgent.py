@@ -1,10 +1,9 @@
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List
 
 from F import DICT
 
 from rai.agentic.ai_tools.image_tools.r_tools import rImageTools
-from rai.ingest.miners.PdfDiver import IngestPdfMiner
+from rai.ingest.miners.PdfMiner import IngestPdfMiner
 from rai.ingest.providers.WebSourceProvider import IngestWebSourceProvider
 from rai.ingest.utilities.TextUtils import TextProcessor
 from rai.ingest.utilities.text_data import schedule_text
@@ -302,19 +301,19 @@ class IngestSourceAgent:
         form_extractor = "form_extractor"
 
     @classmethod
-    def execute(cls, data:str) -> {}:
-        return cls.load_data(data).run()
+    def execute(cls, name:str, data:str) -> {}:
+        return cls.load_data(name, data).run()
 
     @classmethod
-    def executes(cls, datas:List) -> {}:
+    def executes(cls, name:str, datas:List) -> {}:
 
-        def runner(data:str):
-            return cls.load_data(data).run()
+        def runner(name:str, data:str):
+            return cls.load_data(name, data).run()
 
         results = {}
         index = 0
         for data in datas:
-            results[data] = runner(data)
+            results[data] = runner(name, data)
             index += 1
 
         # Return the results in the original order.
@@ -324,8 +323,9 @@ class IngestSourceAgent:
         return briefs
 
     @classmethod
-    def load_data(cls, data) -> 'IngestSourceAgent':
+    def load_data(cls, name:str, data) -> 'IngestSourceAgent':
         self = cls()
+        self.name = name
         self.data_in = data
         self.data_type = self.determine_data_type(data)
         return self
@@ -333,7 +333,7 @@ class IngestSourceAgent:
     def run(self):
         if not self.data_in: return self.briefings
         if self.data_type == 'URL':
-            crawl_result = IngestWebSourceProvider.execute("injection", self.data_in)
+            crawl_result = IngestWebSourceProvider.execute(self.name, self.data_in)
             self.briefings = crawl_result.briefings
         elif self.data_type == 'PDF':
             diver = IngestPdfMiner.load_pdf(self.data_in)

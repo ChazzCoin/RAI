@@ -246,7 +246,7 @@ class QueryAgentBaseRunner(rQueryTask):
 
 
 async def main(prefix, query):
-    # from rai.ingest.utilities.text_data import schedule_text
+    # from rai.pipeline.utilities.text_data import schedule_text
     results = await rQueryTask.execute_async(
             name="base",
             prefix=prefix,

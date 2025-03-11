@@ -4,7 +4,7 @@
 # Core dependencies
 ##############################
 python-docx==1.1.2
-openpyxl==3.2.0b1
+openpyxl~=3.1.5
 
 playwright==1.50.0
 tf-playwright-stealth==1.1.1
@@ -18,9 +18,9 @@ hanziconv==0.3.2
 hypercorn==0.17.3
 uvicorn==0.30.6
 requests==2.32.3
-openai==1.61.1
-ollama==0.4.4
-quart==0.19.6
+openai~=1.65.2
+ollama~=0.4.7
+quart~=0.20.0
 quart-cors==0.7.0
 flask==3.0.3
 flask-cors==5.0.0
@@ -33,7 +33,7 @@ chromadb==0.5.11
 chroma-hnswlib==0.7.6
 python-dotenv==1.0.1
 
-redis==5.0.8
+redis~=5.2.1
 psycopg==3.2.3
 #psycopg-binary==2.9.10
 psycopg2==2.9.10
@@ -43,37 +43,37 @@ SQLAlchemy==2.0.38
 # psycopg2~=2.9.10  # Uncomment only if you must use psycopg2
 
 aiosqlite3==0.2.1
-pydantic==2.10.3
+pydantic~=2.10.6
 pydantic-core==2.27.1
 pydantic-settings==2.5.2
-pandas==2.2.2
+pandas~=2.2.3
 numpy==1.26.4
-torch==2.4.1
-transformers==4.44.2
-datasets==3.0.2
+torch~=2.6.0
+transformers~=4.49.0
+datasets~=3.3.2
 peewee==3.17.9
 peewee-migrate==1.13.0
 
 ##############################
 # Specific utility packages
 ##############################
-tiktoken==0.7.0
+tiktoken~=0.9.0
 # Use pdfminer.six (the maintained fork) instead of pdfminer:
 
 
 tldextract==5.1.3
-selenium==4.24.0
+selenium~=4.29.0
 webdriver-manager==4.0.2
-pillow==10.4.0
+pillow~=8.2.0
 weasyprint==62.3
 rdflib==6.3.2
 pytesseract==0.3.13
 validators==0.34.0
 
-langchain==0.3.2
-langchain-community==0.3.1
-langchain-core==0.3.25
-langchain-text-splitters==0.3.0
+langchain~=0.3.19
+langchain-community~=0.3.18
+langchain-core~=0.3.40
+langchain-text-splitters~=0.3.6
 
 
 PyYAML==6.0.2
@@ -81,33 +81,33 @@ PyYAML==6.0.2
 # Security, authentication, and formatting
 jwt==1.3.1
 passlib==1.7.4
-Markdown==3.3.7
+Markdown~=3.7
 
 docx2txt==0.8
 rank-bm25==0.2.2
 jsonlines==4.0.0
 unstructured==0.15.14
-tqdm==4.66.6
+tqdm~=4.67.1
 
 # Use pypdf (the modern fork) rather than pypdf2:
 #pdfminer.six>=20200517,<20250101
 
 pdfminer.six==20231228
 pypdf2==3.0.1
-pdf2image==1.17.0
-six==1.12.0
+pdf2image~=1.15.1
+six~=1.15.0
 pdfminer==20191125
 ##############################
 # Redis and related utilities
 ##############################
 
-aiohttp==3.10.11
+aiohttp~=3.11.13
 
 ##############################
 # Deep learning and NLP
 ##############################
 Colbert==0.40
-huggingface-hub==0.24.7
+huggingface-hub~=0.29.1
 faircore==5.0.2
 fairresources==5.3.0
 feedparser==6.0.11
@@ -128,7 +128,7 @@ fairnlp==5.1.0
 setuptools==68.2.0
 
 opencv-python==4.10.0.84
-onnxruntime==1.19.0
+onnxruntime~=1.19.2
 pyclipper==1.3.0.post5
 shapely==2.0.6
 scikit-learn==1.5.2
@@ -140,11 +140,16 @@ pyxnat==1.6.2
 
 pathlib==1.0.1
 beautifulsoup4==4.13.3
-psutil==6.1.1
+psutil~=7.0.0
 urllib3==1.26.20
 Crawl4AI==0.4.248
-python-pptx==0.6.23
+python-pptx~=1.0.2
 
-chardet==3.0.4
+chardet~=5.2.0
 httpx==0.27.2
-paramiko==3.5.0
+paramiko~=3.5.1
+spacy~=3.8.3
+fastapi~=0.115.9
+starlette~=0.45.3
+python-magic~=0.4.27
+psycopg2-binary~=2.9.8

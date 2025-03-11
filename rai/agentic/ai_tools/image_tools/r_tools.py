@@ -38,6 +38,31 @@ class rImageTools(ABC, rAI, TextProcessor):
         return agent_instance.run(image=image)
 
     @classmethod
+    def tools(cls, *names: str, user_prompt: str, system_prompt: str=None):
+        pipe_results = {}
+
+        def thread_runner(user_prompt, name, system_prompt):
+            agent_classes = IMAGE_AGENT_REGISTRY.get(name)
+            if not agent_classes:
+                pipe_results[name] = None
+                return
+            cls.name = name
+            agent_cls = agent_classes[0]
+            agent_instance = agent_cls()
+            pipe_results[name] = agent_instance.run(user_prompt=user_prompt, system_prompt=system_prompt)
+
+        # Create and start a thread for each collection
+        threads = []
+        for name in names:
+            thread = threading.Thread(target=thread_runner, args=(user_prompt, name, system_prompt))
+            threads.append(thread)
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        return pipe_results
+
+    @classmethod
     async def generate_async(cls, name: str, image=None):
         agent_classes = IMAGE_AGENT_REGISTRY.get(name)
         if not agent_classes: return None
@@ -200,7 +225,7 @@ class AgentVisualSentimentAnalyzer(rImageTools):
 
 
 async def main(name, image):
-    # from rai.ingest.utilities.text_data import schedule_text
+    # from rai.pipeline.utilities.text_data import schedule_text
     results = await rImageTools.generate_async(
             name=name,
             image=image
@@ -215,7 +240,7 @@ async def main(name, image):
         print(results)
 
 def mains(*names:str, image):
-    # from rai.ingest.utilities.text_data import schedule_text
+    # from rai.pipeline.utilities.text_data import schedule_text
     results = rImageTools.generates(
             *names,
             image=image
@@ -230,7 +255,7 @@ def mains(*names:str, image):
         print(results)
 
 if __name__ == "__main__":
-    # from rai.ingest.utilities.text_data import schedule_text
+    # from rai.pipeline.utilities.text_data import schedule_text
     image = "/Users/chazzromeo/Desktop/pcsc2024/Complex Schedule.png"
     # mains("form_extractor", image=image)
     results = rImageTools.tool(

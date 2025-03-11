@@ -10,7 +10,7 @@ from typing_extensions import Any  # noqa: F401
 from rai.RAG.QHelp import DocumentQueryUtils
 from rai.RAG.models import VectorItem
 from rai.assistant.connectors import rAI
-from rai.ingest.IngestModels import IngestLoaderDocument
+from rai.ingest.utilities.IngestModels import IngestLoaderDocument
 from rai.ingest.utilities.DataUtilities import ensure_metadata_format_for_chroma
 from rai.internal.chromadb import ChromaClient
 from F.LOG import Log

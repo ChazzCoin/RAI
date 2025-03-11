@@ -428,7 +428,7 @@ class AgentConfigRagQueryGenerator(rTextTools):
     def parse(self, result): return result.queries
 
 async def main(name, user_prompt):
-    # from rai.ingest.utilities.text_data import schedule_text
+    # from rai.pipeline.utilities.text_data import schedule_text
     results = await rTextTools.generate_async(
             name=name,
             user_prompt=user_prompt
@@ -443,7 +443,7 @@ async def main(name, user_prompt):
         print(results)
 
 def mains(*names:str, user_prompt):
-    # from rai.ingest.utilities.text_data import schedule_text
+    # from rai.pipeline.utilities.text_data import schedule_text
     results = rTextTools.tool(
             *names,
             user_prompt=user_prompt
@@ -458,7 +458,7 @@ def mains(*names:str, user_prompt):
         print(results)
 
 if __name__ == "__main__":
-    # from rai.ingest.utilities.text_data import schedule_text
+    # from rai.pipeline.utilities.text_data import schedule_text
     user_prompt = ""
     # mains("text_sentiment", user_prompt=schedule_text)
     names = rTextTools.get_tool_names()

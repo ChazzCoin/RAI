@@ -10,7 +10,7 @@ import asyncio
 from PIL import Image
 from abc import abstractmethod
 from F import DICT
-from rai.ingest.IngestModels import IngestBrief
+from rai.ingest.utilities.IngestModels import IngestBrief
 from rai.ingest.utilities.TextUtils import TextProcessor
 from typing import List, Optional, Dict
 from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode, CrawlResult

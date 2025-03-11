@@ -171,7 +171,7 @@ class ReferralAgentBaseRunner(rReferralFlow):
 
 
 def mains(name:str, user_prompt):
-    # from rai.ingest.utilities.text_data import schedule_text
+    # from rai.pipeline.utilities.text_data import schedule_text
     results = rReferralFlow.flow(
             name=name,
             user_prompt=user_prompt
