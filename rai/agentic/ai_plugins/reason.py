@@ -30,8 +30,6 @@ class rAssistantReasoningPlugin(rModule, mMap, mData, mAssistLog, ABC):
 
     _data = {}
 
-    def update_latest_data(self, **data): self.data.update(**data)
-
     def __init__(self):
         super().__init__()
 
@@ -69,7 +67,7 @@ class rAssistantReasoningPlugin(rModule, mMap, mData, mAssistLog, ABC):
             self.ext_documentation_tagged,
             self.assistant_rules_tagged,
             self.attached_data_tagged,
-            self.data,
+            self.get_data(),
             self.initial_request_tagged
         )
 
@@ -93,9 +91,10 @@ class rAssistantReasoningPlugin(rModule, mMap, mData, mAssistLog, ABC):
         """AI CALL: Check whether the objective has been completed based on the given prompt."""
         try:
             self.assistant_log("Checking if objective has been completed.")
+            has_data = f"FLAG FOR IF WE HAVE DATA READY FOR THE USER: [ {self.has_data()} ]"
             response = rTextTools.tool(
                 name="is_true",
-                user_prompt=self.chain_data(self.get_assistant_log_str(), self.assistant_objective),
+                user_prompt=self.chain_data(self.get_assistant_log_str(), self.assistant_objective, has_data),
                 system_prompt="Based on the data provided, have we completed the objective?",
             )
             self.assistant_log(f"Objective completion check: {response}")
@@ -152,7 +151,7 @@ class rAssistantReasoningPlugin(rModule, mMap, mData, mAssistLog, ABC):
                 self.assistant_rules_tagged,
                 self.attached_data_tagged,
                 self.get_assistant_log_str(),
-                self.data,
+                self.get_data(),
                 self.initial_request_tagged,
             )
             response = self.rAI().generate(
@@ -163,7 +162,24 @@ class rAssistantReasoningPlugin(rModule, mMap, mData, mAssistLog, ABC):
             return f"<FINAL RESPONSE>\n{response}\n</FINAL RESPONSE>"
         except Exception as e:
             return self.assistant_error_log(f"<FINAL RESPONSE>\n Failed to generate final response with error: [ {e} ]\n</FINAL RESPONSE>")
-
+    def make_action(self, action, previous_decision=None, depth=0):
+        if depth >= 10: return None
+        result = previous_decision
+        self.assistant_log(f"Attempting to Make Action: {action}")
+        if not previous_decision:
+            try:
+                result = self.ask_ai_to_decide_which_function_to_call(action)
+                self.assistant_log(f"Decision Result: {result}")
+            except Exception as e:
+                self.assistant_log(f"Decision Failure: {str(e)}")
+                return self.make_action(action, previous_decision, depth + 1)
+        try:
+            call_result = self.parse_and_call_function(result)
+            self.assistant_log(f"Function Call Result: {call_result}")
+            return self.import_new_data(call_result)
+        except Exception as e:
+            self.assistant_log(f"Function Call Failed: {str(e)}")
+            return self.make_action(action, previous_decision, depth + 1)
     def reason(self, user_request: str, **attached_data) -> Any:
         """
         1. Objective
@@ -210,32 +226,20 @@ class rAssistantReasoningPlugin(rModule, mMap, mData, mAssistLog, ABC):
             step_queue = deque(self.ask_ai_to_generate_a_request_plan() or [])
             steps_taken = 0
 
-            def make_action(action):
-                self.assistant_log(f"Action to make: {action}")
-                decision = self.ask_ai_to_decide_which_function_to_call(action)
-                self.assistant_log(f"Function Call Decision: {decision}")
-                if decision:
-                    call_result = self.parse_and_call_function(decision)
-                    if call_result: self.data = call_result
-                    self.assistant_log(f"Function Call Result: {str(call_result)}")
-                    return call_result
-                self.assistant_error_log(f"Function Call Result: NONE")
-                return None
-
             # Process the queue until it's empty or the objective is met.
             while step_queue:
                 step = step_queue.popleft()
                 steps_taken += 1
                 try:
                     action = self.tag_data("ACTION", f"{steps_taken}.{step.step_action}")
-                    make_action(action=action)
+                    self.make_action(action=action)
                     # Check if the objective is accomplished.
                     if self.ask_ai_if_objective_is_completed():
                         self.assistant_log(f"Objective completed on step [{steps_taken}]")
                         break
                     if self.ask_ai_if_action_needs_retry():
                         self.assistant_log(f"Determined action should be retried on step [{steps_taken}]")
-                        make_action(action=action)
+                        self.make_action(action=action)
                         if self.ask_ai_if_objective_is_completed():
                             self.assistant_log(f"Objective completed on step [{steps_taken}]")
                             break
@@ -249,14 +253,18 @@ class rAssistantReasoningPlugin(rModule, mMap, mData, mAssistLog, ABC):
             self.assistant_log("Final objective completion check after empty queue.")
             final_response = self.ask_ai_to_generate_final_response()
             return self.AssistResponse(
+                prefix="",
+                session_id="",
                 answer=final_response,
-                data=self.data
+                data=self.get_data()
             )
         except Exception as e:
             self.assistant_error_log(f"Overall Reasoning Error: [ {str(e)} ]")
             final_response = self.ask_ai_to_generate_final_response()
             return self.AssistResponse(
+                prefix="",
+                session_id="",
                 answer=final_response,
-                data=self.data
+                data=self.get_data()
             )
 
