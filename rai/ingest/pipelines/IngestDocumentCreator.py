@@ -1,16 +1,17 @@
 from datetime import datetime
 
 from F.LOG import Log
+
+from rai.ingest.utilities.BaseLoad import RaiBaseLoader
+
 Log = Log("composers.DocumentCreatorAgent")
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Any
 
 from rai.assistant.connectors import rAI
-from rai.ingest.utilities.IngestModels import IngestPage
-from rai.ingest.loaders.rai_loaders.BaseLoad import RaiBaseLoader, IngestLoaderDocument
+from rai.ingest.utilities.IngestModels import IngestPage, IngestLoaderDocument
 from rai.ingest.utilities.TextUtils import TextProcessor
-from rai.ingest.utilities.text_data import schedule_text
 
 class IngestDocumentCreator(RaiBaseLoader, TextProcessor, rAI):
     """
@@ -191,11 +192,3 @@ class IngestDocumentCreator(RaiBaseLoader, TextProcessor, rAI):
         Log.i(f"Total condensed documents created: {len(self.documents)}")
         self.page.loader_documents = self.documents
         return self.page
-
-
-
-
-if __name__ == "__main__":
-    agent = IngestDocumentCreator()
-    page_result = agent.execute(content=schedule_text)
-    print(page_result)

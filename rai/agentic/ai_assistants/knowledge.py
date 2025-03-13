@@ -61,8 +61,8 @@ class KnowledgeAssistant(rAssistantPlugin):
 
 
     @staticmethod
-    def _required_model() -> Type[BaseModel]:
-        return KnowledgeAssistant.KnowledgeResult
+    def _required_data_model_type() -> Type[BaseModel]:
+        return StoreDocument
 
     assistant = "knowledge"
     sub_collection: str = "pages"
@@ -107,6 +107,7 @@ class KnowledgeAssistant(rAssistantPlugin):
             self.assistant_error_log("No documents found in the collection.")
             return []
         if limit is not None:
+            if limit == 0: limit = 100
             self.assistant_log(f"Returning [ {limit} ] retrieved documents.")
             result = result[:limit]
         self.assistant_log(f"Returning [ {len(result)} ] retrieved documents.")
@@ -192,5 +193,5 @@ class KnowledgeAssistant(rAssistantPlugin):
 
 
 if __name__ == "__main__":
-    results = KnowledgeAssistant.request("rai2025.3", "What documents do you have for today, March 9th 2025?")
+    results = KnowledgeAssistant.request("rai2025.3", "Show me all documents")
     print(results)

@@ -56,7 +56,8 @@ async def knowledge_base():
         prefix=parent_model.get('collection', "pcsc2025.4"),
         user_prompt=query
     )
-    return jsonify({ "status": 200, "data": knowledge_results.model_dump() })
+    dump = knowledge_results.model_dump()
+    return jsonify({ "status": 200, "data": dump })
 
 
 @app.route('/v1/query', methods=['POST', 'OPTIONS'])
@@ -89,7 +90,7 @@ RODELS = [
         'ai_name': 'Raiko',
         'ai_flow': 'QA',
         'org_rep_type': 'Personal Customer Representative',
-        'collection': 'rai2025.1',
+        'collection': 'rai2025.5',
         'prompt': "GENERAL_PROMPT_TEMPLATE",
         'context_prompt': "context.SOCCER_CLUB_CONTEXT_EXPANDER",
         'primary_functions': "ysc_primary",

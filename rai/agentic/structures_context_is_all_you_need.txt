@@ -1,0 +1,91 @@
+
+
+**Context is the core.**
+
+-> Ingestion
+    1. Mining The Data.
+        - Using specific, low level, libraries to extract the most relevant/contextual data you can.
+        - AVOID NONSENSE. AVOID OVER-TAGGING AND OVER-MARKING-UP ON INGESTION.
+        - When mining, you just want the core contextual data. Thats it. All else, is just noise.
+    2. Analyzing The Data.
+        - Preserve Original Content as its own document.
+        - Create 'contextual enhancement' documents to help map data for better queries and contextual relevancy.
+        - NLP: Breakdown content into its natual language processing types, units and structures.
+        - NLP Agents: Generate and enhance the context. Re-writing and re-structuring the original content.
+    3. Documenting The Data.
+        - Break up documents into separate parts and force structure from intake to query.
+        - If you only get back a helper nlp document from the query, take that document and query for its parent original content document and bring it in as well...
+
+**Structure is stability.**
+
+Everything needs to be broken down into individual tasks. The more you can break something down to its core single function, the better you can then structure each step along the way.
+
+1. Generate Text Responses for textual based tasks. Responding to the user, talking to another AI, logging a message.
+    - AND EVEN THEN, I could argue, you may prefer moving some of these to formatted responses based on the task requirements.
+
+2. Format Responses for 'forcing' data types and 'forcing' structure across tasks and workflows.
+    - You may want a specific object returned for asking if a statement is 'true or false'. Sounds simple.
+        + But a normal generation of text may include more than just the True/False.
+        + You will get a String, but you really need a Boolean. Now parsing, stripping and string manipulation comes into play.
+        + Based on the language, do you need 'false' or 'False'?
+        + Creating a BaseModel with an attribute called is_true: bool and making a formatted response call will now always give you the Boolean you need.
+            + 99% of the time. This is where redundancy and proper error handling comes into play.
+
+3. Function Calling for 'making structured decisions'.
+    - Two uses cases I generally use but both come to one thing, making a decision.
+        1. Simply deciding something from a list of options. Not functions, just topics for a decision.
+            + You may want to know the sentiment for a specific blob of text, but you want a custom fine-grained sentiment analyzes.
+            + You then allow the AI to decide based on the names/description.
+            + System Prompting + function name + Description all matter.
+            + name: 'is_a_cry_baby'
+            + description: 'if the user prompts context involves complaining or crying about something.'
+        2. Taking in a list of class functions, their arguments and doc strings and then deciding which function to call and with which arguments.
+            + Making sure the function names are concise and dont blend with others.
+            + Arguments are Typed and defined and avoid generics, lists and dicts whenever possible.
+            + Doc Strings need to clearly state what the function does.
+            + Bonus: Map the entire Child/Top Level Class and create a 'Role/Assistant' that knows the overall context of the function call decision. More can be better here.
+
+
+-> Text Based Tools
+    - Text Generation
+        + Summarize Data
+    - Formatted Responses
+        + Is A True Statement
+    - Function Decisions
+        + What is the sentiment of the user prompt?
+        + Which function should be called based on the user prompt and workflow?
+
+-> Images Based Tools
+    - Text Generation
+        + Extract Text Data
+    - Formatted Responses
+        + Spreadsheet Extraction to BaseModel Representation.
+
+-> Class Assistants
+    - Request
+        + Based on the Class Context, what is the Request's Objective?
+        + Based on the Class Context and the Objective, Create a step-by-step chain of steps to accomplish the objective.
+    - Decide
+        + While steps of action are needed, feed single action to Function Decision AI Call
+    - Call
+        + Handle arguments
+        + Handle response
+    - Respond
+        + Upon completion of the action steps, generate a custom response for the user.
+
+**You avoid 'hallucinations' by writing code that simply avoids them.**
+
+* Prompt Structure/Order of things matter.
+
+1. You provide plenty of contextual information to flood the generations feed forward grouping process.
+    - Flooding with bad context will obviously do exponential harm. So tread lightly.
+2. You leave it with the 'objective'.
+    - The last thing it feeds forward is the objective on how to proceed feeding forward on its own...
+3. You only allow AI calls to do 1 specific thing. That is it.
+    - More Calls, Less Stuff.
+    - Chain the calls, allowing each call to handle only one task at a time.
+4. Filtration. Task. Filtration. Repeat or Return.
+    - Code is written to filter data in.
+    - You make specific ai task call.
+    - Code is written to filter data out.
+    - Repeat/Return

@@ -1,8 +1,7 @@
 from F import DICT, LIST
 
 from rai.agentic.ai_flows.r_flows import rFlows
-from rai.ingest.files.read import read_file
-from rai.ingest.DataImport import RaiDataImporter, RaiDataImportConfig
+from rai.ingest.utilities.DataImport import RaiDataImporter, RaiDataImportConfig
 from rai.internal.connectors import VECTOR_DB_CLIENT
 
 def delete_collects(*collections):
@@ -57,7 +56,6 @@ def main(name, prefix, user_prompt):
 
 
 if __name__ == "__main__":
-    from rai.ingest.utilities.text_data import schedule_text
     user_prompt = "I wanna see the last 10 documents."
     main("knowledge_flow", prefix="rai2025.1", user_prompt=user_prompt)
 

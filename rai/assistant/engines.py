@@ -7,7 +7,7 @@ import ollama
 from ollama import ChatResponse, EmbedResponse
 from openai import OpenAI, AsyncOpenAI
 from pydantic import BaseModel
-from rai import app
+
 from rai.assistant.Tools import find_RaiFunction
 from rai.assistant.ai_models import AiModels
 
@@ -247,6 +247,7 @@ class OpenAiEngine(FusedAI, engine="openai"):
                 return response.parsed
         except Exception as e:
             return self.fallback("generate_format", e, **{"user":user, "system":system, "format":format, "image":image })
+
     def generate_function(self, user: str, system: str, functions: [dict], image=None, raw_result=False):
         try:
             completion = self.O.chat.completions.create(

@@ -5,7 +5,7 @@ from F import LIST
 from F.LOG import Log
 from selenium.webdriver.common.by import By
 
-from rai.ingest.DataImport import RaiDataImporter
+from rai.ingest.utilities.DataImport import RaiDataImporter
 from rai.ingest.web.WebModels import FullDocumentPageAnalysisModel
 from rai.ingest.providers.WebSourceProvider import IngestWebSourceProvider
 from rai.ingest.web.driver.DriverSiteMapper import RaiWebSiteMapper

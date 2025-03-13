@@ -218,12 +218,13 @@ class rTextTools(ABC, rAI, TextProcessor):
             return None
 
     @classmethod
-    def extraction_parser(cls, text, model: Type[BaseModel]) -> Type[BaseModel]:
+    def formatter(cls, text, model: Type[BaseModel]) -> Type[BaseModel]:
         return cls().engine.generate_format(
             user=text,
             system="Extract the necessary data/attributes for the provided response format.",
             format=model
         )
+
 """
 These seem to be turning into Configurations for agents.
 What they do, how they do it...what they need...etc...

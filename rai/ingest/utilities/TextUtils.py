@@ -185,7 +185,9 @@ class TextProcessor(DictComparator, StringComparator):
     @staticmethod
     def NORMALIZE_NEW_LINES(text: str) -> str:
         if text is None: return ""
-        cleaned_text = re.sub(r'\n+', '\n', text).strip()
+        cleaned_text = text.replace("\r", "\n")
+        cleaned_text = re.sub(r'\s\s+', '\n', cleaned_text).strip()
+        cleaned_text = re.sub(r'\n+', '\n', cleaned_text).strip()
         return cleaned_text
 
     @staticmethod

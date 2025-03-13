@@ -6,8 +6,7 @@ from F import LIST
 from rai.agentic.ai_assistants.QCache import VectorCache
 from rai.agentic.ai_assistants.QStore import VectorStore
 from rai.assistant.connectors import rAI
-from rai.ingest.utilities.IngestModels import IngestRecord
-from rai.ingest.loaders.rai_loaders.BaseLoad import IngestLoaderDocument
+from rai.ingest.utilities.IngestModels import IngestRecord, IngestLoaderDocument
 from rai.ingest.utilities.TextUtils import TextProcessor
 from rai.ingest.pipelines.IngestNLPAgent import IngestNLPAgent
 from rai.ingest.pipelines.IngestDocumentCreator import IngestDocumentCreator
@@ -209,7 +208,7 @@ if __name__ == "__main__":
     # from rai.pipeline.utilities.text_data import schedule_text
     pdf_file_path = "/Users/chazzromeo/Desktop/portal/docs/Neuro101.pdf"
     website = "https://www.cnn.com/2025/03/10/us/mahmoud-khalil-columbia-university-israel-hnk/index.html"
-    pipe = "store"
-    prefix = 'rai2025.3'
+    pipe = "injection-store"
+    prefix = 'rai2025.5'
     docs = rIngestWorkFlow.pipeline(name=pipe, data=pdf_file_path, prefix=prefix)
     print(docs)

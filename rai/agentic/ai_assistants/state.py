@@ -50,7 +50,7 @@ class StateAssistant(rAssistantReasoningPlugin):
     def extract_external_object(self, text: str) -> Union[str, Any]:
         """Extract external data object using AI."""
         # Use AI to extract required state data.
-        external_object = rTextTools.extraction_parser(
+        external_object = rTextTools.formatter(
             text=text,
             model=self._required_model()
         )
@@ -63,7 +63,7 @@ class StateAssistant(rAssistantReasoningPlugin):
     def magic_update(self, text: str):
         """Extract data using AI and update the state if it exists, or create a new state if not."""
         # Use AI to extract required state data.
-        external_object = rTextTools.extraction_parser(
+        external_object = rTextTools.formatter(
             text=text,
             model=self._required_model()
         )
@@ -203,7 +203,7 @@ class StateAssistant(rAssistantReasoningPlugin):
         class StateId(BaseModel):
             state_id: str
 
-        stateId_object = rTextTools.extraction_parser(text=text, model=StateId)
+        stateId_object = rTextTools.formatter(text=text, model=StateId)
         if not stateId_object:
             return self.assistant_error_log(
                 f"Failed to extract the required data for the provided response format. [ {stateId_object} ]"
@@ -337,7 +337,7 @@ if __name__ == "__main__":
     • Confirm targeting system
     • Confirm nexframe array
     """
-    state_id = "nora1"
+    state_id = "nora2"
     state_name = "Deep Brain Stimulation Lead Placement"
     required_fields = {
         "side": "",
@@ -353,4 +353,4 @@ if __name__ == "__main__":
         status="new"
     )
 
-    StateAssistant.request("Update the side to right inner lobe", state_id=state_id)
+    StateAssistant.request("Show me the current state breakdown", state_id=state_id)

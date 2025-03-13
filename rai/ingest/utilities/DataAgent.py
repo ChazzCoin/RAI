@@ -1,6 +1,6 @@
 from rai.assistant.ai_models import AiModels
 from rai.raigents.base.BaseTextAgents.BaseTextAgent import RaiBaseTextAgent
-from rai.ingest.DataLoadIn import DataBaseProcessor
+from rai.ingest.utilities.DataLoadIn import DataBaseProcessor
 
 
 class DataProcessorAgent(DataBaseProcessor):

@@ -1,16 +1,7 @@
 import datetime
-import json
-import time
-
 import aiohttp
 from openai import OpenAI
 import os
-
-from openai.cli._models import BaseModel
-from openai.types.chat import ChatCompletion
-from F import DICT
-
-from rai.app import state
 from rai.assistant.connectors import AiModels
 
 # default_model = os.getenv("DEFAULT_OPENAI_MODEL")

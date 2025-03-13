@@ -6,20 +6,15 @@ from typing import Any, Type, List
 from F import LIST, DICT
 from pydantic import BaseModel
 
-from rai.agentic.ai_modules import rModule
+from rai.agentic.ai_modules import rModule, mData
 from rai.ingest.utilities.TextUtils import TextProcessor
 
 ASSIST_LOG = []
 
-class rAssistantPlugin(rModule):
+class rAssistantPlugin(rModule, mData):
 
     initial_request_tagged = f"<USER REQUEST> </USER REQUEST>"
 
-    class AssistResponse(BaseModel):
-        answer: str
-        data: Any
-
-    data = None
 
     @staticmethod
     @abstractmethod
@@ -37,7 +32,8 @@ class rAssistantPlugin(rModule):
         """Log messages to the assistant log chain."""
         for line in data:
             info_message = "INFO: " + line
-            print(f"r{cls.module_name()}", info_message)
+            for_log = TextProcessor.ensure_within_limit(str(info_message) or 'No Result', limit=1000)
+            print(f"r{cls.module_name()}", for_log)
             ASSIST_LOG.append(info_message)
         return str(data)
 
@@ -259,19 +255,33 @@ class rAssistantPlugin(rModule):
             return response
         except Exception as e:
             return self.assistant_error_log(f"<FINAL RESPONSE>\n Failed to generate final response with error: [ {e} ]\n</FINAL RESPONSE>")
+    def decide_and_retry(self, previous_decision=None, depth=0):
+        if depth >= 10: return None
+        result = previous_decision
+        if not previous_decision:
+            try:
+                result = self.decide_function(self.initial_request_tagged)
+                self.assistant_log(f"Decision Result: {result}")
+            except Exception as e:
+                self.assistant_log(f"Decision Failure: {str(e)}")
+                return self.decide_and_retry(previous_decision, depth + 1)
+        try:
+            call_result = self.parse_and_call(result)
+            self.assistant_log(f"Function Call Result: {call_result}")
+            return self.import_new_data(call_result)
+        except Exception as e:
+            self.assistant_log(f"Function Call Failed: {str(e)}")
+            return self.decide_and_retry(previous_decision, depth + 1)
 
     def decide_and_call(self, user_prompt, **kwargs):
         self.initial_request_tagged = f"\n<User Prompt>\n {user_prompt} \n {kwargs} \n<User Prompt>\n"
         self.assistant_log(f"Initial Request: {self.initial_request_tagged}")
-        result = self.decide_function(self.initial_request_tagged)
-        call_result = self.parse_and_call(result)
-        for_log = TextProcessor.ensure_within_limit(str(call_result) or 'No Result', limit=1000)
-        self.assistant_log(f"Function Call Result: {for_log}")
-        if call_result:
-            self.data = call_result
+        self.decide_and_retry()
         self.assistant_log("Generating and Returning Final Response for the User.")
         final_response = self.generate_final_response()
         return rAssistantPlugin.AssistResponse(
+            prefix="",
+            session_id="",
             answer=final_response,
-            data=self.data,
+            data=self.get_data(),
         )
