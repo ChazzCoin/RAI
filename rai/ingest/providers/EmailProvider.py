@@ -273,6 +273,6 @@ class EmailAssistantProvider(rAssistantReasoningPlugin):
 if __name__ == '__main__':
     # Initialize the GmailClient
     email_client = EmailAssistantProvider()
-    success = email_client.reason(user_request="Get a limit of 10 emails and tell me if any of them are from andrew romeo.")
+    success = email_client.reason(user_request="show me my latest unread emails")
     print(success)
 

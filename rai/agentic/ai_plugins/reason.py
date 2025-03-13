@@ -91,6 +91,7 @@ class rAssistantReasoningPlugin(rModule, mMap, mData, mAssistLog, ABC):
         """AI CALL: Check whether the objective has been completed based on the given prompt."""
         try:
             self.assistant_log("Checking if objective has been completed.")
+            data_log = f"<DATA_ASSISTANT_LOG>\n {self.data_log_str()} \n</DATA_ASSISTANT_LOG>"
             has_data = f"FLAG FOR IF WE HAVE DATA READY FOR THE USER: [ {self.has_data()} ]"
             response = rTextTools.tool(
                 name="is_true",
@@ -165,20 +166,20 @@ class rAssistantReasoningPlugin(rModule, mMap, mData, mAssistLog, ABC):
     def make_action(self, action, previous_decision=None, depth=0):
         if depth >= 10: return None
         result = previous_decision
-        self.assistant_log(f"Attempting to Make Action: {action}")
+        self.assistant_log(f"Attempting to Make Action: {action} \n Retry Depth [ {depth} ]")
         if not previous_decision:
             try:
                 result = self.ask_ai_to_decide_which_function_to_call(action)
                 self.assistant_log(f"Decision Result: {result}")
             except Exception as e:
-                self.assistant_log(f"Decision Failure: {str(e)}")
+                self.assistant_log(f"ERROR: Decision Failure, attempting retry [ {depth} ]: {str(e)}")
                 return self.make_action(action, previous_decision, depth + 1)
         try:
             call_result = self.parse_and_call_function(result)
             self.assistant_log(f"Function Call Result: {call_result}")
             return self.import_new_data(call_result)
         except Exception as e:
-            self.assistant_log(f"Function Call Failed: {str(e)}")
+            self.assistant_log(f"ERROR: Function Call Failed, attempting retry [ {depth} ]: {str(e)}")
             return self.make_action(action, previous_decision, depth + 1)
     def reason(self, user_request: str, **attached_data) -> Any:
         """

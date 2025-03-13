@@ -370,6 +370,7 @@ Example Data:
 
 """
 DATA_LOG: List[str] = []
+DATA_VERBOSE_LOG: List[str] = []
 
 class mData:
 
@@ -385,9 +386,21 @@ class mData:
     def data_tools(self): return mMap.get_functions_as_tools(mData)
 
     def data_log(self, msg:str):
-        formatted_msg = f"mDataModule: {self._required_data_model_type_name()}: {msg}"
+        formatted_msg = f"mDataModule: INFO: {msg}"
         print(formatted_msg)
         DATA_LOG.append(formatted_msg)
+    def data_warning_log(self, msg:str):
+        formatted_msg = f"mDataModule: WARNING: {msg}"
+        print(formatted_msg)
+        DATA_LOG.append(formatted_msg)
+    def data_error_log(self, msg:str):
+        formatted_msg = f"mDataModule: ERROR: {msg}"
+        print(formatted_msg)
+        DATA_LOG.append(formatted_msg)
+    def data_verbose_log(self, msg:str):
+        formatted_msg = f"mDataModule: VERBOSE: {msg}"
+        print(formatted_msg)
+        DATA_VERBOSE_LOG.append(formatted_msg)
 
     @staticmethod
     def data_log_str(): "\n".join(DATA_LOG)
@@ -421,10 +434,9 @@ class mData:
         return True
 
     def _move_data_to_archive(self):
-        self.data_log("Moving current data to archive.")
         self._archived_data[self._data_refresh_count] = self._data
         self._data_refresh_count += 1
-
+        self.data_log(f"Moved previous imported data to archive with [ {self._data_refresh_count} ] currently archived data imports.")
     def attempt_quick_parse_or_empty_model(self, data: Any) -> BaseModel:
         required_model: BaseModel = self._required_data_model_type().model_construct()  # abstract method to get the model type
         try:
@@ -434,11 +446,10 @@ class mData:
         except Exception as e:
             self.data_log(f"Quick Parse Failed. [ {str(e)} ]")
             return required_model
-
     def import_new_data(self, request_or_datas: Any, **additional_data) -> List[Any]:
         if not request_or_datas or request_or_datas is None: return []
         self._temp_data = []
-        self.data_log("Attempting to Import Data.")
+        self.data_log("Attempting to Import New Data.")
         if type(request_or_datas) in [list, tuple]:
             self.data_log("Data IN is a list/tuple.")
             for item in request_or_datas:
@@ -454,8 +465,11 @@ class mData:
         self._data = self._temp_data
         if self.has_data():
             self.data_log("Data Import Successful.")
+            self.data_log(f"Data Assistant is holding [ {len(self.get_data())} ] items.")
+        else:
+            self.data_log("Data Import Failed.")
+            self.data_log(f"Data Assistant is holding [ {len(self.get_data())} ] items.")
         return self._data
-
     def __handle_single_item(self, request_or_data: Any, **additional_data) -> Optional[BaseModel]:
         """
         Robustly extract and merge data into the required model type.
@@ -478,7 +492,7 @@ class mData:
             required_model = required_model.model_copy(update=request_or_data)
             return required_model
         except Exception as e:
-            self.data_log(str(e))
+            self.data_verbose_log(f"Parsing attempt failed. Moving on to next attempt. {str(e)}")
 
         additional_strs = []  # To collect simple key/value pairs for context
 
@@ -542,22 +556,23 @@ class mData:
 
         # --- Fall back on text parsing ---
         return parse_text(req_text)
-
     def update_data(self, obj: BaseModel, updates: Dict[str, Any]) -> BaseModel:
         """
         - Update an existing Pydantic model instance with new data.
         Leverages the built-in .copy() method with the `update` parameter to return a new instance.
         """
         try:
+            self.data_verbose_log("Attempting to update")
             return obj.model_copy(update=updates)
         except Exception as e:
-            self.data_log(str(e))
+            self.data_warning_log(str(e))
             return self.create_data_model(updates)
     def create_data_model(self, data: Dict[str, Any]) -> BaseModel:
         """
         - Validates arbitrary data against a given Pydantic model.
         Returns a valid model instance if the data passes validation, otherwise raises a ValidationError.
         """
+        self.data_verbose_log("Creating New Data Model Object")
         return self._new_data_instance().model_validate(data)
     def deep_update_model(self, obj: BaseModel, updates: Dict[str, Any]) -> BaseModel:
         """

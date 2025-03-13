@@ -15,6 +15,10 @@ class StateAssistant(rAssistantReasoningPlugin):
     """
 
     @staticmethod
+    def _required_data_model_type() -> Type[BaseModel]:
+        return StateAssistant.StateObject
+
+    @staticmethod
     def module_name() -> str: return "StateAssistant"
 
     class StateObject(BaseModel):
@@ -52,7 +56,7 @@ class StateAssistant(rAssistantReasoningPlugin):
         # Use AI to extract required state data.
         external_object = rTextTools.formatter(
             text=text,
-            model=self._required_model()
+            model=self._required_data_model_type()
         )
         if not external_object:
             return self.assistant_error_log(
@@ -65,7 +69,7 @@ class StateAssistant(rAssistantReasoningPlugin):
         # Use AI to extract required state data.
         external_object = rTextTools.formatter(
             text=text,
-            model=self._required_model()
+            model=self._required_data_model_type()
         )
         if not external_object:
             return self.assistant_error_log(
@@ -353,4 +357,4 @@ if __name__ == "__main__":
         status="new"
     )
 
-    StateAssistant.request("Show me the current state breakdown", state_id=state_id)
+    StateAssistant.request("What is the side set to currently?", state_id=state_id)
