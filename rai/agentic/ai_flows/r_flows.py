@@ -1,4 +1,4 @@
-from rai.agentic.ai_modules import rModule
+from rai.agentic.ai_modules.r import rModule
 
 FLOW_REGISTRY = {}
 

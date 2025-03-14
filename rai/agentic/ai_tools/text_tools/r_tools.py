@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from rai.agentic.ai_tools.text_tools.text_formats import aiTextFormats
 from rai.agentic.ai_tools.text_tools.text_functions import aiTextFunctions
 from rai.agentic.ai_tools.text_tools.text_prompts import aiTextPrompts
+from rai.assistant.ai_models import AiModels
 from rai.assistant.connectors import rAI
 from rai.ingest.utilities.TextUtils import TextProcessor
 
@@ -218,13 +219,48 @@ class rTextTools(ABC, rAI, TextProcessor):
             return None
 
     @classmethod
+    def ollama_generate(cls, user:str, system:str, model=AiModels.DEFAULT_OLLAMA):
+        return cls().get_engine("ollama").generate(
+            user=user,
+            system=system,
+            model=model
+        )
+    @classmethod
+    def ollama_reasoning(cls, user:str, system:str, model=AiModels.DEFAULT_OLLAMA_REASONING):
+        return cls().get_engine("ollama").generate(
+            user=user,
+            system=system,
+            model=model
+        )
+    @classmethod
+    def ollama_decision(cls, user:str, system:str, functions: [dict], raw_result:bool=True):
+        return cls().get_engine("ollama").generate_function(
+            user=user,
+            system=system,
+            functions=functions,
+            raw_result=raw_result
+        )
+    @classmethod
+    def gen(cls, user:str, system:str):
+        return cls().engine.generate(
+            user=user,
+            system=system
+        )
+    @classmethod
     def formatter(cls, text, model: Type[BaseModel]) -> Type[BaseModel]:
         return cls().engine.generate_format(
             user=text,
             system="Extract the necessary data/attributes for the provided response format.",
             format=model
         )
-
+    @classmethod
+    def decision(cls, user:str, system:str, functions: [dict], raw_result:bool=True):
+        return cls().engine.generate_function(
+            user=user,
+            system=system,
+            functions=functions,
+            raw_result=raw_result
+        )
 """
 These seem to be turning into Configurations for agents.
 What they do, how they do it...what they need...etc...

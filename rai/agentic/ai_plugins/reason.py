@@ -5,7 +5,10 @@ from typing import Any, List, Type
 
 from pydantic import BaseModel
 
-from rai.agentic.ai_modules import rModule, mMap, mAssistLog, mData
+from rai.agentic.ai_modules import mAssistLog
+from rai.agentic.ai_modules.data import mData
+from rai.agentic.ai_modules.map import mMap
+from rai.agentic.ai_modules.r import rModule
 from rai.agentic.ai_tools.text_tools.r_tools import rTextTools
 from rai.ingest.utilities.TextUtils import TextProcessor
 
@@ -65,7 +68,7 @@ class rAssistantReasoningPlugin(rModule, mMap, mData, mAssistLog, ABC):
             self.ext_documentation_tagged,
             self.assistant_rules_tagged,
             self.attached_data_tagged,
-            self.data_log_str(),
+            self.get_log_str("DATA"),
             self.initial_request_tagged
         )
 
@@ -89,7 +92,6 @@ class rAssistantReasoningPlugin(rModule, mMap, mData, mAssistLog, ABC):
         """AI CALL: Check whether the objective has been completed based on the given prompt."""
         try:
             self.assistant_log("Checking if objective has been completed.")
-            data_log = f"<DATA_ASSISTANT_LOG>\n {self.data_log_str()} \n</DATA_ASSISTANT_LOG>"
             has_data = f"FLAG FOR IF WE HAVE DATA READY FOR THE USER: [ {self.has_data()} ]"
             response = rTextTools.tool(
                 name="is_true",
@@ -150,7 +152,7 @@ class rAssistantReasoningPlugin(rModule, mMap, mData, mAssistLog, ABC):
                 self.assistant_rules_tagged,
                 self.attached_data_tagged,
                 self.get_assistant_log_str(),
-                self.data_log_str(),
+                self.get_log_str("DATA"),
                 self.initial_request_tagged,
             )
             response = self.rAI().generate(

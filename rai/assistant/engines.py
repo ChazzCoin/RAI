@@ -94,6 +94,10 @@ class FusedAI(ABC):
         cls.engine = engine
         FusedAI.engines[engine] = cls
 
+    @abstractmethod
+    def switch_model(self, model:str):
+        pass
+
     @property
     def default_embedding_model(self) -> str:
         if self.engine == "openai":
@@ -132,7 +136,7 @@ class FusedAI(ABC):
     def engine_model(self) -> str: pass
     """ SYNC """
     @abstractmethod
-    def generate(self, user: str, system: str, image=None):pass
+    def generate(self, user: str, system: str, image=None, model=None):pass
     @abstractmethod
     def generate_chat(self, messages:[{}], image=None): pass
     @abstractmethod
@@ -195,14 +199,17 @@ class OpenAiEngine(FusedAI, engine="openai"):
         self.O = OpenAI(api_key=open_ai_key, timeout=20, max_retries=3)
         self.OAsync = AsyncOpenAI(api_key=open_ai_key, timeout=20, max_retries=3)
 
+    def switch_model(self, model:str):
+        self.MODEL_OVERRIDE = model
+
     def engine_model(self):
         if self.MODEL_OVERRIDE: return self.MODEL_OVERRIDE
         return AiModels.DEFAULT_OPENAI
 
-    def generate(self, user:str, system:str, image=None):
+    def generate(self, user:str, system:str, image=None, model=None):
         try:
             response = self.O.chat.completions.create(
-                model=self.engine_model(),
+                model=model or self.engine_model(),
                 messages=buildMessage(user, system, image)
             )
             response = response.choices[0].message.content
@@ -351,6 +358,9 @@ class OllamaEngine(FusedAI, engine="ollama"):
         self.O = ollama.Client(host=host)
         self.OAsync = ollama.AsyncClient(host=host)
 
+    def switch_model(self, model:str):
+        self.MODEL_OVERRIDE = model
+
     def engine_model(self):
         if self.MODEL_OVERRIDE: return self.MODEL_OVERRIDE
         return AiModels.DEFAULT_OLLAMA
@@ -359,11 +369,11 @@ class OllamaEngine(FusedAI, engine="ollama"):
         yield self.O.pull(model=model_name)
 
     """ SYNC """
-    def generate(self, user: str, system: str, image=None):
+    def generate(self, user: str, system: str, image=None, model=None):
         print("Generating Async Chat - Ollama")
         try:
             data: ChatResponse = self.O.generate(
-                model=self.engine_model(),
+                model=model or self.engine_model(),
                 prompt=user,
                 system=system
             )

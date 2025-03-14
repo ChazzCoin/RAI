@@ -15,6 +15,9 @@ class AiModels:
     DEFAULT_OPENAI_FORMAT = "o3-mini"
     DEFAULT_OLLAMA_FORMAT = "llama3.2:3b"
 
+    DEFAULT_OPENAI_REASONING = "o3-mini"
+    DEFAULT_OLLAMA_REASONING = "deepseek-r1:7b"
+
     class OpenAi:
         # GPT-4 Series
         GPT4o = "gpt-4o"

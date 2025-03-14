@@ -1,15 +1,9 @@
 import os
-
 from dotenv import load_dotenv, dotenv_values
 from typing import Optional, Dict, List
-
 from datetime import datetime
-from typing import Optional
+from rai.internal.f import fBaseModel, redis_client
 
-from rai.internal import fBaseModel
-from rai.internal.clients.redis_client import RedisDB
-
-redis_client = RedisDB().connect()
 
 class fVault(fBaseModel):
     name: Optional[str] = None
@@ -31,21 +25,21 @@ class fVault(fBaseModel):
     env_value: Optional[str] = None
 
     def from_env(self, key:str=None) -> 'fVault':
-        value = redis_client.get(f"env:{key or self.env_name}")
+        value = redis_client.redis_client.get(f"env:{key or self.env_name}")
         obj = value.decode()
         if key: self.env_name = key
         self.env_value = obj
         return self
 
     def to_env(self):
-        return redis_client.set(f"env:{self.env_name}", self.env_value)
+        return redis_client.redis_client.set(f"env:{self.env_name}", self.env_value)
 
     def to_vault(self):
-        return redis_client.set(f"vault:{self.name}", self.model_dump())
+        return redis_client.redis_client.set(f"vault:{self.name}", self.model_dump())
 
     @classmethod
     def from_vault(cls, name: str):
-        data = redis_client.get(f"vault:{name}")
+        data = redis_client.redis_client.get(f"vault:{name}")
         if data:
             return cls.model_validate(data)
         return None

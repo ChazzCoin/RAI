@@ -6,7 +6,7 @@ from typing import List
 from F import DICT, LIST
 from pydantic import BaseModel
 
-from rai.agentic.ai_modules import rModule
+from rai.agentic.ai_modules.r import rModule
 from rai.ingest.utilities.TextUtils import TextProcessor
 
 
