@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from quart import Quart, request, jsonify
 from quart_cors import cors
 from F.LOG import Log
-from rai.agentic.ai_assistants.knowledge import KnowledgeAssistant
+from rai.agentic.ai_assistants.knowledge import rKnowledgeAssistant
 from rai.agentic.ai_flows.rag_flow import rRagFlow
 from rai.agentic.ai_tasks.query_task import RaiQueryAgentResults
 from rai.assistant.connectors import rAI
@@ -52,7 +52,7 @@ async def knowledge_base():
         if item.get('model') == model:
             parent_model = item
     query: str = jbody.get('query')
-    knowledge_results = KnowledgeAssistant.request(
+    knowledge_results = rKnowledgeAssistant.request(
         prefix=parent_model.get('collection', "pcsc2025.4"),
         user_prompt=query
     )

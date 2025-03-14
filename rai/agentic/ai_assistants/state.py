@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from rai.agentic.ai_tools.text_tools.r_tools import rTextTools
 
 
-class StateAssistant(rAssistantReasoningPlugin):
+class rStateAssistant(rAssistantReasoningPlugin):
     """
     A robust, stateless state manager for handling agent flows with Redis as the sole source of truth.
     All methods are static so that no class instance is required; every operation loads, modifies, and
@@ -16,7 +16,7 @@ class StateAssistant(rAssistantReasoningPlugin):
 
     @staticmethod
     def _required_data_model_type() -> Type[BaseModel]:
-        return StateAssistant.StateObject
+        return rStateAssistant.StateObject
 
     @staticmethod
     def module_name() -> str: return "StateAssistant"
@@ -29,7 +29,7 @@ class StateAssistant(rAssistantReasoningPlugin):
 
     @staticmethod
     def _required_model() -> Type[BaseModel]:
-        return StateAssistant.StateObject
+        return rStateAssistant.StateObject
 
     @staticmethod
     def assistant_rules() -> str:
@@ -350,11 +350,11 @@ if __name__ == "__main__":
         "targeting system": "",
         "nexframe array": "",
     }
-    obj = StateAssistant.StateObject(
+    obj = rStateAssistant.StateObject(
         state_id=state_id,
         state_name=state_name,
         required_fields=required_fields,
         status="new"
     )
 
-    StateAssistant.request("What is the side set to currently?", state_id=state_id)
+    rStateAssistant.request("What is the side set to currently?", state_id=state_id)

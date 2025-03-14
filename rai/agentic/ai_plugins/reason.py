@@ -1,7 +1,7 @@
 
 from abc import ABC, abstractmethod
 from collections import deque
-from typing import Any, Dict, List, Type, Optional
+from typing import Any, List, Type
 
 from pydantic import BaseModel
 
@@ -27,8 +27,6 @@ class rAssistantReasoningPlugin(rModule, mMap, mData, mAssistLog, ABC):
     assistant_rules_tagged = f"<RULES> </RULES>"
     attached_data_tagged = f"<ATTACHED DATA> </ATTACHED DATA>"
     initial_request_tagged = f"<USER REQUEST> </USER REQUEST>"
-
-    _data = {}
 
     def __init__(self):
         super().__init__()
@@ -67,7 +65,7 @@ class rAssistantReasoningPlugin(rModule, mMap, mData, mAssistLog, ABC):
             self.ext_documentation_tagged,
             self.assistant_rules_tagged,
             self.attached_data_tagged,
-            self.get_data(),
+            self.data_log_str(),
             self.initial_request_tagged
         )
 
@@ -152,7 +150,7 @@ class rAssistantReasoningPlugin(rModule, mMap, mData, mAssistLog, ABC):
                 self.assistant_rules_tagged,
                 self.attached_data_tagged,
                 self.get_assistant_log_str(),
-                self.get_data(),
+                self.data_log_str(),
                 self.initial_request_tagged,
             )
             response = self.rAI().generate(
@@ -163,6 +161,52 @@ class rAssistantReasoningPlugin(rModule, mMap, mData, mAssistLog, ABC):
             return f"<FINAL RESPONSE>\n{response}\n</FINAL RESPONSE>"
         except Exception as e:
             return self.assistant_error_log(f"<FINAL RESPONSE>\n Failed to generate final response with error: [ {e} ]\n</FINAL RESPONSE>")
+
+    """ Assistant Core Functions"""
+    def setup_assistant(self, user_request:str, **attached_data):
+        # The Assistant Process Log
+        self.assistant_log("Setting up reasoning assistant.")
+        self.assistant_log("Gathering and formatting initial request, rules, documentation and data.")
+
+        # Assistant Rules Data
+        self.ext_documentation_tagged = self.map_external_class()
+        self.assistant_rules_tagged = self.tag_data("RULES", self.assistant_rules())
+        self.assistant_system_prompt = self.tag_data(
+            "ASSISTANT_RULES_AND_INFO",
+            self.chain_data(self.ext_documentation_tagged, self.assistant_rules())
+        )
+
+        # User Request Data
+        self.attached_data_tagged = self.tag_data("ATTACHED_DATA", str(attached_data))
+        self.initial_request_tagged = self.tag_data("INITIAL_REQUEST", user_request)
+        self.user_request_prompt = self.tag_data(
+            "USER_REQUEST_PROMPT",
+            f"{self.attached_data_tagged}\n{self.initial_request_tagged}"
+        )
+        # Establish the objective.
+        self.assistant_objective = self.ask_ai_to_establish_objective()
+    def make_call(self, previous_decision=None, depth=0):
+        if depth >= 10: return None
+        result = previous_decision
+        if not previous_decision:
+            try:
+                prompt = f"""
+                     {self.map_external_class()}
+                     {self.assistant_objective}
+                     {self.initial_request_tagged}
+                 """
+                result = self.ask_ai_to_decide_which_function_to_call(prompt)
+                self.assistant_log(f"Decision Result: {result}")
+            except Exception as e:
+                self.assistant_log(f"Decision Failure: {str(e)}")
+                return self.make_call(previous_decision, depth + 1)
+        try:
+            call_result = self.parse_and_call_function(result)
+            self.assistant_log(f"Function Call Result: {call_result}")
+            return self.import_new_data(call_result)
+        except Exception as e:
+            self.assistant_log(f"Function Call Failed: {str(e)}")
+            return self.make_call(previous_decision, depth + 1)
     def make_action(self, action, previous_decision=None, depth=0):
         if depth >= 10: return None
         result = previous_decision
@@ -181,7 +225,22 @@ class rAssistantReasoningPlugin(rModule, mMap, mData, mAssistLog, ABC):
         except Exception as e:
             self.assistant_log(f"ERROR: Function Call Failed, attempting retry [ {depth} ]: {str(e)}")
             return self.make_action(action, previous_decision, depth + 1)
-    def reason(self, user_request: str, **attached_data) -> Any:
+    def respond(self) -> 'AssistResponse':
+        final_response = self.ask_ai_to_generate_final_response()
+        return self.AssistResponse(
+            prefix="",
+            session_id="",
+            answer=final_response,
+            data=self.get_data()
+        )
+
+    """ Single Hit Approach """
+    def request(self, user_request: str, **attached_data) -> 'AssistResponse':
+        self.setup_assistant(user_request, **attached_data)
+        self.make_call()
+        return self.respond()
+    """ Reasoning Multi-Step Planned Approach """
+    def reason(self, user_request: str, **attached_data) -> 'AssistResponse':
         """
         1. Objective
         2. Plan/Steps
@@ -199,28 +258,7 @@ class rAssistantReasoningPlugin(rModule, mMap, mData, mAssistLog, ABC):
           self.int_documentation_tagged = self.map_internal_class()
         """
         try:
-            # The Assistant Process Log
-            self.assistant_log("Started reasoning for user request.")
-            self.assistant_log("Gathering and formatting data for reasoning.")
-
-            # Assistant Rules Data
-            self.ext_documentation_tagged = self.map_external_class()
-            self.assistant_rules_tagged = self.tag_data("RULES", self.assistant_rules())
-            self.assistant_system_prompt = self.tag_data(
-                "ASSISTANT_RULES_AND_INFO",
-                self.chain_data(self.ext_documentation_tagged, self.assistant_rules())
-            )
-
-            # User Request Data
-            self.attached_data_tagged = self.tag_data("ATTACHED_DATA", attached_data)
-            self.initial_request_tagged = self.tag_data("INITIAL_REQUEST", user_request)
-            self.user_request_prompt = self.tag_data(
-                "USER_REQUEST_PROMPT",
-                f"{self.attached_data_tagged}\n{self.initial_request_tagged}"
-            )
-
-            # Establish the objective.
-            self.assistant_objective = self.ask_ai_to_establish_objective()
+            self.setup_assistant(user_request, **attached_data)
 
             # Initialize the step/action queue.
             max_steps = 10
@@ -252,20 +290,8 @@ class rAssistantReasoningPlugin(rModule, mMap, mData, mAssistLog, ABC):
 
             # Final check for objective completion after processing the queue.
             self.assistant_log("Final objective completion check after empty queue.")
-            final_response = self.ask_ai_to_generate_final_response()
-            return self.AssistResponse(
-                prefix="",
-                session_id="",
-                answer=final_response,
-                data=self.get_data()
-            )
+            return self.respond()
         except Exception as e:
             self.assistant_error_log(f"Overall Reasoning Error: [ {str(e)} ]")
-            final_response = self.ask_ai_to_generate_final_response()
-            return self.AssistResponse(
-                prefix="",
-                session_id="",
-                answer=final_response,
-                data=self.get_data()
-            )
+            return self.respond()
 

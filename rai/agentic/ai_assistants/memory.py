@@ -6,11 +6,11 @@ from typing import Type
 from F import LIST
 from pydantic import BaseModel
 
-from rai.agentic.ai_plugins.assist import rAssistantPlugin
+from rai.agentic.ai_plugins.assist import pAssistant
 from rai.agentic.ai_tools.text_tools.r_tools import rTextTools
 
 
-class MemoryAssistant(rAssistantPlugin):
+class rMemoryAssistant(pAssistant):
     session_id = None
 
     @staticmethod
@@ -19,6 +19,11 @@ class MemoryAssistant(rAssistantPlugin):
     @staticmethod
     def assistant_rules() -> str:
         return ""
+
+    """ TODO """
+    @staticmethod
+    def _required_data_model_type() -> BaseModel:
+        pass
 
     @staticmethod
     def _required_model() -> Type[BaseModel]:
@@ -45,7 +50,7 @@ class MemoryAssistant(rAssistantPlugin):
 
     def save_to_logs(self, message: str):
         """ """
-        return MemoryAssistant.rCache().add_text(
+        return rMemoryAssistant.rCache().add_text(
             prefix=self.key(),
             text=message,
             timestamp=int(datetime.utcnow().timestamp())
@@ -53,12 +58,12 @@ class MemoryAssistant(rAssistantPlugin):
 
     def retrieve_logs(self):
         """ """
-        results = MemoryAssistant.rCache().get_documents_by_tag(tag=self.key())
+        results = rMemoryAssistant.rCache().get_documents_by_tag(tag=self.key())
         return results
 
     def search_logs(self, query: str):
         """ """
-        return MemoryAssistant.rCache().query(
+        return rMemoryAssistant.rCache().query(
             prefix=self.key(),
             query=query,
         )
@@ -66,8 +71,8 @@ class MemoryAssistant(rAssistantPlugin):
 
     def search_notes(self, user_prompt: str) -> str:
         """ """
-        query_embedding = MemoryAssistant.rAI().embed(user_prompt)
-        results = MemoryAssistant.rStore().search_vector(
+        query_embedding = rMemoryAssistant.rAI().embed(user_prompt)
+        results = rMemoryAssistant.rStore().search_vector(
             collection_name=self.key(),
             vectors=query_embedding,
             limit=5,
@@ -83,20 +88,20 @@ class MemoryAssistant(rAssistantPlugin):
         interaction_text = f"Data: {attached_data}\n Note: {note}"
         interaction_id = str(uuid.uuid4())
         meta = {"session_id": self.session_id, "timestamp": time.time(), "type": "note" }
-        MemoryAssistant.rStore().create_and_store(self.key(), id=interaction_id, text=interaction_text, metadata=meta)
+        rMemoryAssistant.rStore().create_and_store(self.key(), id=interaction_id, text=interaction_text, metadata=meta)
         self.assistant_log(f"Stored note {interaction_id} for session {self.session_id}.")
 
     def retrieve_notes(self) -> str:
         """ """
-        collection_name = MemoryAssistant.key(self.session_id)
-        results = MemoryAssistant.rStore().get_all(collection_name)
+        collection_name = rMemoryAssistant.key(self.session_id)
+        results = rMemoryAssistant.rStore().get_all(collection_name)
         if not results:
             return "No previous interactions found."
         return results
 
     def retrieve_last_note(self) -> str:
         """ """
-        results = MemoryAssistant.rStore().get_all(self.key())
+        results = rMemoryAssistant.rStore().get_all(self.key())
         if not results:
             return "No previous interactions found."
         last_interaction = sorted(
@@ -108,10 +113,12 @@ class MemoryAssistant(rAssistantPlugin):
 
     """ LONG TERM MEMORY """
 
+
+
     def search_long_term_memory(self, user_prompt: str) -> str:
         """ """
-        query_embedding = MemoryAssistant.rAI().embed(user_prompt)
-        results = MemoryAssistant.rStore().search_vector(
+        query_embedding = rMemoryAssistant.rAI().embed(user_prompt)
+        results = rMemoryAssistant.rStore().search_vector(
             collection_name=self.key(),
             vectors=query_embedding,
             limit=5,
@@ -128,19 +135,19 @@ class MemoryAssistant(rAssistantPlugin):
         interaction_text = interaction_text + f"\nSummarized Context: {context_prompt}"
         interaction_id = str(uuid.uuid4())
         meta = {"session_id": self.session_id, "timestamp": time.time(), "type": "long" }
-        MemoryAssistant.rStore().create_and_store(self.key(), id=interaction_id, text=interaction_text, metadata=meta)
+        rMemoryAssistant.rStore().create_and_store(self.key(), id=interaction_id, text=interaction_text, metadata=meta)
         self.assistant_log(f"Stored interaction {interaction_id} for session {self.session_id}.")
 
     def retrieve_from_long_term(self) -> str:
         """ """
-        results = MemoryAssistant.rStore().get_all(self.key())
+        results = rMemoryAssistant.rStore().get_all(self.key())
         if not results:
             return "No previous interactions found."
         return results
 
     def retrieve_last_long_term_memory(self) -> str:
         """ """
-        results = MemoryAssistant.rStore().get_all(self.key())
+        results = rMemoryAssistant.rStore().get_all(self.key())
         if not results:
             return "No previous interactions found."
         last_interaction = sorted(
@@ -155,5 +162,5 @@ class MemoryAssistant(rAssistantPlugin):
 if __name__ == "__main__":
     user_id = "user_123"
     user_prompt = "AHHH WE HAVE A HORRIBLE BAD ERROR"
-    results = MemoryAssistant.init_session(user_id).retrieve_logs()
+    results = rMemoryAssistant.init_session(user_id).retrieve_logs()
     print(results)

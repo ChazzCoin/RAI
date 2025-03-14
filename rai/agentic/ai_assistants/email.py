@@ -4,7 +4,6 @@ import datetime
 
 from pydantic import BaseModel, EmailStr
 
-from rai.agentic.ai_plugins.assist import rAssistantPlugin
 from rai.agentic.ai_plugins.reason import rAssistantReasoningPlugin
 from rai.ingest.utilities.TextUtils import TextProcessor
 
@@ -28,7 +27,7 @@ class fEmail(BaseModel):
     is_html: bool = False
     date: Optional[datetime.datetime] = None
 
-class EmailAssistantProvider(rAssistantReasoningPlugin):
+class rEmailAssistant(rAssistantReasoningPlugin):
     """
     A robust client for sending and retrieving emails via Gmail's SMTP and IMAP servers using an app password.
     Utilizes EmailModel for input and output.
@@ -272,7 +271,7 @@ class EmailAssistantProvider(rAssistantReasoningPlugin):
 # Example usage:
 if __name__ == '__main__':
     # Initialize the GmailClient
-    email_client = EmailAssistantProvider()
+    email_client = rEmailAssistant()
     success = email_client.reason(user_request="show me my latest unread emails")
     print(success)
 

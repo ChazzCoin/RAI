@@ -3,8 +3,8 @@ from rai.internal.redis_db import RedisClient
 
 class RaiCache(RedisClient):
 
-    def __init__(self, db:int=0):
-        super().__init__(db=db)
+    def __init__(self):
+        super().__init__()
 
     def cache_announcement(self, key_name, data, ttl=None):
         """Cache an announcement or message."""

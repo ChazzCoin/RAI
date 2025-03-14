@@ -1,17 +1,17 @@
-from rai.RAG.Q import Q
-from rai.assistant.connectors import rAI
+from rai.internal.clients.redis_client import RedisDB
+
 from rai.internal.redis_ext import RaiCache
 from rai.internal.registries import RaiRegistry
 from rai.internal.models.connectors import PostgresTables
 
 
-R = rAI('openai')
+
 """ DATABASES """
+REDIS = RedisDB()
 
 
-VECTOR_DB_CLIENT = Q()
-REDIS_DB_CLIENT_0 = RaiCache(db=0)
-REDIS_DB_CLIENT_1 = RaiCache(db=1)
+REDIS_DB_CLIENT_0 = RaiCache()
+REDIS_DB_CLIENT_1 = RaiCache()
 POSTGRES_DB_CLIENT = PostgresTables
 
 """ REGISTRIES """

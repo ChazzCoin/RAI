@@ -8,7 +8,7 @@ from rai.agentic.ai_tasks.query_task import RaiQueryAgentResults, rQueryTask
 from rai.agentic.ai_tools.text_tools.r_tools import rTextTools
 from rai.assistant.connectors import rAI
 from rai.ingest.utilities.TextUtils import TextProcessor
-from rai.internal.connectors import VECTOR_DB_CLIENT
+from rai.RAG.connectors import VECTOR_DB_CLIENT
 
 OBJECTIVE_PROMPT_REGISTRY = {}
 RAG_AGENT_REGISTRY = {}

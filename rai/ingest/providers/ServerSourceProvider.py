@@ -1,7 +1,4 @@
-from abc import abstractmethod
 
-import paramiko
-import threading
 from typing import Dict, Callable
 
 # Central registry to hold all commands
@@ -25,75 +22,7 @@ def register_command_config(name: str):
     return decorator
 
 
-class IngestServerProvider:
-    lock = threading.Lock()
-    client = None
 
-    @classmethod
-    def get_registry(cls): return COMMAND_AGENT_REGISTRY
-    @abstractmethod
-    def hostname(self): pass
-    @abstractmethod
-    def host(self): pass
-    @abstractmethod
-    def username(self): pass
-    @abstractmethod
-    def password(self): pass
-    @abstractmethod
-    def port(self): pass
-    @abstractmethod
-    def commands(self): pass
-
-    @classmethod
-    def execute(cls, name, command):
-        cmd_cls = COMMAND_AGENT_REGISTRY.get(name)[0]()
-        cmd_cls.connect()
-        cmd = cmd_cls.commands()[command]
-        return cmd_cls.run(cmd)
-
-    def connect(self):
-        """Establishes an SSH connection to the server."""
-        if self.client:
-            return  # Already connected
-
-        self.lock = threading.Lock()  # Ensures thread safety for SSH execution
-        self.client = paramiko.SSHClient()
-        self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
-        try:
-            self.client.connect(
-                hostname=self.host(),
-                port=self.port(),
-                username=self.username(),
-                password=self.password()
-            )
-        except paramiko.AuthenticationException:
-            raise ValueError("Authentication failed, please verify credentials.")
-        except paramiko.SSHException as e:
-            raise ConnectionError(f"SSH connection error: {e}")
-
-    def run(self, command: str) -> str:
-        """
-        Executes a command on the remote server and returns the output.
-
-        :param command: The command to execute.
-        :return: Command output as a string.
-        """
-        if not self.client:
-            self.connect()
-
-        stdin, stdout, stderr = self.client.exec_command(command)
-        output = stdout.read().decode().strip()
-        error = stderr.read().decode().strip()
-
-        if error: return f"Error executing command '{command}': {error}"
-        return output
-
-    def close_connection(self):
-        """Closes the SSH connection."""
-        if self.client:
-            self.client.close()
-            self.client = None
 
 
 

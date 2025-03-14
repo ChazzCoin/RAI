@@ -1,12 +1,31 @@
-from typing import Optional
-
-from rai.agentic.ai_plugins.reason import rAssistantPlugin
+from typing import Optional, Type
 
 import json
 from datetime import datetime
 import logging
 
-class SessionAssistant(rAssistantPlugin):
+from pydantic import BaseModel
+
+from rai.agentic.ai_plugins.reason import rAssistantReasoningPlugin
+
+
+class SessionAssistant(rAssistantReasoningPlugin):
+    @staticmethod
+    def _required_model() -> Type[BaseModel]:
+        pass
+
+    @staticmethod
+    def module_name() -> str:
+        pass
+
+    @staticmethod
+    def _required_data_model_type() -> BaseModel:
+        pass
+
+    @staticmethod
+    def assistant_rules() -> str:
+        pass
+
     def __init__(self):
         super().__init__()
         self.rCache().connect()

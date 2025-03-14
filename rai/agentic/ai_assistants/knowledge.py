@@ -4,11 +4,12 @@ from typing import List, Type, Union
 
 from pydantic import BaseModel
 
-from rai.RAG.models import StoreDocument, GetResult, SearchResult
+from rai.RAG.models import StoreDocument
 from rai.agentic.ai_flows.r_flows import register_flow
 from F.LOG import Log
 
-from rai.agentic.ai_plugins.assist import rAssistantPlugin
+from rai.agentic.ai_plugins.assist import pAssistant
+from rai.agentic.ai_plugins.reason import rAssistantReasoningPlugin
 from rai.assistant.openai_client import generate_embeddings
 from rai.internal.chromadb import ChromaClient
 
@@ -30,7 +31,7 @@ Log = Log("KnowledgeFlow")
 
 
 @register_flow("knowledge")
-class KnowledgeAssistant(rAssistantPlugin):
+class rKnowledgeAssistant(rAssistantReasoningPlugin):
     """
     A Document Manager that extends the ChromaClient to support AI-driven document management.
     It uses a provided 'prefix' to namespace and manage documents within a specific collection.
@@ -42,6 +43,10 @@ class KnowledgeAssistant(rAssistantPlugin):
         "metadata": meta
     }
     """
+
+    @staticmethod
+    def _required_model() -> Type[BaseModel]:
+        return StoreDocument
 
     @staticmethod
     def assistant_rules() -> str:
@@ -68,9 +73,9 @@ class KnowledgeAssistant(rAssistantPlugin):
     sub_collection: str = "pages"
 
     @classmethod
-    def request(cls, prefix:str, user_prompt:str):
+    def work(cls, prefix:str, user_prompt:str):
         self = cls(prefix=prefix)
-        results = self.decide_and_call(user_prompt)
+        results = self.reason(user_prompt)
         if type(results) in [list]:
             parsed = self.safe_parse_out(results)
             if len(parsed) > 0: return parsed
@@ -81,7 +86,7 @@ class KnowledgeAssistant(rAssistantPlugin):
 
     def __init__(self, prefix: str):
         super().__init__()
-        self.rStore().init()
+        self.rStore().connect()
         self.prefix = f"{prefix}.{self.sub_collection}"
         self.assistant_log(f"Document Manager initialized with prefix: {self.prefix}")
 
@@ -193,5 +198,5 @@ class KnowledgeAssistant(rAssistantPlugin):
 
 
 if __name__ == "__main__":
-    results = KnowledgeAssistant.request("rai2025.3", "Show me all documents")
+    results = rKnowledgeAssistant.work("rai2025.3", "Show me all documents")
     print(results)

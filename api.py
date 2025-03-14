@@ -12,7 +12,7 @@ from F.LOG import Log
 from F.DATE import get_timestamp_str as get_current_timestamp
 
 from rai.RaiModels import RAI_MODs, getRaiModels
-from rai.agentic.ai_assistants.knowledge import KnowledgeAssistant
+from rai.agentic.ai_assistants.knowledge import rKnowledgeAssistant
 from rai.agentic.ai_flows.rag_flow import rRagFlow
 from rai.agentic.ai_tasks.query_task import RaiQueryAgentResults
 from rai.assistant.ai_models import AiModels
@@ -142,7 +142,7 @@ async def query():
         if item.get('model') == model:
             parent_model = item
     query: str = jbody.get('query')
-    knowledge_results: RaiQueryAgentResults = KnowledgeAssistant.request(
+    knowledge_results: RaiQueryAgentResults = rKnowledgeAssistant.request(
         prefix=parent_model.get('prefix', "pcsc2025.4"),
         user_prompt=query
     )

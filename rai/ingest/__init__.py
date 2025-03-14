@@ -9,6 +9,8 @@ from F.LOG import Log
 from F import OS
 Log = Log("RaiPath/Files")
 
+from rai.internal import connectors
+
 class RaiDirectories:
     @staticmethod
     def output() -> str: return f"{OS.get_path(__file__)}/files/output"

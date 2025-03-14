@@ -49,6 +49,35 @@ class mAssistLog:
         """Retrieve the assistant log as a single string."""
         return str(ASSISTANT_LOG_CHAIN)
 
+class mLog:
+    LOG = []
+    WARNING = []
+    VERBOSE = []
+
+    def log(self, msg:str):
+        formatted_msg = f"mLog: INFO: {msg}"
+        print(formatted_msg)
+        self.LOG.append(formatted_msg)
+        return formatted_msg
+    def log_warning(self, msg:str):
+        formatted_msg = f"mLog: WARNING: {msg}"
+        print(formatted_msg)
+        self.WARNING.append(formatted_msg)
+        return formatted_msg
+    def log_error(self, msg:str):
+        formatted_msg = f"mLog: ERROR: {msg}"
+        print(formatted_msg)
+        self.LOG.append(formatted_msg)
+        return formatted_msg
+    def log_verbose(self, msg:str):
+        formatted_msg = f"mLog: VERBOSE: {msg}"
+        print(formatted_msg)
+        self.VERBOSE.append(formatted_msg)
+        return formatted_msg
+
+    def get_log(self): return "\n".join(self.LOG)
+
+
 class rModule:
 
     class AssistResponse(BaseModel):

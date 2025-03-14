@@ -11,7 +11,7 @@ from rai.ingest.utilities.TextUtils import TextProcessor
 
 ASSIST_LOG = []
 
-class rAssistantPlugin(rModule, mData):
+class pAssistant(rModule, mData):
 
     initial_request_tagged = f"<USER REQUEST> </USER REQUEST>"
 
@@ -279,7 +279,7 @@ class rAssistantPlugin(rModule, mData):
         self.decide_and_retry()
         self.assistant_log("Generating and Returning Final Response for the User.")
         final_response = self.generate_final_response()
-        return rAssistantPlugin.AssistResponse(
+        return pAssistant.AssistResponse(
             prefix="",
             session_id="",
             answer=final_response,

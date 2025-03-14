@@ -15,7 +15,7 @@ from rai.ingest.utilities.DataUtilities import ensure_metadata_format_for_chroma
 from rai.internal.chromadb import ChromaClient
 from F.LOG import Log
 
-from rai.internal.connectors import VECTOR_DB_CLIENT
+from rai.RAG.connectors import VECTOR_DB_CLIENT
 
 Log = Log("Rai Data Loader")
 
