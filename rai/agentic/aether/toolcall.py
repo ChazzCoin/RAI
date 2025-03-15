@@ -3,12 +3,8 @@ from typing import Any, List, Optional, Union
 
 from pydantic import Field
 
-from rai.agentic.aether.UseBrowser import BrowserUseTool
-from rai.agentic.aether.chat_completion import CreateChatCompletion
 from rai.agentic.aether.reason import AEtherAgent
 from rai.agentic.aether.schema import ToolCall, Message, ToolChoice, AgentState, TOOL_CHOICE_TYPE
-from rai.agentic.aether.terminate import Terminate
-from rai.agentic.aether.tool_collection import ToolCollection
 
 TOOL_CALL_REQUIRED = "Tool calls required but none provided"
 SYSTEM_PROMPT = """
@@ -34,9 +30,9 @@ class AgentEngine(AEtherAgent):
     system_prompt: str = SYSTEM_PROMPT
     next_step_prompt: str = NEXT_STEP_PROMPT
 
-    available_tools: ToolCollection = ToolCollection(
-        BrowserUseTool(), Terminate(), CreateChatCompletion()
-    )
+    # available_tools: ToolCollection = ToolCollection(
+    #     BrowserUseTool(), Terminate(), CreateChatCompletion()
+    # )
     tool_choices: TOOL_CHOICE_TYPE = ToolChoice.AUTO  # type: ignore
     special_tool_names: List[str] = Field(default_factory=lambda: [])
 
@@ -65,7 +61,7 @@ class AgentEngine(AEtherAgent):
 
         # Get response with tool options
         t = self.available_tools.to_params()
-        next_step = self.ask_to_generate_the_next_step()
+        self.current_step = self.ask_to_generate_the_next_step()
         sys_prompt = f"""
             <AGENT_LOG>
                 {self.get_assistant_log_str()}
@@ -74,10 +70,10 @@ class AgentEngine(AEtherAgent):
                 {str(self.messages)}
             </MESSAGES>
             
-            **CURRENT STEP: [ {self.current_step} ]**
+            **CURRENT STEP: [ {self.current_step_count} ]**
             **ALWAYS SEARCH THE INTERNET ON THE FIRST STEP**
         """
-        resp = self.ai.llm.decision(user=next_step, system=sys_prompt, functions=t, response_only=True)
+        resp = self.ai.llm.decision(user=self.current_step.step, system=sys_prompt, functions=t, response_only=True)
         response = resp.choices[0].message
         self.tool_calls = response.tool_calls
 
@@ -122,34 +118,40 @@ class AgentEngine(AEtherAgent):
         """Execute tool calls and handle their results"""
 
         if self.control == "respond" or self.objective_is_complete or "terminate" in self.tool_calls:
+            self.state = AgentState.FINISHED
             return self.ask_to_generate_final_response()
 
         if not self.tool_calls:
             if self.tool_choices == ToolChoice.REQUIRED:
-                raise ValueError(TOOL_CALL_REQUIRED)
+                self.assistant_error_log(TOOL_CALL_REQUIRED)
 
             # Return last message content if no tool calls
             return self.messages[-1].content or "No content or commands to execute"
 
         results = []
         for command in self.tool_calls:
+
             result = await self.execute_tool(command)
+
             self.assistant_log(f"{command} has been called. Tool Result is being parsed, summarized and logged.")
+
             result = self.t_processor().NORMALIZER(str(result))
             if not self.t_processor().string_length_is_within(text=str(result), max_length=100):
                 result = self.llm().tool(name="summarize", user_prompt=str(result)) or str(result)
-            self.assistant_log(f"New Tool Result Data:\n{result}")
-            if self.max_observe:
-                result = result[: self.max_observe]
 
+            self.assistant_log(f"New Tool Result Data:\n{result}")
             self.assistant_log(f"🎯 Act '{command.function.name}' completed.")
 
             # Add tool response to memory
             tool_msg = Message.tool_message(content=result, tool_call_id=command.id, name=command.function.name)
             self.memory.add_message(tool_msg)
+
             results.append(result)
 
-        return "\n\n".join(results)
+        joined_result = "\n\n".join(results)
+        self.current_step.tools = self.tool_calls
+        self.current_step.result = joined_result
+        return joined_result
 
     async def execute_tool(self, command: ToolCall) -> str:
         """Execute a single tool call with robust error handling"""

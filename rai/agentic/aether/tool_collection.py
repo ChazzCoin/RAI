@@ -1,8 +1,6 @@
 """Collection classes for managing multiple tools."""
 from typing import Any, Dict, List
-
 from rai.agentic.aether.tool import BaseTool, ToolResult, ToolFailure
-
 
 class ToolCollection:
     """A collection of defined tools."""
@@ -17,9 +15,10 @@ class ToolCollection:
     def to_params(self) -> List[Dict[str, Any]]:
         return [tool.to_param() for tool in self.tools]
 
-    async def execute(
-        self, *, name: str, tool_input: Dict[str, Any] = None
-    ) -> ToolResult:
+    def to_params_str(self) -> str:
+        return str(self.to_params())
+
+    async def execute(self, *, name: str, tool_input: Dict[str, Any] = None) -> ToolResult:
         tool = self.tool_map.get(name)
         if not tool:
             return ToolFailure(error=f"Tool {name} is invalid")

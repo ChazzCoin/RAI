@@ -22,7 +22,7 @@ class AEtherAgent(BaseAgent, ABC):
     state: AgentState = AgentState.IDLE
 
     max_steps: int = 10
-    current_step: int = 0
+    current_step_count: int = 0
 
     @staticmethod
     def module_name() -> str: return "AEther Agent"

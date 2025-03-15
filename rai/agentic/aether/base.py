@@ -1,11 +1,15 @@
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Union
 
 from pydantic import BaseModel, Field, model_validator
 
+from rai.agentic.aether.UseBrowser import BrowserUseTool
 from rai.agentic.aether.aellm import AeLLM
-from rai.agentic.aether.schema import Memory, AgentState, Message, ROLE_TYPE
+from rai.agentic.aether.chat_completion import CreateChatCompletion
+from rai.agentic.aether.schema import Memory, AgentState, Message, ROLE_TYPE, ToolCall
+from rai.agentic.aether.terminate import Terminate
+from rai.agentic.aether.tool_collection import ToolCollection
 from rai.agentic.ai_modules import mAssistLog
 from rai.agentic.ai_modules.data import mData
 from rai.agentic.ai_modules.r import rModule
@@ -30,15 +34,7 @@ class BaseAgent(BaseModel, rModule, mData, mAssistLog,  ABC):
         description="The goal or objective the agent is trying to achieve."
     )
 
-    class Step(BaseModel):
-        step: str
-        index: int
-        tool: Optional[str] = None
-        result: Optional[str] = None
 
-    step_log: List[Step] = Field(default=[], description="List of steps or actions that have been performed.")
-
-    required_data: Optional[Any] = None
     # Prompts
     system_prompt: Optional[str] = Field(
         None, description="System-level instruction prompt"
@@ -81,9 +77,23 @@ class BaseAgent(BaseModel, rModule, mData, mAssistLog,  ABC):
         description="Current agent state"
     )
 
+    class Step(BaseModel):
+        step: str
+        index: int
+        tools: List[ToolCall] = []
+        result: Optional[str] = None
+
+    steps_taken: List[Step] = Field(default=[], description="List of steps or actions that have been performed.")
+    current_step: Optional[Step] = None
+    required_data: Optional[Any] = None
+
+    available_tools: ToolCollection = ToolCollection(
+        BrowserUseTool(), Terminate(), CreateChatCompletion()
+    )
+
     # Execution control
     max_steps: int = Field(default=10, description="Maximum steps before termination")
-    current_step: int = Field(default=0, description="Current step in execution")
+    current_step_count: int = Field(default=0, description="Current step in execution")
 
     duplicate_threshold: int = 2
 
@@ -167,25 +177,26 @@ class BaseAgent(BaseModel, rModule, mData, mAssistLog,  ABC):
 
         results: List[str] = []
         async with self.state_context(AgentState.RUNNING):
-            while (self.current_step < self.max_steps and self.state != AgentState.FINISHED):
-                if self.current_step >= 2:
+            while (self.current_step_count < self.max_steps and self.state != AgentState.FINISHED):
+                if self.current_step_count >= 2:
                     self.ask_if_objective_is_completed()
                     if self.objective_is_complete:
                         self.state = AgentState.FINISHED
                         break
 
-                self.current_step += 1
-                self.assistant_log(f"Executing step {self.current_step}/{self.max_steps}")
+                self.ask_to_generate_the_next_step()
+                self.current_step_count += 1
+                self.assistant_log(f"Executing step {self.current_step_count}/{self.max_steps}")
                 step_result = await self.step()
 
                 # Check for stuck state
                 if self.is_stuck():
                     self.handle_stuck_state()
 
-                results.append(f"Step {self.current_step}: {step_result}")
+                results.append(f"Step {self.current_step_count}: {step_result}")
 
-            if self.current_step >= self.max_steps:
-                self.current_step = 0
+            if self.current_step_count >= self.max_steps:
+                self.current_step_count = 0
                 self.state = AgentState.IDLE
                 results.append(f"Terminated: Reached max steps ({self.max_steps})")
 
@@ -200,8 +211,7 @@ class BaseAgent(BaseModel, rModule, mData, mAssistLog,  ABC):
 
     def handle_stuck_state(self):
         """Handle stuck state by adding a prompt to change strategy"""
-        stuck_prompt = "\
-        Observed duplicate responses. Consider new strategies and avoid repeating ineffective paths already attempted."
+        stuck_prompt = "Observed duplicate responses. Consider new strategies and avoid repeating ineffective paths already attempted."
         self.next_step_prompt = f"{stuck_prompt}\n{self.next_step_prompt}"
         self.assistant_log(f"Agent detected stuck state. Added prompt: {stuck_prompt}")
 
@@ -243,7 +253,7 @@ class BaseAgent(BaseModel, rModule, mData, mAssistLog,  ABC):
 
     def decide_objective_completion_prompt(self) -> str:
         # has_data = f"FLAG FOR IF WE HAVE DATA READY FOR THE USER: [ {self.has_data()} ]"
-        return self.chain_data(self.get_assistant_log_str(), self.objective)
+        return self.chain_data(self.get_assistant_log_str(), self.get_step_log_str(), self.objective)
 
     def generate_objective_prompt(self) -> str:
         return self.chain_data(
@@ -253,17 +263,23 @@ class BaseAgent(BaseModel, rModule, mData, mAssistLog,  ABC):
 
     def get_step_log_str(self):
         steps = ""
-        for s in self.step_log:
+        for s in self.steps_taken:
             steps = self.chain_data(
                 f"\n<STEP_TAKEN>\n{s.index}.{s.step}\n</STEP_TAKEN>\n",
-                f"\n<STEP_TOOL>\n{s.index}.{s.tool}\n</STEP_TOOL>\n",
+                f"\n<STEP_TOOL>\n{s.index}.{s.tools}\n</STEP_TOOL>\n",
                 f"\n<STEP_RESULT>\n{s.index}.{s.result}\n</STEP_RESULT>\n"
             )
         return steps
-
+    def get_tools_document(self):
+        return f"""
+            <TOOLS_TO_PICK>
+                {self.available_tools.to_params_str()} 
+            </TOOLS_TO_PICK>
+        """
     def format_next_step(self) -> str:
         return self.chain_data(
             self.assistant_rules_tagged,
+            self.get_tools_document(),
             self.get_step_log_str(),
             self.objective,
             self.initial_request_tagged
@@ -296,7 +312,7 @@ class BaseAgent(BaseModel, rModule, mData, mAssistLog,  ABC):
         self.ask_to_generate_the_next_step()
 
 
-    def ask_to_generate_the_next_step(self) -> Optional[str]:
+    def ask_to_generate_the_next_step(self) -> Step:
         """AI CALL: Generate a chain-of-steps plan based on the provided prompt."""
         try:
             step = self.llm().tool("next-step", self.t_processor().NORMALIZER(self.format_next_step()))
@@ -305,16 +321,26 @@ class BaseAgent(BaseModel, rModule, mData, mAssistLog,  ABC):
             if step:
                 step_log_item = self.Step(
                     step=step,
-                    index=int(self.current_step)
+                    index=int(self.current_step_count)
                 )
-                self.step_log.append(step_log_item)
-            return step
+                self.steps_taken.append(step_log_item)
+                return step_log_item
+            step_log_item = self.Step(
+                step="Search the internet",
+                index=int(self.current_step_count)
+            )
+            self.steps_taken.append(step_log_item)
+            return step_log_item
         except Exception as e:
             self.assistant_error_log("Failed to generate a plan.", str(e))
-            return "Search the internet"
+            step_log_item = self.Step(
+                step="Search the internet",
+                index=int(self.current_step_count)
+            )
+            self.steps_taken.append(step_log_item)
+            return step_log_item
 
     """ TODO: """
-
     def ask_to_create_required_data_model(self):
         """AI CALL: Attempt to establish an objective based on the provided prompt."""
         try:
