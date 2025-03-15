@@ -1,7 +1,6 @@
 import uuid
-from typing import Dict, Any, Type, List
+from typing import Dict, Any, List
 from pydantic import BaseModel
-from rai.agentic.ai_tools.text_tools.r_tools import rTextTools
 
 """
 - I like the idea of having a Log built into the data model for it to give AI real-time updates about itself..
@@ -24,9 +23,6 @@ class fBaseModel(BaseModel):
         self.log_info("Dumping model to json/dict")
         kwargs.setdefault('exclude', {'_log', '_verbose'})
         return super().model_dump(*args, **kwargs)
-    def attempt_ai_parsing(self, text: str) -> Type[BaseModel]:
-        self.log_info("Attempting to import text and have ai create formatted model response.")
-        return rTextTools.formatter(text, self._required_data_model_type())
     def attempt_import(self, data: dict) -> BaseModel:
         self.log_info("Attempting to import data and create model.")
         return self.model_validate(data)

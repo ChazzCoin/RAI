@@ -2,6 +2,7 @@ from abc import ABC
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
 
+from rai.internal.f import fBaseModel
 
 # Registry to store model objects
 BASE_MODELS = {}
@@ -47,6 +48,10 @@ class RaiContactFormat(BaseModel):
 @register_format("contacts")
 class RaiContactsFormat(BaseModel):
     holder: List[RaiContactFormat]
+
+@register_format("create-required-data")
+class fRequiredData(fBaseModel):
+    data: Dict[str, Any]
 
 @register_format("metadata")
 class RaiMetadata(BaseModel):

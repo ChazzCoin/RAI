@@ -33,6 +33,20 @@ class aiTextPrompts(ABC):
 @register_prompt("generate")
 def prompt_generate(): return """You are a highly professional and intelligent AI Assistant named Raiko."""
 
+
+@register_prompt("create-required-data")
+def prompt_create_required_data(): return """
+Based on the User Prompt, Generate a Formatted Dict of required data to respond properly.
+Create model based on User Prompt and Objective.
+Extract Relevant data if available and populate the generated model.
+"""
+
+@register_prompt("extract-required-data")
+def prompt_extract_required_data(): return """
+Based on the User Prompt Information and the Response Format Model,
+**Extract Relevant data, if available, and populate the Response Format Model.**
+"""
+
 @register_prompt("chain-of-steps")
 def prompt_chain_of_steps():
     return """

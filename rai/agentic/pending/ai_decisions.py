@@ -31,7 +31,7 @@ class rAiErrorHandler(rAI):
         try:
             options = self.engine.generate_function(
                 user=error_message,
-                system=self.system_prompt(),
+                system=self.pipeline_system_prompt(),
                 functions=self.build()
             )
             option = LIST.get(0, options, None)
@@ -54,7 +54,7 @@ class rAiErrorHandler(rAI):
     def build(self) -> [dict]:
         return [ self.getFunctionJsonNoArgs(key, value) for key, value in self.decisions().items() ]
 
-    def system_prompt(self):
+    def pipeline_system_prompt(self):
         return """
             You are an AI assistant tasked with determining how to handle the user prompts HTTP error. 
             Analyze the structure of the text and determine the type of error. 

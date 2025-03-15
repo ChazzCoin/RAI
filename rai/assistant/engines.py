@@ -144,7 +144,7 @@ class FusedAI(ABC):
     @abstractmethod
     def generate_format(self, user: str, system: str, format: Type[BaseModel], image=None): pass
     @abstractmethod
-    def generate_function(self, user: str, system: str, functions: [dict], image=None, raw_result=False): pass
+    def generate_function(self, user: str, system: str, functions: [dict], image=None, raw_result=False, response_only=False): pass
     """ ASYNC """
     @abstractmethod
     async def generate_async(self, user: str, system: str, image=None): pass
@@ -255,15 +255,16 @@ class OpenAiEngine(FusedAI, engine="openai"):
         except Exception as e:
             return self.fallback("generate_format", e, **{"user":user, "system":system, "format":format, "image":image })
 
-    def generate_function(self, user: str, system: str, functions: [dict], image=None, raw_result=False):
+    def generate_function(self, user: str, system: str, functions: [dict], image=None, raw_result=False, response_only=False):
         try:
             completion = self.O.chat.completions.create(
                 model=self.default_function_model,
                 messages=buildMessage(user, system, image),
                 tools=functions,
+                tool_choice="auto"
             )
             response = completion.choices[0].message.tool_calls
-
+            if response_only: return completion
             if raw_result: return response
 
             if response:
@@ -417,7 +418,7 @@ class OllamaEngine(FusedAI, engine="ollama"):
         except Exception as e:
             print(e)
             return None
-    def generate_function(self, user:str, system:str, functions: [dict], image=None, raw_result=False):
+    def generate_function(self, user:str, system:str, functions: [dict], image=None, raw_result=False, response_only=False):
         try:
             data: ChatResponse = self.O.chat(
                 model=self.default_function_model,
@@ -427,6 +428,7 @@ class OllamaEngine(FusedAI, engine="ollama"):
                 ],
                 tools=functions
             )
+            if response_only: return data
             if raw_result: return data.message.tool_calls
             tool_results = []
             for tool in data.message.tool_calls or []:

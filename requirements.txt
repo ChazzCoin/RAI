@@ -18,7 +18,7 @@ hanziconv==0.3.2
 hypercorn==0.17.3
 uvicorn==0.30.6
 requests==2.32.3
-openai~=1.65.2
+openai==1.66.3
 ollama~=0.4.7
 quart~=0.20.0
 quart-cors==0.7.0
@@ -37,7 +37,7 @@ redis~=5.2.1
 psycopg==3.2.3
 #psycopg-binary==2.9.10
 psycopg2==2.9.10
-SQLAlchemy==2.0.38
+SQLAlchemy==2.0.39
 # For Postgres, choose one:
 #psycopg~=4.0
 # psycopg2~=2.9.10  # Uncomment only if you must use psycopg2
@@ -47,7 +47,7 @@ pydantic~=2.10.6
 pydantic-core==2.27.1
 pydantic-settings==2.5.2
 pandas~=2.2.3
-numpy==1.26.4
+numpy==2.2.3
 torch~=2.6.0
 transformers~=4.49.0
 datasets~=3.3.2
@@ -64,7 +64,7 @@ tiktoken~=0.9.0
 tldextract==5.1.3
 selenium~=4.29.0
 webdriver-manager==4.0.2
-pillow~=8.2.0
+pillow==10.4.0
 weasyprint==62.3
 rdflib==6.3.2
 pytesseract==0.3.13
@@ -95,7 +95,7 @@ tqdm~=4.67.1
 pdfminer.six==20231228
 pypdf2==3.0.1
 pdf2image~=1.15.1
-six~=1.15.0
+six==1.17.0
 pdfminer==20191125
 ##############################
 # Redis and related utilities
@@ -125,7 +125,7 @@ hanziconv==0.3.2
 nltk==3.9.1
 fairnlp==5.1.0
 # setuptools is generally installed; pin only if necessary:
-setuptools==68.2.0
+setuptools==76.0.0
 
 opencv-python==4.10.0.84
 onnxruntime~=1.19.2
@@ -142,14 +142,17 @@ pathlib==1.0.1
 beautifulsoup4==4.13.3
 psutil~=7.0.0
 urllib3==1.26.20
-Crawl4AI==0.4.248
+Crawl4AI==0.5.0.post4
 python-pptx~=1.0.2
 
 chardet~=5.2.0
-httpx==0.27.2
+httpx==0.28.1
 paramiko~=3.5.1
 spacy~=3.8.3
 fastapi~=0.115.9
-starlette~=0.45.3
+starlette==0.46.1
 python-magic~=0.4.27
 psycopg2-binary~=2.9.8
+typing_extensions==4.12.2
+tenacity==9.0.0
+pydantic_core==2.27.2

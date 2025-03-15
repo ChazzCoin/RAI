@@ -78,7 +78,7 @@ class rAssistantReasoningPlugin(rModule, mMap, mData, mAssistLog, ABC):
         try:
             tools = self.get_external_json_tools()
             self.assistant_log("Attempting to decide on a function.")
-            decision = self.rAI().generate_function(
+            decision = self.llm().generate_function(
                 user=user_prompt,
                 system=self.external_decision_prompt(),
                 functions=tools,
@@ -155,7 +155,7 @@ class rAssistantReasoningPlugin(rModule, mMap, mData, mAssistLog, ABC):
                 self.get_log_str("DATA"),
                 self.initial_request_tagged,
             )
-            response = self.rAI().generate(
+            response = self.llm().generate(
                 user=final_response_request,
                 system="Based on the data provided, create the appropriate response to send back to the user."
             )

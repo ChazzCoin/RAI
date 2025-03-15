@@ -6,7 +6,8 @@ from typing import Dict, Any, Optional, List, Type
 from F import LIST
 from pydantic import BaseModel, create_model
 from rai.agentic.ai_modules.log import mLog
-from rai.agentic.ai_tools.text_tools.r_tools import rTextTools
+from rai.assistant.connectors import LLM
+
 
 class mData(mLog):
 
@@ -36,7 +37,7 @@ class mData(mLog):
         return self._required_data_model_type().__class__.__name__
 
     def ask_ai_to_create_data_model(self, text: str) -> Type[BaseModel]:
-        return rTextTools.formatter(text, self._required_data_model_type())
+        return LLM.formatter(text, self._required_data_model_type())
 
     def _new_data_instance(self) -> BaseModel:
         return self._required_data_model_type().model_construct()
@@ -138,7 +139,7 @@ class mData(mLog):
             - CURRENT ITEMS IN DATA LIST: [ {self.report_data_count()} ]
         """
     def generate_data_report(self):
-        return rTextTools.tool(
+        return LLM.tool(
             name="generate",
             user_prompt=self.report_prompt(),
             system_prompt=""

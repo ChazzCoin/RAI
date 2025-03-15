@@ -109,7 +109,7 @@ class rKnowledgeAssistant(rAssistantReasoningPlugin):
         item = {
             "id": doc_id,
             "text": new_text,
-            "vector": self.rAI().embed(new_text),
+            "vector": self.llm().embed(new_text),
             "metadata": {'type': 'ai modifications', 'timestamp': time.time() },
         }
         self.rStore().upsert(self.prefix, [item])
@@ -131,7 +131,7 @@ class rKnowledgeAssistant(rAssistantReasoningPlugin):
             List[StoreDocument]: A list of documents that match the search criteria.
         """
         self.assistant_log(f"Finding documents with query: '{query_text}'.")
-        vector = self.rAI().embed(query_text) if query_text else []
+        vector = self.llm().embed(query_text) if query_text else []
         results = self.rStore().search_vector(
             self.prefix,
             vectors=vector,

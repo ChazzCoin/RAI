@@ -101,7 +101,7 @@ class rImageTools(ABC, rAI, TextProcessor):
     def type(self): pass
     @abstractmethod
     def parse(self, result): pass
-    def system_prompt(self): return aiImagePrompts.prompt(self.name)
+    def pipeline_system_prompt(self): return aiImagePrompts.prompt(self.name)
     def user_prompt(self): return ""
 
     def run(self, image=None):
@@ -109,21 +109,21 @@ class rImageTools(ABC, rAI, TextProcessor):
             if self.type() == "format":
                 return self.parse(self.generate_format(
                     user=self.user_prompt(),
-                    system=self.system_prompt(),
+                    system=self.pipeline_system_prompt(),
                     format=aiImageFormats.format(self.name),
                     image=image
                 ))
             elif self.type() == "function":
                 return self.parse(self.generate_function(
                     user=self.user_prompt(),
-                    system=self.system_prompt(),
+                    system=self.pipeline_system_prompt(),
                     functions=aiImageFunctions.function(self.name),
                     image=image
                 ))
             elif self.type() == "generate":
                 return self.parse(self.engine.generate(
                     user=self.user_prompt(),
-                    system=self.system_prompt(),
+                    system=self.pipeline_system_prompt(),
                     image=image
                 ))
         except Exception as e:
@@ -135,21 +135,21 @@ class rImageTools(ABC, rAI, TextProcessor):
             if self.type() == "format":
                 return await self.parse(self.engine.generate_format_async(
                     user=self.user_prompt(),
-                    system=self.system_prompt(),
+                    system=self.pipeline_system_prompt(),
                     format=aiImageFormats.format(self.name),
                     image=image
                 ))
             elif self.type() == "function":
                 return await self.parse(self.engine.generate_function_async(
                     user=self.user_prompt(),
-                    system=self.system_prompt(),
+                    system=self.pipeline_system_prompt(),
                     functions=aiImageFunctions.function(self.name),
                     image=image
                 ))
             elif self.type() == "generate":
                 return await self.parse(self.engine.generate_async(
                     user=self.user_prompt(),
-                    system=self.system_prompt(),
+                    system=self.pipeline_system_prompt(),
                     image=image
                 ))
         except Exception as e:

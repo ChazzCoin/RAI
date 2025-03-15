@@ -169,6 +169,7 @@ class VectorCache(RedisClient, DocumentQueryUtils):
     def cache(self, prefix, doc: IngestLoaderDocument):
         return self.add_doc(prefix, doc)
 
+vCACHE = VectorCache()
 
 def test_vector_cache():
     # Initialize VectorCache with a test index.

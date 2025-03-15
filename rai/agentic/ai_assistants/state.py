@@ -190,7 +190,7 @@ class rStateAssistant(rAssistantReasoningPlugin):
         class StateId(BaseModel):
             state_id: str
 
-        stateId_object = self.rAI().generate_format(
+        stateId_object = self.llm().generate_format(
             user=text,
             system="Extract the state_id from the provided response format.",
             format=StateId

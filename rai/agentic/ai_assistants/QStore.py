@@ -135,9 +135,9 @@ class VectorStore(ChromaClient, DocumentQueryUtils):
             items=[vector_document],
         )
 
-###############################################################################
-#                            Example Usage                                    #
-###############################################################################
+
+vSTORE = VectorStore()
+
 if __name__ == "__main__":
     # Instantiate the Chroma query handler
     chroma_handler = VectorStore()
