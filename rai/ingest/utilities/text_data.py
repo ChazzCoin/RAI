@@ -2,7 +2,7 @@
 gpt4_test = """
  Take the following custom python class I have built and create a new class that inherits this one and does the following.
  
- 1. Takes in a 'prefix' and then is able to manage and browse documents.
+ 1. Takes in a 'prefix' and then is able to manage and browse.py documents.
  2. Base functions for get all documents. get document by id. delete document. update document.
  
  

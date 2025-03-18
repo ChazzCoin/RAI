@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 from rai.agentic.ai_assistants.QCache import vCACHE
 from rai.agentic.ai_assistants.QStore import vSTORE
-from rai.assistant.connectors import LLM
+from rai.assistant.connectors import LLM, rAI
 from rai.ingest.utilities.TextUtils import TextProcessor
 
 
@@ -43,7 +43,7 @@ class rModule:
     @staticmethod
     def r_switch_engine(engine:str): return LLM.switch_engine(engine)
     @staticmethod
-    def llm() -> LLM: return LLM
+    def llm() -> 'rAI': return LLM
     @staticmethod
     def rStore() -> vSTORE: return vSTORE
     @staticmethod

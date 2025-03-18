@@ -114,14 +114,16 @@ class FusedAI(ABC):
             return AiModels.DEFAULT_OPENAI_FORMAT
         return AiModels.DEFAULT_OLLAMA_FORMAT
 
-    def fallback(self, method_name: str, error, **kwargs):
+    def fallback(self, method_name: str, error, depth=0, **kwargs):
         print(f"Fallback method name: {method_name}, error: {error}")
+        if depth >= 0: return f"Something has gone wrong. Unable to make api call. [ {kwargs} ]"
         if self.engine == "openai":
             self.switch_engine('ollama')
         else:
             self.switch_engine('openai')
         fallback_method = getattr(self, method_name)
-        return fallback_method(**kwargs)
+
+        return fallback_method(depth=(depth + 1), **kwargs)
 
     def get_engine(self, override:str=None):
         return self.engines.get(self.engine if override is None else override)
@@ -155,7 +157,7 @@ class FusedAI(ABC):
     @abstractmethod
     async def generate_format_async(self, user: str, system: str, format: Type[BaseModel], image=None): pass
     @abstractmethod
-    async def generate_function_async(self, user: str, system: str, functions: [dict], image=None): pass
+    async def generate_function_async(self, user: str, system: str, functions: [dict], image=None, raw_result=False, response_only=False): pass
 
 """
     OPENAI ENGINE
@@ -206,7 +208,7 @@ class OpenAiEngine(FusedAI, engine="openai"):
         if self.MODEL_OVERRIDE: return self.MODEL_OVERRIDE
         return AiModels.DEFAULT_OPENAI
 
-    def generate(self, user:str, system:str, image=None, model=None):
+    def generate(self, user:str, system:str, image=None, model=None, depth=0):
         try:
             response = self.O.chat.completions.create(
                 model=model or self.engine_model(),
@@ -215,7 +217,7 @@ class OpenAiEngine(FusedAI, engine="openai"):
             response = response.choices[0].message.content
             return response
         except Exception as e:
-            return self.fallback("generate", e, **{"user":user, "system":system, "image":image })
+            return self.fallback("generate", e, depth=depth, **{"user":user, "system":system, "image":image })
     def generate_chat(self, messages:[{}]):
         print("Generating Chat - OpenAI")
         try:
@@ -237,7 +239,7 @@ class OpenAiEngine(FusedAI, engine="openai"):
             return response.data[0].embedding
         except Exception as e:
             return self.fallback("generate_embeddings", e, **{"content":content})
-    def generate_format(self, user: str, system: str, format: BaseModel, image=None):
+    def generate_format(self, user: str, system: str, format: BaseModel, image=None, depth=0):
         try:
             completion = self.O.beta.chat.completions.parse(
                 model=self.default_format_model,
@@ -253,9 +255,9 @@ class OpenAiEngine(FusedAI, engine="openai"):
                 print("Parsed:", response.parsed)
                 return response.parsed
         except Exception as e:
-            return self.fallback("generate_format", e, **{"user":user, "system":system, "format":format, "image":image })
+            return self.fallback("generate_format", e, depth=depth, **{"user":user, "system":system, "format":format, "image":image })
 
-    def generate_function(self, user: str, system: str, functions: [dict], image=None, raw_result=False, response_only=False):
+    def generate_function(self, user: str, system: str, functions: [dict], image=None, raw_result=False, response_only=False, depth=0):
         try:
             completion = self.O.chat.completions.create(
                 model=self.default_function_model,
@@ -275,7 +277,7 @@ class OpenAiEngine(FusedAI, engine="openai"):
                 return tool_results
             return None
         except Exception as e:
-            return self.fallback("generate_function", e, **{"user":user, "system":system, "functions":functions, "image":image, "raw_result":raw_result })
+            return self.fallback("generate_function", e, depth=depth, **{"user":user, "system":system, "functions":functions, "image":image, "raw_result":raw_result })
     """ ASYNC FUNCTIONS"""
     async def generate_async(self, user: str, system: str, image=None):
         try:
@@ -327,14 +329,17 @@ class OpenAiEngine(FusedAI, engine="openai"):
         except Exception as e:
             print(e)
             return None
-    async def generate_function_async(self, user: str, system: str, functions: [dict], image=None):
+    async def generate_function_async(self, user: str, system: str, functions: [dict], image=None, raw_result=False, response_only=False):
         try:
             completion = await self.OAsync.chat.completions.create(
                 model=self.default_function_model,
                 messages=buildMessage(user, system, image),
                 tools=functions,
+                tool_choice="required"
             )
             response = completion.choices[0].message.tool_calls
+            if response_only: return completion
+            if raw_result: return response
             if response:
                 tool_results = []
                 for tool in response or []:
@@ -480,14 +485,14 @@ class OllamaEngine(FusedAI, engine="ollama"):
                     { "role": "system", "content": system },
                     { "role": "user", "content": user },
                 ],
-                format=format.model_json_schema()
+                format=format
             )
             answer = format.model_validate_json(data.message.content)
             return answer
         except Exception as e:
             print(e)
             return None
-    async def generate_function_async(self, user:str, system:str, functions: [dict], image=None):
+    async def generate_function_async(self, user:str, system:str, functions: [dict], image=None, raw_result=False, response_only=False):
         try:
             data: ChatResponse = await self.OAsync.chat(
                 model=self.default_function_model,
@@ -497,6 +502,11 @@ class OllamaEngine(FusedAI, engine="ollama"):
                 ],
                 tools=functions
             )
+
+            response = data.message.tool_calls
+            if response_only: return data
+            if raw_result: return response
+
             tool_results = []
             for tool in data.message.tool_calls or []:
                 rai_func_def = find_RaiFunction(tool.function.name, functions)

@@ -2,7 +2,7 @@ import email
 import imaplib
 import datetime
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
 from rai.agentic.ai_plugins.reason import rAssistantReasoningPlugin
 from rai.ingest.utilities.TextUtils import TextProcessor
@@ -11,7 +11,7 @@ app_password = "cjgz bqwz xbzk gpzf"
 
 import smtplib
 import logging
-from email.mime.text import MIMEText
+# from email.mime.text import MIMEText
 from typing import Optional, List, Type
 
 
@@ -20,8 +20,8 @@ class fEmail(BaseModel):
     A Pydantic model representing an email.
     """
     id: Optional[str] = None
-    sender: EmailStr
-    recipients: List[EmailStr]
+    sender: str
+    recipients: List[str]
     subject: str
     body: str
     is_html: bool = False
@@ -79,55 +79,55 @@ class rEmailAssistant(rAssistantReasoningPlugin):
             console_handler.setFormatter(formatter)
             self.logger.addHandler(console_handler)
 
-    def send_email(self, to:str, subject:str, body:str) -> bool:
-        """
-        Sends an email using the Gmail SMTP server using the provided fEmail model.
-        def send_email(self, to:str, subject:str, body:str, timeout: Optional[int] = None) -> bool:
-        """
-        recipients = ", ".join([to])
-        try:
-
-            mime_subtype = "plain"
-            msg = MIMEText(body, mime_subtype)
-            msg["Subject"] = subject
-            msg["From"] = self.sender_email
-            msg["To"] = recipients
-
-            with smtplib.SMTP(self.smtp_server, self.smtp_port, timeout=30) as server:
-                server.starttls()
-                server.login(self.sender_email, self.app_password)
-                server.sendmail(self.sender_email, recipients, msg.as_string())
-
-            self.assistant_log(f"Email sent successfully to {recipients}")
-            return True
-        except Exception as e:
-            self.assistant_error_log(f"Failed to send email to {recipients or 'Unknown'}. ERROR: [ {str(e)} ]")
-            return False
-
-    def __send_email_model(self, email_model: fEmail, timeout: Optional[int] = None) -> bool:
-        """
-        Sends an email using the Gmail SMTP server using the provided EmailModel.
-        :param email_model: An instance of EmailModel containing the email details.
-        :param timeout: Optional timeout for the SMTP connection in seconds.
-        :return: True if the email was sent successfully, False otherwise.
-        """
-        try:
-            mime_subtype = "html" if email_model.is_html else "plain"
-            msg = MIMEText(email_model.body, mime_subtype)
-            msg["Subject"] = email_model.subject
-            msg["From"] = email_model.sender
-            msg["To"] = ", ".join(email_model.recipients)
-
-            with smtplib.SMTP(self.smtp_server, self.smtp_port, timeout=timeout) as server:
-                server.starttls()
-                server.login(self.sender_email, self.app_password)
-                server.sendmail(email_model.sender, email_model.recipients, msg.as_string())
-
-            self.assistant_log(f"Email sent successfully to {str(email_model.recipients)}")
-            return True
-        except Exception as e:
-            self.assistant_error_log(f"Failed to send email to {str(email_model.recipients)}. ERROR: [ {str(e)} ]")
-            return False
+    # def send_email(self, to:str, subject:str, body:str) -> bool:
+    #     """
+    #     Sends an email using the Gmail SMTP server using the provided fEmail model.
+    #     def send_email(self, to:str, subject:str, body:str, timeout: Optional[int] = None) -> bool:
+    #     """
+    #     recipients = ", ".join([to])
+    #     try:
+    #
+    #         mime_subtype = "plain"
+    #         msg = MIMEText(body, mime_subtype)
+    #         msg["Subject"] = subject
+    #         msg["From"] = self.sender_email
+    #         msg["To"] = recipients
+    #
+    #         with smtplib.SMTP(self.smtp_server, self.smtp_port, timeout=30) as server:
+    #             server.starttls()
+    #             server.login(self.sender_email, self.app_password)
+    #             server.sendmail(self.sender_email, recipients, msg.as_string())
+    #
+    #         self.assistant_log(f"Email sent successfully to {recipients}")
+    #         return True
+    #     except Exception as e:
+    #         self.assistant_error_log(f"Failed to send email to {recipients or 'Unknown'}. ERROR: [ {str(e)} ]")
+    #         return False
+    #
+    # def __send_email_model(self, email_model: fEmail, timeout: Optional[int] = None) -> bool:
+    #     """
+    #     Sends an email using the Gmail SMTP server using the provided EmailModel.
+    #     :param email_model: An instance of EmailModel containing the email details.
+    #     :param timeout: Optional timeout for the SMTP connection in seconds.
+    #     :return: True if the email was sent successfully, False otherwise.
+    #     """
+    #     try:
+    #         mime_subtype = "html" if email_model.is_html else "plain"
+    #         msg = MIMEText(email_model.body, mime_subtype)
+    #         msg["Subject"] = email_model.subject
+    #         msg["From"] = email_model.sender
+    #         msg["To"] = ", ".join(email_model.recipients)
+    #
+    #         with smtplib.SMTP(self.smtp_server, self.smtp_port, timeout=timeout) as server:
+    #             server.starttls()
+    #             server.login(self.sender_email, self.app_password)
+    #             server.sendmail(email_model.sender, email_model.recipients, msg.as_string())
+    #
+    #         self.assistant_log(f"Email sent successfully to {str(email_model.recipients)}")
+    #         return True
+    #     except Exception as e:
+    #         self.assistant_error_log(f"Failed to send email to {str(email_model.recipients)}. ERROR: [ {str(e)} ]")
+    #         return False
 
     def _parse_email(self, msg: email.message.Message, mail_id: Optional[bytes] = None) -> fEmail:
         """

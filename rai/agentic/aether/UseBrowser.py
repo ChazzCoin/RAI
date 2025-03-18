@@ -11,6 +11,7 @@ from pydantic_core.core_schema import ValidationInfo
 
 from rai.agentic.aether.tool import BaseTool, ToolResult
 from rai.agentic.aether.UseBrowserConfig import config
+from rai.ingest.utilities.TextUtils import TextProcessor
 from rai.ingest.web.soup.BodyExtractor import WebBodyExtractor
 
 MAX_LENGTH = 2000
@@ -113,15 +114,15 @@ class BrowserUseTool(BaseTool):
             }
 
             if config.browser_config:
-                # from browser_use.browser.browser import ProxySettings
-                #
-                # # handle proxy settings.
-                # if config.browser_config.proxy and config.browser_config.proxy.server:
-                #     browser_config_kwargs["proxy"] = ProxySettings(
-                #         server=config.browser_config.proxy.server,
-                #         username=config.browser_config.proxy.username,
-                #         password=config.browser_config.proxy.password,
-                #     )
+                from browser_use.browser.browser import ProxySettings
+
+                # handle proxy settings.
+                if config.browser_config.proxy and config.browser_config.proxy.server:
+                    browser_config_kwargs["proxy"] = ProxySettings(
+                        server=config.browser_config.proxy.server,
+                        username=config.browser_config.proxy.username,
+                        password=config.browser_config.proxy.password,
+                    )
 
                 browser_attrs = [
                     "headless",
@@ -189,17 +190,21 @@ class BrowserUseTool(BaseTool):
                         return ToolResult(
                             error="URL is required for 'navigate' action"
                         )
+                    print(f"BrowserTool: Opening [ {url} ]")
                     await context.navigate_to(url)
-                    html = await context.get_page_html()
-                    body = WebBodyExtractor.pipeline(html)
-                    content = body.combined_text
-                    return ToolResult(
-                        output=f"""
-                            Navigated to: [ {url} ]\n
-                            Extracted Page Content:\n
-                            {content}
-                        """,
-                    )
+                    return ToolResult(output=f"BrowserTool: Navigated to [ {url} ]")
+                    # print(f"BrowserTool: Is extracting [ {url} ]")
+                    # await context.get_page_html()
+                    # body = WebBodyExtractor.pipeline(html)
+                    # content = body.combined_text
+                    # limited_html = TextProcessor.ensure_within_limit(html, 10000)
+                    # return ToolResult(
+                    #     output=f"""
+                    #         \nNavigated to: [ {url} ]\n
+                    #         \nExtracted HTML Content:\n
+                    #         \n{limited_html}\n
+                    #     """,
+                    # )
 
                 elif action == "click":
                     if index is None:
@@ -242,6 +247,7 @@ class BrowserUseTool(BaseTool):
 
                 elif action == "get_text":
                     text = await context.execute_javascript("document.body.innerText")
+                    print("BrowserUseTool: get_text: ", text)
                     return ToolResult(output=text)
 
                 elif action == "read_links":

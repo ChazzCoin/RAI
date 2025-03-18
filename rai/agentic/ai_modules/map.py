@@ -1,3 +1,4 @@
+import asyncio
 import inspect
 import json
 from typing import Callable, Dict, Any, Union, List, get_origin, get_args
@@ -106,6 +107,7 @@ class mMap:
                 continue
             functions.append(self.function_to_schema(func_obj))
         return functions
+
     def parse_and_call_function(self, json_input: Union[str, dict, list]) -> Any:
         """
         Parse a JSON string/dict/list representing a function call with its arguments,
@@ -161,6 +163,65 @@ class mMap:
 
             f"Calling function '{func_name}' with arguments: {arguments}"
             return func(**arguments)
+        except Exception as e:
+            return f"Error in parse_and_call: {json_input} | Exception: {e}"
+
+    async def parse_and_call_function_async(self, json_input: Union[str, dict, list]) -> Any:
+        """
+        Parse a JSON string/dict/list representing a function call with its arguments,
+        then call the corresponding method.
+        """
+        try:
+            # Normalize the input.
+            if isinstance(json_input, list):
+                try:
+                    temp = LIST.get(0, json_input, "browse_documents")
+                    data = DICT.get("function", temp, None)
+                except Exception as e:
+                    return f"Error processing list input: {e}"
+            elif isinstance(json_input, str):
+                try:
+                    data = json.loads(json_input)
+                except json.JSONDecodeError as e:
+                    return f"Invalid JSON string: {e}"
+            elif isinstance(json_input, dict):
+                data = json_input
+            else:
+                return "Input must be a JSON string, list, or dictionary."
+
+            # Extract function name.
+            func_name = data.get('name') if isinstance(data, dict) else getattr(data, 'name', None)
+            if not func_name:
+                return "Missing function name ('name') in data."
+
+            # Extract and parse arguments.
+            args_source = data.get('arguments') if isinstance(data, dict) else getattr(data, 'arguments', None)
+            if args_source is None:
+                return "Missing arguments ('arguments') in data."
+
+            if isinstance(args_source, str):
+                try:
+                    arguments = json.loads(args_source)
+                except json.JSONDecodeError as e:
+                    return f"Error decoding 'arguments': {e}"
+            elif isinstance(args_source, dict):
+                arguments = args_source
+            else:
+                return "Arguments must be a dictionary or a valid JSON string."
+
+            if not isinstance(arguments, dict):
+                return "Parsed arguments is not a dictionary."
+
+            # Ensure the function exists and is callable.
+            if not hasattr(self, func_name):
+                return f"Function '{func_name}' not found."
+            func = getattr(self, func_name)
+            if not callable(func):
+                return f"'{func_name}' is not callable."
+
+            f"Calling function '{func_name}' with arguments: {arguments}"
+            result = await func(**arguments)
+            return result
         except Exception as e:
             return f"Error in parse_and_call: {json_input} | Exception: {e}"
 

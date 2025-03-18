@@ -9,7 +9,6 @@ from rai.agentic.ai_tools.text_tools.text_formats import aiTextFormats
 from rai.agentic.ai_tools.text_tools.text_functions import aiTextFunctions
 from rai.agentic.ai_tools.text_tools.text_prompts import aiTextPrompts
 from rai.assistant.engines import OllamaEngine, OpenAiEngine, AiModels, FusedAI
-from rai.ingest.utilities.text_data import schedule_text
 
 TEXT_TOOL_REGISTRY = {}
 
@@ -103,7 +102,22 @@ class rAI:
             raw_result=raw_result,
             response_only=response_only
         )
-
+    @classmethod
+    async def formatter_async(cls, text, model: Type[BaseModel], system=None) -> Type[BaseModel]:
+        return await cls().engine.generate_format_async(
+            user=text,
+            system=system or "Extract the necessary data/attributes for the provided response format.",
+            format=model
+        )
+    @classmethod
+    async def decision_async(cls, user:str, system:str, functions: [dict], raw_result:bool=True, response_only=False) -> Type[BaseModel]:
+        return await cls().engine.generate_function_async(
+            user=user,
+            system=system,
+            functions=functions,
+            raw_result=raw_result,
+            response_only=response_only
+        )
 
     """ BASE """
     def embed(self, text:str):
@@ -116,6 +130,8 @@ class rAI:
 
     def generate(self, user: str, system: str, image=None):
         return self.engine.generate(user, system, image)
+    async def generate_async(self, user: str, system: str, image=None):
+        return await self.engine.generate_async(user, system, image)
 
     def generate_function(self, user: str, system: str, functions: [dict], image=None, raw_result=False):
         result = self.engine.generate_function(user, system, functions, image, raw_result)
@@ -126,8 +142,9 @@ class rAI:
         result = self.engine.generate_format(user, system, format, image)
         return result
 
-    async def generate_function_async(self, user: str, system: str, functions: [dict], image=None):
-        result = await self.engine.generate_function_async(user, system, functions, image)
+    async def generate_function_async(self, user: str, system: str, functions: [dict], image=None, raw_result=False):
+        result = await self.engine.generate_function_async(user, system, functions, image, raw_result)
+        if raw_result: return result
         return self.parse_function_names(result)
 
     @staticmethod

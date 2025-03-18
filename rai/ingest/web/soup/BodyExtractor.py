@@ -1,3 +1,5 @@
+import asyncio
+
 from rai.ingest.web.soup.WebExtractor import WebSoupExtractor
 from rai.ingest.web.WebModels import ContentGroup, WebBodyModel
 from bs4 import Comment
@@ -12,6 +14,11 @@ class WebBodyExtractor(WebSoupExtractor):
     def pipeline(cls, html) -> WebBodyModel:
         newCls = cls(html)
         return newCls.run()
+
+    @classmethod
+    async def pipeline_async(cls, html) -> WebBodyModel:
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, cls.pipeline, html)
 
     @staticmethod
     def refine_text_content(text: str) -> str: return text.strip()

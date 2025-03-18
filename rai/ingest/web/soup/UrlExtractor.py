@@ -1,3 +1,4 @@
+import asyncio
 import re
 from urllib.parse import urljoin
 
@@ -25,6 +26,10 @@ class WebUrlExtractor:
         """
         instance = cls(html, base_url)
         return instance.run()
+    @classmethod
+    async def pipeline_async(cls, html) -> list[str]:
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, cls.pipeline, html)
 
     def run(self) -> list[str]:
         """

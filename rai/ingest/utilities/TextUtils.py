@@ -219,8 +219,12 @@ class TextProcessor(DictComparator, StringComparator):
         Returns:
             str: Original text if within the limit; otherwise, truncated text.
         """
-        if limit < 0: return text
-        return text if len(text) <= limit else text[:limit]
+        try:
+            if limit < 0: return text
+            return text if len(text) <= limit else text[:limit]
+        except Exception as e:
+            print(e)
+            return text
 
     @staticmethod
     def NORMALIZE_SPACES(text: str) -> str:

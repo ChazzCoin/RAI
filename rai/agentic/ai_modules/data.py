@@ -43,6 +43,11 @@ class mData(mLog):
         return self._required_data_model_type().model_construct()
 
     def get_data(self) -> List[BaseModel]: return self._data
+
+    def get_last_item_in_data(self) -> Optional[BaseModel]:
+        if not self.has_data(): return None
+        return self._data[-1]
+
     def get_data_archived(self) -> Dict[int, List[BaseModel]]: return self._archived_data
     def has_data(self) -> bool:
         if not self._data: return False

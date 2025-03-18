@@ -166,12 +166,28 @@ class BaseAgent(BaseModel, rModule, mData, mAssistLog,  ABC):
             Args: request: Optional initial user request to process.
             Returns: A string summarizing the execution results.
             Raises: RuntimeError: If the agent is not in IDLE state at start.
+
+            - Create a step by step objective check list.
+            - Then loop through each objective until its checked.
+            - Move to next checklist.
+
+            - Create a model for the data we need
+
+            - Do a 'recon' stage first that goes out,
+                googles and searches for relevant sources,
+                then forms a source list to include in the journey.
+
+
+            - Tune browser to always get the page contents unless we already have it...
+
+            = since we are scraping every site, we should save them all into a central place.
+                + create a search engine where our users and their agents are doing the scraping for us...
+
         """
         if self.state != AgentState.IDLE:
             raise RuntimeError(f"Cannot run agent from state: {self.state}")
 
-        if request:
-            self.update_memory("user", request)
+        if request: self.update_memory("user", request)
         self.initial_request_tagged = f"\n<USERS_REQUEST>\n{request}\n</USERS_REQUEST>\n"
         self.setup_assistant(request)
 

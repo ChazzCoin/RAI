@@ -117,7 +117,7 @@ class VectorCache(RedisClient, DocumentQueryUtils):
                 .dialect(2)
             )
             query_params = {"vec": self.embed_for_cache(query)}
-            documents = self.redis_client.ft(self.index_name).search(redis_query, query_params).docs
+            documents = self.redis_client.ft(self.index_name).google_search(redis_query, query_params).docs
             return documents
         except Exception as e:
             print(f"Error querying documents: {e}")
@@ -133,7 +133,7 @@ class VectorCache(RedisClient, DocumentQueryUtils):
                 .paging(0, limit)
                 .dialect(2)
             )
-            results = self.redis_client.ft(self.index_name).search(redis_query).docs
+            results = self.redis_client.ft(self.index_name).google_search(redis_query).docs
             return results
         except Exception as e:
             print(f"Error retrieving documents by tag '{tag}': {e}")
@@ -148,7 +148,7 @@ class VectorCache(RedisClient, DocumentQueryUtils):
                 .paging(0, limit)
                 .dialect(2)
             )
-            results = self.redis_client.ft(self.index_name).search(redis_query).docs
+            results = self.redis_client.ft(self.index_name).google_search(redis_query).docs
             return results
         except Exception as e:
             print(f"Error retrieving documents by prefix '{prefix}': {e}")
