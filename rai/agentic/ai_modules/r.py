@@ -42,6 +42,8 @@ class rModule:
     def r_engine() -> str: return LLM.CURRENT_ENGINE
     @staticmethod
     def r_switch_engine(engine:str): return LLM.switch_engine(engine)
+    @property
+    def think(self) -> 'rAI': return LLM
     @staticmethod
     def llm() -> 'rAI': return LLM
     @staticmethod

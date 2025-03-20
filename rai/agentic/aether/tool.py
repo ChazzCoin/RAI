@@ -34,23 +34,7 @@ class BaseTool(ABC, BaseModel):
             },
         }
 
-class ToolResults:
-    name: Optional[str] = None
-    data: List['ToolResult'] = []
-    def add_result(self, tool: 'ToolResult'): self.data.append(tool)
-    def add_and_pass(self, tool: 'ToolResult') -> 'ToolResult':
-        self.data.append(tool)
-        return tool
-    def count_results(self) -> int: return len(self.data)
-    def to_str(self) -> str: return "\n".join([item.to_str() for item in self.data])
-    def order_by_timestamp(self, descending: bool = False):
-        self.data.sort(key=lambda x: x.timestamp, reverse=descending)
-    def get_oldest(self) -> Optional['ToolResult']:
-        return min(self.data, key=lambda x: x.timestamp, default=None)
-    def get_newest(self) -> Optional['ToolResult']:
-        return max(self.data, key=lambda x: x.timestamp, default=None)
-    def find_all_equals(self, attribute: str, value: Any) -> List['ToolResult']:
-        return [item for item in self.data if getattr(item, attribute, None) == value]
+
 
 class ToolResult(BaseModel):
     """Represents the result of a tool execution."""
@@ -68,6 +52,7 @@ class ToolResult(BaseModel):
     html: Optional[str] = None
 
     result_type: str = "base"
+    result_status: str = "pending"
 
     search_term: Optional[str] = None
     search_url: Optional[str] = None
@@ -81,6 +66,35 @@ class ToolResult(BaseModel):
     description: Optional[str] = None
     title: Optional[str] = None
 
+    @staticmethod
+    def inject_tool_results(tool: "ToolResult") -> str:
+        # Helper function to check each attribute
+        def safe(value):
+            return value if value not in [None, ""] else "no data found"
+        return f"""
+                ID: {safe(tool.id)}
+                Parent ID: {safe(tool.parent_id)}
+                Name: {safe(tool.name)}
+                Assistant Name: {safe(tool.assistant_name)}
+                Agent Name: {safe(tool.agent_name)}
+                Timestamp: {safe(tool.timestamp)}
+                Output: {safe(tool.output)}
+                Error: {safe(tool.error)}
+                System: {safe(tool.system)}
+                Result: {safe(tool.result)}
+                HTML: {safe(tool.html)}
+                Result Type: {safe(tool.result_type)}
+                Search Term: {safe(tool.search_term)}
+                Search URL: {safe(tool.search_url)}
+                Search Title: {safe(tool.search_title)}
+                Search Description: {safe(tool.search_description)}
+                URL: {safe(tool.url)}
+                Action: {safe(tool.action)}
+                Log: {safe(tool.log)}
+                Source: {safe(tool.source)}
+                Description: {safe(tool.description)}
+                Title: {safe(tool.title)}
+            """
     def to_str(self) -> str: return str(self.model_dump())
     def attach_search_parent(self, search_results: 'ToolResult') -> 'ToolResult':
         self.parent_id = search_results.id

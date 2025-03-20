@@ -2,6 +2,7 @@ import asyncio
 import json
 import re
 from collections import deque
+from contextlib import asynccontextmanager
 from typing import Optional, Type, Any, List, Dict, Coroutine, Tuple, Union
 
 from F import LIST, DICT
@@ -22,6 +23,7 @@ from rai.agentic.ai_plugins.reason import rAssistantReasoningPlugin, SearchTerms
 from rai.agentic.ai_tools.text_tools.text_formats import NextStepModel
 from rai.ingest.utilities.TextUtils import TextProcessor
 from rai.ingest.web.soup.BodyExtractor import WebBodyExtractor
+from rai.internal.clients.ioredis_client import IORedis
 
 MAX_LENGTH = 2000
 
@@ -59,171 +61,6 @@ class BrowserToolState(BaseModel):
     pixels_above: int = 0
     pixels_below: int = 0
     browser_errors: List[str] = Field(default_factory=list)
-
-class HTMLElement(BaseModel):
-    element_type: str
-    attributes: dict
-    text: Optional[str] = None
-
-
-
-class OrganizedElements(BaseModel):
-    login_buttons: List[HTMLElement] = Field(default_factory=list)
-    login_inputs: List[HTMLElement] = Field(default_factory=list)
-    search_bars: List[HTMLElement] = Field(default_factory=list)
-    table_buttons: List[HTMLElement] = Field(default_factory=list)
-    other_buttons: List[HTMLElement] = Field(default_factory=list)
-    other_inputs: List[HTMLElement] = Field(default_factory=list)
-class ParsedHTML(BaseModel):
-    elements: OrganizedElements
-
-LOGIN_BTN_PATTERN = re.compile(r'\b(log[\s_-]*in|sign[\s_-]*in|submit)\b', re.I)
-NEXT_BTN_PATTERN = re.compile(r'\b(next|continue)\b', re.I)
-SEARCH_PATTERN = re.compile(r'search', re.I)
-TABLE_PATTERN = re.compile(r'(table|item|row|column|cell)', re.I)
-LOGIN_INPUT_PATTERN = re.compile(r'(user|email|login|pass)', re.I)
-
-class BrowserToolExtension:
-
-    @staticmethod
-    def button_selector(button: HTMLElement) -> str:
-        if 'id' in button.attributes:
-            return f'button#{button.attributes["id"]}'
-        elif 'class' in button.attributes:
-            class_selector = '.'.join(button.attributes['class']).split()
-            return f'button.{class_selector}'
-        else:
-            return f'text="{button.text}"'
-    @staticmethod
-    def input_selector(input_element: HTMLElement) -> str:
-        if 'name' in input_element.attributes:
-            return f'input[name="{input_element.attributes["name"]}"]'
-        elif 'id' in input_element.attributes:
-            return f'input#{input_element.attributes["id"]}'
-        elif 'placeholder' in input_element.attributes:
-            return f'input[placeholder="{input_element.attributes["placeholder"]}"]'
-        else:
-            raise ValueError("Cannot create a reliable selector for input element.")
-
-    @staticmethod
-    def detect_login_scheme(elements: OrganizedElements) -> Tuple[bool, str]:
-        if len(elements.login_inputs) >= 2 and elements.login_buttons:
-            return True, "single-step"
-        elif len(elements.login_inputs) == 1 and elements.next_buttons:
-            return True, "multi-step"
-        return False, "no-login"
-    @staticmethod
-    def _organize_elements(buttons: List[HTMLElement], inputs: List[HTMLElement]) -> OrganizedElements:
-        organized = OrganizedElements()
-
-        for btn in buttons:
-            text_lower = btn.text.lower() if btn.text else ''
-            if text_lower == '' or text_lower == ' ': continue
-            attrs_combined = " ".join(
-                [" ".join(attr) if isinstance(attr, list) else str(attr) for attr in btn.attributes.values()]
-            ).lower()
-
-            if LOGIN_BTN_PATTERN.search(text_lower) or LOGIN_BTN_PATTERN.search(attrs_combined):
-                organized.login_buttons.append(btn)
-            elif NEXT_BTN_PATTERN.search(text_lower):
-                organized.next_buttons.append(btn)
-            elif SEARCH_PATTERN.search(text_lower):
-                organized.search_bars.append(btn)
-            elif TABLE_PATTERN.search(text_lower):
-                organized.table_buttons.append(btn)
-            else:
-                organized.other_buttons.append(btn)
-
-        for inp in inputs:
-            input_type = inp.attributes.get('type', '').lower()
-            if input_type in ['hidden', 'submit', 'button']:
-                continue  # Skip non-interactive or button-type inputs
-
-            placeholder = inp.attributes.get('placeholder', '').lower()
-            name_attr = inp.attributes.get('name', '').lower()
-            value_attr = inp.attributes.get('value', '').lower()
-            class_attr = " ".join(inp.attributes.get('class', [])).lower()
-
-            combined_attrs = f"{placeholder} {input_type} {name_attr} {value_attr} {class_attr}"
-
-            if input_type == 'password' or LOGIN_INPUT_PATTERN.search(combined_attrs):
-                organized.login_inputs.append(inp)
-            elif SEARCH_PATTERN.search(combined_attrs):
-                organized.search_bars.append(inp)
-            else:
-                organized.other_inputs.append(inp)
-
-        # Prioritize login buttons explicitly by their type or class attributes
-        organized.login_buttons.sort(key=lambda x: (
-            'submit' in x.attributes.get('type', '').lower(),
-            'login' in " ".join(x.attributes.get('class', [])).lower(),
-            LOGIN_BTN_PATTERN.search(x.text.lower() if x.text else '') is not None
-        ), reverse=True)
-
-        return organized
-    @staticmethod
-    def _organize_elements2(buttons: List[HTMLElement], inputs: List[HTMLElement]) -> OrganizedElements:
-        organized = OrganizedElements()
-
-        for btn in buttons:
-            if 'login' in btn.text.lower() or 'submit' in btn.text.lower() or 'log in' in btn.text.lower():
-                organized.login_buttons.append(btn)
-            elif 'search' in btn.text.lower():
-                organized.search_bars.append(btn)
-            elif 'table' in btn.text.lower() or 'item' in btn.text.lower():
-                organized.table_buttons.append(btn)
-            else:
-                organized.other_buttons.append(btn)
-
-        for inp in inputs:
-            placeholder = inp.attributes.get('placeholder', '').lower()
-            input_type = inp.attributes.get('type', '').lower()
-
-            if 'user' in str(placeholder).lower() or 'email' in str(placeholder).lower() or 'pass' in str(placeholder).lower() or str(placeholder).lower() == 'password':
-                organized.login_inputs.append(inp)
-            elif 'user' in str(input_type).lower() or 'email' in str(input_type).lower() or 'pass' in str(input_type).lower() or str(input_type).lower() == 'password':
-                organized.login_inputs.append(inp)
-            elif 'search' in placeholder:
-                organized.search_bars.append(inp)
-            else:
-                organized.other_inputs.append(inp)
-
-        return organized
-    @staticmethod
-    def _parse_html_elements(html_string: str) -> ParsedHTML:
-        soup = BeautifulSoup(html_string, "html.parser")
-
-        buttons = []
-        for btn in soup.find_all(["button", "input"]):
-            btn_type = btn.attrs.get('type', '').lower()
-            btn_classes = " ".join(btn.attrs.get('class', [])).lower()
-            btn_name = btn.attrs.get('name', '').lower()
-            btn_value = btn.attrs.get('value', '').lower()
-            btn_text = btn.get_text(strip=True).lower() if btn.name == 'button' else btn_value
-
-            if btn.name == 'button' or btn_type in ["button", "submit"]:
-                if LOGIN_BTN_PATTERN.search(btn_text) \
-                        or LOGIN_BTN_PATTERN.search(btn_name) \
-                        or LOGIN_BTN_PATTERN.search(btn_classes) \
-                        or LOGIN_BTN_PATTERN.search(btn_value):
-                    button = HTMLElement(
-                        element_type="button",
-                        attributes=dict(btn.attrs),
-                        text=btn_text
-                    )
-                    buttons.append(button)
-
-        inputs = []
-        for inp in soup.find_all("input"):
-            input_element = HTMLElement(
-                element_type="input",
-                attributes=dict(inp.attrs)
-            )
-            inputs.append(input_element)
-
-        organized_elements = BrowserToolExtension._organize_elements(buttons, inputs)
-
-        return ParsedHTML(elements=organized_elements)
 
 
 class BrowserTool(rAssistantReasoningPlugin):
@@ -322,16 +159,6 @@ class BrowserTool(rAssistantReasoningPlugin):
     search_terms: List[str] = []
     pending_search_results: List[ToolResult] = []
 
-    username = "jperson@parkcitysoccer.org"
-    password = "Philly23!"
-
-    def __init__(self):
-        super().__init__()
-
-    @property
-    def safe_context(self) -> Optional[BrowserContext]:
-        if type(self.context) in [BrowserContext]: return self.context
-        return None
     """ SETUP """
     def _setup_assistant(self, user_request: str, **attached_data):
         # The Assistant Process Log
@@ -353,6 +180,43 @@ class BrowserTool(rAssistantReasoningPlugin):
             "USER_REQUEST_PROMPT",
             f"{self.attached_data_tagged}\n{self.initial_request_tagged}"
         )
+
+
+    username = "chazzromeo@gmail.com"
+    password = "laurelpark8294"
+
+    pub = IORedis
+
+    def __init__(self):
+        super().__init__()
+
+    async def start_screenshot_stream(self, channel_name="agent", interval=10):
+        async def publish_screenshots():
+            while True:
+                try:
+                    self.assistant_log("WEBSOCKET: Sending screenshot")
+                    try:
+                        page = await self.context.get_current_page()
+                        screenshot_bytes = await page.screenshot(type='jpeg', quality=70)
+                        await self.pub.redis_client.publish(channel_name, screenshot_bytes)
+                        self.assistant_log("WEBSOCKET: Screenshot Sent")
+                    except Exception as e:
+                        self.assistant_log(f"WEBSOCKET: Screenshot Failed: {e}")
+                    await asyncio.sleep(interval)
+                except asyncio.CancelledError:
+                    self.assistant_log(f"WEBSOCKET: Screenshot stream cancelled.")
+                    break
+                except Exception as e:
+                    self.assistant_log(f"WEBSOCKET: Screenshot stream error: {e}")
+                    await asyncio.sleep(interval)
+        self.assistant_log("WEBSOCKET: Starting screenshot stream")
+        asyncio.create_task(publish_screenshots())
+
+    @property
+    def safe_context(self) -> Optional[BrowserContext]:
+        if type(self.context) in [BrowserContext]: return self.context
+        return None
+
     def get_browser_tools(self):
         return [
             self.get_tool(function_name="google_search"),
@@ -370,6 +234,9 @@ class BrowserTool(rAssistantReasoningPlugin):
     async def __ensure_browser_initialized(self) -> Optional[BrowserContext]:
         """Ensure browser and context are initialized."""
         if type(self.context) in [BrowserContext]: return self.context
+        await self.pub.connect()
+        await self.start_screenshot_stream()
+
         browser_config_kwargs = {
             "headless": config.browser_config.headless or False,
             "disable_security": config.browser_config.disable_security or False
@@ -414,6 +281,7 @@ class BrowserTool(rAssistantReasoningPlugin):
         self.dom_service = DomService(await context.get_current_page())
         self.context = context
         return context
+
     def __ensure_length(self, content, length:int=10000):
         return TextProcessor.ensure_within_limit(content, length)
     async def __parse_html_to_content(self, html):
@@ -773,27 +641,24 @@ class BrowserTool(rAssistantReasoningPlugin):
                 return ToolResult(error=f"Failed to get browser state: {str(e)}")
     async def go_home(self):
         return await self.navigate("https://www.raico.dev", "summary")
-    # async def cleanup(self):
-    #     """Clean up browser resources."""
-    #     context = await self.__ensure_browser_initialized()
-    #     async with self.lock:
-    #         if context is not None:
-    #             await context.close()
-    #             self.context = None
-    #             self.dom_service = None
-    #         if self.browser is not None:
-    #             await self.browser.close()
-    #             self.browser = None
-    # def __del__(self):
-    #     """Ensure cleanup when object is destroyed."""
-    #     if self.browser is not None or self.context is not None:
-    #         try:
-    #             asyncio.run(self.cleanup())
-    #         except RuntimeError:
-    #             loop = asyncio.get_running_loop() or asyncio.new_event_loop()
-    #             loop.run_until_complete(self.cleanup())
-    #             loop.close()
-
+    @asynccontextmanager
+    async def state_context(self, new_state: AgentState):
+        """Context manager for safe agent state transitions.
+        Args: new_state: The state to transition to during the context.
+        Yields: None: Allows execution within the new state.
+        Raises: ValueError: If the new_state is invalid.
+        """
+        if not isinstance(new_state, AgentState):
+            raise ValueError(f"Invalid state: {new_state}")
+        previous_state = self.state
+        self.state = new_state
+        try:
+            yield
+        except Exception as e:
+            self.state = AgentState.ERROR  # Transition to ERROR on failure
+            raise e
+        finally:
+            self.state = previous_state  # Revert to previous state
     """ Objective/Plan/Steps """
     async def _get_set_objective_async(self):
         result = await self.llm().formatter_async(
@@ -831,9 +696,9 @@ class BrowserTool(rAssistantReasoningPlugin):
             self.overall_plan = result
 
         return result
+
+    #
     async def _get_set_next_step_async(self) -> Optional[NextStepModel]:
-        assist_log = self.get_assistant_log_str()
-        step_log = self.get_steps_taken_str()
         tool_state = await self.get_current_state()
         decisions = ""
         for d in self.decision_log:
@@ -946,4 +811,4 @@ if __name__ == "__main__":
 
     looper = asyncio.get_event_loop()
     # looper.run_until_complete(BrowserTool().run(request="Who were the last international soccer teams to play, who played and what were the scores?"))
-    looper.run_until_complete(BrowserTool().self_navigation("go to playmetrics, login if needed, then take me to the B2008 Red Teams page."))
+    looper.run_until_complete(BrowserTool().self_navigation("go to facebook, search for mallory romeo, go to her profile"))

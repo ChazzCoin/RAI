@@ -1,16 +1,11 @@
 import time
 import uuid
 from datetime import datetime
-from typing import Type
-
 from F import LIST
-from pydantic import BaseModel
-
-from rai.agentic.ai_plugins.assist import pAssistant
-from rai.agentic.ai_tools.text_tools.r_tools import rTextTools
+from rai.agentic.ai_plugins.tool import ToolEngine
 
 
-class rMemoryAssistant(pAssistant):
+class rMemoryAssistant(ToolEngine):
     session_id = None
 
     @staticmethod
@@ -18,13 +13,6 @@ class rMemoryAssistant(pAssistant):
     @staticmethod
     def assistant_rules() -> str:
         return ""
-    """ TODO """
-    @staticmethod
-    def _required_data_model_type() -> BaseModel:
-        pass
-    @staticmethod
-    def _required_model() -> Type[BaseModel]:
-        pass
 
     def key(self) -> str: return f"memory.{self.session_id}"
 
@@ -116,7 +104,7 @@ class rMemoryAssistant(pAssistant):
     def save_to_long_term(self, memory_data:str, **attached_data):
         """ SAVE a General Memory """
         interaction_text = f"Data: {attached_data}\n Memory: {memory_data}"
-        context_prompt = rTextTools.tool('summarize', user_prompt=interaction_text)
+        context_prompt = self.think.tool('summarize', user_prompt=interaction_text)
         interaction_text = interaction_text + f"\nSummarized Context: {context_prompt}"
         interaction_id = str(uuid.uuid4())
         meta = {"session_id": self.session_id, "timestamp": time.time(), "type": "long" }

@@ -3,13 +3,14 @@ import asyncio
 import json
 import os.path
 from concurrent.futures import ThreadPoolExecutor
-from quart import Quart, request, jsonify
+from quart import Quart, request, jsonify, websocket
 from quart_cors import cors
 from F.LOG import Log
 from rai.agentic.ai_assistants.knowledge import rKnowledgeAssistant
 from rai.agentic.ai_flows.rag_flow import rRagFlow
 from rai.agentic.ai_tasks.query_task import RaiQueryAgentResults
 from rai.assistant.connectors import rAI
+from rai.internal.clients.ioredis_client import RedisIO
 from rai.internal.connectors import REDIS_DB_CLIENT_0, REDIS_DB_CLIENT_1, PostgresTables
 from rai.internal.models.models import AIModelData
 from typing import Optional
@@ -21,18 +22,12 @@ RAI_CACHE = REDIS_DB_CLIENT_0
 RAI_CACHE_SYSTEM = REDIS_DB_CLIENT_1
 RAI_MODELS = PostgresTables.AI_Models()
 CHAT_ARCHIVE = PostgresTables.ChatArchive()
-
 RAI_AI = rAI()
 RAI_ENGINE = RAI_AI.get_engine("openai")
-
 STORED_RAI_MODELS: [AIModelData] = RAI_MODELS.get_all_ai_models()
 print("Stored Raiko Models", STORED_RAI_MODELS)
-
 IMAGE_FOLDER = f"{os.path.dirname(__file__)}/files/images"
-
-
 RAI_VERSION = "0.8.0:raiko"
-
 image_path = '/Users/chazzromeo/Desktop/chat_image.jpg'
 
 Log = Log("RAI API Bruno Canary")
@@ -40,7 +35,24 @@ app = Quart(__name__)
 app = cors(app, allow_origin="*")
 
 looper = asyncio.get_event_loop()
-executor = ThreadPoolExecutor(max_workers=2)
+executor = ThreadPoolExecutor(max_workers=4)
+
+
+ioredis = RedisIO()
+
+@app.websocket('/ws/<subscription_name>')
+async def websocket_proxy(subscription_name):
+    await ioredis.connect()
+    pubsub = ioredis.redis_client.pubsub()
+    await pubsub.subscribe(subscription_name)
+
+    try:
+        async for message in pubsub.listen():
+            if message['type'] == 'message':
+                await websocket.send(message['data'])
+    finally:
+        await pubsub.unsubscribe(subscription_name)
+
 
 @app.route('/v1/knowledge', methods=['POST', 'OPTIONS'])
 async def knowledge_base():

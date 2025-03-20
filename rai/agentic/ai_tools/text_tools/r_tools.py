@@ -109,7 +109,7 @@ class AgentConfigMetadata(rTextTools):
 class AgentConfigCreateRequiredData(rTextTools):
     def type(self): return "format"
     def parse(self, result):
-        try: return result.data
+        try: return result.tool_results
         except Exception as e:
             print(e)
             return {}
@@ -118,7 +118,7 @@ class AgentConfigCreateRequiredData(rTextTools):
 class AgentConfigExtractRequiredData(rTextTools):
     def type(self): return "format"
     def parse(self, result):
-        try: return result.data
+        try: return result.tool_results
         except Exception as e:
             print(e)
             return {}

@@ -7,6 +7,23 @@ from F import LIST, DICT
 
 
 class mMap:
+
+    def get_tool(self, function_name:str) -> dict[str, Any]:
+        func_obj = {}
+        # Iterate over only the methods defined in this class (parent) itself.
+        for name, member in self.__class__.__dict__.items():
+            if name.startswith("_"):
+                continue
+            if isinstance(member, (staticmethod, classmethod)):
+                if name.startswith(function_name):
+                    func_obj = member.__func__
+                    break
+            elif inspect.isfunction(member):
+                if name.startswith(function_name):
+                    func_obj = member
+                    break
+        return self.function_to_schema(func_obj)
+
     def map_external_class(self) -> str:
         """
         Map all public callable functions of the class (excluding built-ins)

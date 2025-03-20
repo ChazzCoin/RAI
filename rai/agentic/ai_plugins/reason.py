@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from pydantic.v1 import Field
 
 from rai.agentic.aether.schema import AgentState
-from rai.agentic.aether.tool import ToolResult, ToolResults
+from rai.agentic.aether.tool import ToolResult
 from rai.agentic.ai_modules import mAssistLog
 from rai.agentic.ai_modules.data import mData
 from rai.agentic.ai_modules.map import mMap
@@ -72,7 +72,7 @@ class rAssistantReasoningPlugin(rModule, mMap, mData, mAssistLog, ABC):
     overall_objective = "Unknown Objective"
     objectives: Objectives = Objectives()
 
-    tool_results = ToolResults()
+    tool_results = None
 
     overall_plan = "Unknown Plan"
 
@@ -500,107 +500,7 @@ class rAssistantReasoningPlugin(rModule, mMap, mData, mAssistLog, ABC):
             self.assistant_error_log(f"Overall Reasoning Error: [ {str(e)} ]")
             return self.respond()
 
-    async def recon_mode(self):
 
-        recon_steps = 10
-        recon_step_count = 0
-
-        async def navigate_to_next_page_async(previous_decision=None, depth=0):
-            if depth >= 10: return None
-            result = previous_decision
-            self.assistant_log(f"Attempting to Recon Next Page. \n Retry Depth [ {depth} ]")
-            if not previous_decision:
-                try:
-                    result = await self.ask_ai_to_decide_which_search_next()
-                    self.assistant_log(f"Navigation Decision Result: {result}")
-                except Exception as e:
-                    self.assistant_log(f"ERROR: Navigation Decision Failure, attempting retry [ {depth} ]: {str(e)}")
-                    return await navigate_to_next_page_async(previous_decision, depth + 1)
-            try:
-                call_result = await self.parse_and_call_function_async(result)
-                self.assistant_log(f"Navigation Call Result: {call_result}")
-                if type(call_result) == ToolResult:
-                    url_navigated_to = call_result.url
-                    self.tool_result_log.append(f"""
-                    We just visited: {url_navigated_to}
-                        Where should we go next?
-                    """)
-                return self.import_new_data(call_result)
-            except Exception as e:
-                self.assistant_log(f"ERROR: Function Call Failed, attempting retry [ {depth} ]: {str(e)}")
-                return await navigate_to_next_page_async(previous_decision, depth + 1)
-
-        urls = await self.get_set_recon_urls_async()
-
-        async with self.state_context(AgentState.RUNNING):
-            while (recon_step_count < recon_steps):
-                recon_step_count += 1
-                self.assistant_log(f"Executing recon step {recon_step_count}/{recon_steps}")
-                await navigate_to_next_page_async()
-                self.assistant_log(f"Recon Step {recon_step_count}: {str(self.get_last_item_in_data())}")
-
-
-    async def run(self, request: Optional[str] = None) -> str:
-        self.state = AgentState.RUNNING
-
-        """
-        objectives..
-        first objective..
-        required data..
-        response format..
-        
-        + Generate 'Objective' or 'Objectives' per request?
-            - Objective = Create a single objective to achieve.
-            - Objectives = Create a list of objectives to achieve.
-            
-        + Generate a 'step plan' or 'step next' per objective ?
-            - Step Plan = Create a chain of steps to achieve.
-            - Step Next = Create a single next step to achieve.
-            
-        + How do we validate we've accomplished the goal?
-        + 'Think' function that only summarizes results as we go...
-            - See if the 'thoughts' have the answer we are looking for?
-        
-        TODO:
-        [ URL ]
-        1. extract input fields
-        2. extract buttons
-        3. extract html
-        4. extract page contents
-        
-        - 
-        """
-        # if request: self.update_memory("user", request)
-        await self.setup_assistant(user_request=request)
-        await self.get_set_objective_async()
-        await self.get_set_plan_async()
-
-        await self.recon_mode()
-
-        results: List[str] = []
-        async with self.state_context(AgentState.RUNNING):
-            while (self.current_step_count < self.max_steps and self.state != AgentState.FINISHED):
-                if self.current_step_count >= 2:
-                    self.ask_if_objective_is_completed()
-                    if self.objective_is_complete:
-                        self.state = AgentState.FINISHED
-                        break
-
-                step: NextStepModel = await self.get_set_next_step_async()
-
-                self.current_step_count += 1
-                self.assistant_log(f"Executing step {self.current_step_count}/{self.max_steps}")
-                await self.make_action_async(step.next_step_or_action)
-                self.steps_taken.append(step)
-                results.append(f"Step {self.current_step_count}: {str(self.get_last_item_in_data())}")
-
-            if self.current_step_count >= self.max_steps:
-                self.current_step_count = 0
-                self.state = AgentState.IDLE
-                results.append(f"Terminated: Reached max steps ({self.max_steps})")
-
-        resp = self.respond()
-        return resp
 
     async def format_html_element_async(self, html: str):
         result = await self.llm().formatter_async(
@@ -698,22 +598,3 @@ class rAssistantReasoningPlugin(rModule, mMap, mData, mAssistLog, ABC):
         return result or None
 
 
-
-    @asynccontextmanager
-    async def state_context(self, new_state: AgentState):
-        """Context manager for safe agent state transitions.
-        Args: new_state: The state to transition to during the context.
-        Yields: None: Allows execution within the new state.
-        Raises: ValueError: If the new_state is invalid.
-        """
-        if not isinstance(new_state, AgentState):
-            raise ValueError(f"Invalid state: {new_state}")
-        previous_state = self.state
-        self.state = new_state
-        try:
-            yield
-        except Exception as e:
-            self.state = AgentState.ERROR  # Transition to ERROR on failure
-            raise e
-        finally:
-            self.state = previous_state  # Revert to previous state
