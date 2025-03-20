@@ -172,19 +172,25 @@ class ReferralAgentBaseRunner(rReferralFlow):
 
 def mains(name:str, user_prompt):
     # from rai.pipeline.utilities.text_data import schedule_text
+    import json, pprint
     results = rReferralFlow.flow(
             name=name,
             user_prompt=user_prompt
         )
-    if type(results) in [list, tuple]:
-        for item in results:
-            print(item)
+    if type(results) in [ReferralResponse]:
+        print(f"""
+            Patient Name: {results.patients_name}
+            Category: {results.category}
+            Doctors Name: {results.doctor_name}
+            Reason: {results.reason}
+        """)
+    elif type(results) in [list, tuple]:
+        print(pprint.pprint(results))
     elif type(results) in [dict]:
-        for item in results.items():
-            print(item)
+        print(json.dumps(results, indent=4))
     else:
         print(results)
 
 if __name__ == "__main__":
-    user_prompt = "/Users/chazzromeo/Downloads/Referral_Steven_Parker.pdf"
+    user_prompt = "/Users/chazzromeo/Desktop/portal/docs/Referral_Steven_Parker.pdf"
     mains("medical-format", user_prompt=user_prompt)

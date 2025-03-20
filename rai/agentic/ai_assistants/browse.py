@@ -66,7 +66,7 @@ class BrowserToolState(BaseModel):
 class BrowserTool(rAssistantReasoningPlugin):
 
     @staticmethod
-    def _required_model() -> Type[BaseModel]:
+    def response_model() -> Type[BaseModel]:
         pass
 
     @staticmethod

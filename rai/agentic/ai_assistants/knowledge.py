@@ -55,7 +55,7 @@ class rKnowledgeAssistant(rAssistantReasoningPlugin):
         return "KnowledgeAssistant"
 
     @staticmethod
-    def _required_model() -> Type[BaseModel]:
+    def response_model() -> Type[BaseModel]:
         return StoreDocument
 
     @staticmethod

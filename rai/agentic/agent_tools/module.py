@@ -7,7 +7,7 @@ from rai.assistant.connectors import LLM, rAI
 from rai.ingest.utilities.TextUtils import TextProcessor
 
 
-class rModule:
+class ToolModule:
 
     class ToolResponse(BaseModel):
         prefix: str
@@ -22,7 +22,7 @@ class rModule:
     @staticmethod
     def response_model() -> Type[BaseModel]:
         """Return the required data model for the assistant."""
-        return rModule.ToolResponse
+        return ToolModule.ToolResponse
 
     @staticmethod
     def tag_data(tag:str, data:str): return f"<{str(tag).capitalize()}>\n {data} \n</{str(tag).capitalize()}"

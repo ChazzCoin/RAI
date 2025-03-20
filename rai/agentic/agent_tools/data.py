@@ -1,15 +1,12 @@
-
 import json
-from abc import abstractmethod
 from typing import Dict, Any, Optional, List, Type
-
-from F import LIST
 from pydantic import BaseModel, create_model
+from rai.agentic.agent_tools.result import ToolResult
 from rai.agentic.ai_modules.log import mLog
 from rai.assistant.connectors import LLM
 
 
-class mData(mLog):
+class ToolData(mLog):
 
     session_id: str = "system"
 
@@ -27,10 +24,9 @@ class mData(mLog):
         return create_model(name, **fields)
 
     @staticmethod
-    @abstractmethod
-    def _required_data_model_type() -> BaseModel:
+    def _required_data_model_type() -> Type[ToolResult]:
         """Return the required data model for the assistant."""
-        pass
+        return ToolResult
 
     def _required_data_model_type_name(self) -> str:
         """Return the required data model for the assistant."""

@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
-from typing import List, Optional, Any, Union
+from typing import List, Optional, Any
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -11,13 +11,13 @@ from rai.agentic.aether.schema import Memory, AgentState, Message, ROLE_TYPE, To
 from rai.agentic.aether.terminate import Terminate
 from rai.agentic.aether.tool_collection import ToolCollection
 from rai.agentic.ai_modules import mAssistLog
-from rai.agentic.ai_modules.data import mData
-from rai.agentic.ai_modules.r import rModule
+from rai.agentic.agent_tools.data import ToolData
+from rai.agentic.ai_modules.r import ToolModule
 
 """
 Base Agent Functionality (engine)
 """
-class BaseAgent(BaseModel, rModule, mData, mAssistLog,  ABC):
+class BaseAgent(BaseModel, ToolModule, ToolData, mAssistLog, ABC):
     """Abstract base class for managing agent state and execution.
 
     Provides foundational functionality for state transitions, memory management,
@@ -439,7 +439,7 @@ class BaseAgent(BaseModel, rModule, mData, mAssistLog,  ABC):
 
     def respond(self) -> 'AssistResponse':
         final_response = self.ask_to_generate_final_response()
-        return self.AssistResponse(
+        return self.ToolResponse(
             prefix="",
             session_id="",
             answer=final_response,

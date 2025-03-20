@@ -78,14 +78,14 @@ class ToolLog:
     def get_thoughts(self) -> List[str]:
         """Retrieve the assistant log as a list of strings."""
         return self.thoughts
-    def inject_thoughts_prompt(self) -> str:
+    def inject_thoughts_tag(self) -> str:
         """Retrieve the assistant log as a single string."""
         return f"""
             <THOUGHTS_LOG>
                 {str(self.thoughts)}
             </THOUGHTS_LOG>
         """
-    def inject_voice_prompt(self) -> str:
+    def inject_voice_tag(self) -> str:
         """Retrieve the assistant log as a single string."""
         return f"""
             <VOICE_LOG>

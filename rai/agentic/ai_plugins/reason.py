@@ -1,21 +1,18 @@
-import asyncio
 import inspect
 from abc import ABC, abstractmethod
 from collections import deque
-from contextlib import asynccontextmanager
 from typing import Any, List, Type, Optional, Union
 
 from pydantic import BaseModel
 from pydantic.v1 import Field
 
 from rai.agentic.aether.schema import AgentState
-from rai.agentic.aether.tool import ToolResult
+from rai.agentic.agent_tools.module import ToolModule
 from rai.agentic.ai_modules import mAssistLog
-from rai.agentic.ai_modules.data import mData
+from rai.agentic.agent_tools.data import ToolData
 from rai.agentic.ai_modules.map import mMap
-from rai.agentic.ai_modules.r import rModule
 from rai.agentic.ai_tools.text_tools.r_tools import rTextTools
-from rai.agentic.ai_tools.text_tools.text_formats import StepModel, NextStepModel
+from rai.agentic.ai_tools.text_tools.text_formats import NextStepModel
 from rai.ingest.utilities.TextUtils import TextProcessor
 
 # ASSISTANT_LOG_CHAIN is assumed to be defined globally
@@ -62,7 +59,7 @@ class SearchTerms(BaseModel):
 class DOMIndex(BaseModel):
     index: int
 
-class rAssistantReasoningPlugin(rModule, mMap, mData, mAssistLog, ABC):
+class rAssistantReasoningPlugin(ToolModule, mMap, ToolData, mAssistLog, ABC):
     """
     A reasoning assistant plugin that coordinates the process of generating plans,
     selecting functions to call, and ultimately driving the agent's behavior.
@@ -111,7 +108,7 @@ class rAssistantReasoningPlugin(rModule, mMap, mData, mAssistLog, ABC):
 
     @staticmethod
     @abstractmethod
-    def _required_model() -> Type[BaseModel]:
+    def response_model() -> Type[BaseModel]:
         """Return the required data model for the assistant."""
         pass
 
@@ -326,7 +323,7 @@ class rAssistantReasoningPlugin(rModule, mMap, mData, mAssistLog, ABC):
             return self.assistant_error_log(f"<FINAL RESPONSE>\n Failed to generate final response with error: [ {e} ]\n</FINAL RESPONSE>")
 
     """ Assistant Core Functions"""
-    async def setup_assistant(self, user_request:str, **attached_data):
+    def setup_assistant(self, user_request:str, **attached_data):
         # The Assistant Process Log
         self.assistant_log("Setting up reasoning assistant.")
         self.assistant_log("Gathering and formatting initial request, rules, documentation and data.")
@@ -347,8 +344,8 @@ class rAssistantReasoningPlugin(rModule, mMap, mData, mAssistLog, ABC):
             f"{self.attached_data_tagged}\n{self.initial_request_tagged}"
         )
         # Establish the objective.
-        self.overall_objective = await self.get_set_objective_async()
-        self.overall_plan = await self.get_set_plan_async()
+        self.overall_objective = self.ask_ai_to_establish_objective()
+        self.overall_plan = self.ask_ai_to_generate_a_request_plan()
         self.is_setup = True
 
     def make_call(self, previous_decision=None, depth=0):
@@ -413,7 +410,7 @@ class rAssistantReasoningPlugin(rModule, mMap, mData, mAssistLog, ABC):
 
     def respond(self) -> 'AssistResponse':
         final_response = self.ask_ai_to_generate_final_response()
-        return self.AssistResponse(
+        return self.ToolResponse(
             prefix="",
             session_id="",
             answer=final_response,
@@ -434,7 +431,7 @@ class rAssistantReasoningPlugin(rModule, mMap, mData, mAssistLog, ABC):
 
             response = self.llm().tool(
                 name="is_true",
-                user_prompt=self.decide_objective_completion_prompt(),
+                user_prompt=self.external_decision_prompt(),
                 system_prompt="Based on the data provided, have we completed the objective?",
             )
             self.assistant_log(f"Objective completion check: {response}")
@@ -500,61 +497,6 @@ class rAssistantReasoningPlugin(rModule, mMap, mData, mAssistLog, ABC):
             self.assistant_error_log(f"Overall Reasoning Error: [ {str(e)} ]")
             return self.respond()
 
-
-
-    async def format_html_element_async(self, html: str):
-        result = await self.llm().formatter_async(
-            text=html,
-            model=HtmlDecisionElement,
-            system=f"""
-                1. You parse html string data.
-                2. Extract all Input Fields and Button Elements.
-                3. Decide which element to use to accomplish the objective.
-                <USER_REQUEST>
-                    {self.user_request_prompt}
-                </USER_REQUEST>
-                <OBJECTIVE>
-                    {self.overall_objective}
-                    {self.current_step}
-                </OBJECTIVE>
-            """,
-        )
-        return result
-    async def get_set_objective_async(self):
-        result = await self.llm().formatter_async(
-            text=self.user_request_prompt,
-            model=Objective,
-            system=f"""
-                **Based on the users request, decide what the objective or goal is to achieve.**
-                **What is the end goal?**
-            """,
-        )
-
-        if result:
-            self.overall_objective = result.objective
-
-        return result
-    async def get_set_plan_async(self):
-        result = await self.llm().generate_async(
-            user=self.user_request_prompt,
-            system=f"""
-                **Based on the objective and the user prompt, develop a plan on how to accomplish the users request/objective.**
-                **Ignore requesting for more information, work with what you have, plan can be updated as we go.**
-                
-                <TOOLS_AVAILABLE>
-                    {self.map_external_class()}
-                </TOOLS_AVAILABLE>
-                
-                <OBJECTIVE>
-                    {self.overall_objective}
-                </OBJECTIVE>
-            """,
-        )
-
-        if result:
-            self.overall_plan = result
-
-        return result
     def get_steps_taken_str(self) -> str:
         return "\n".join([
             f"""
@@ -562,39 +504,5 @@ class rAssistantReasoningPlugin(rModule, mMap, mData, mAssistLog, ABC):
             """
             for step in self.steps_taken
         ])
-    async def get_set_next_step_async(self) -> Optional[NextStepModel]:
-        result = await self.llm().formatter_async(
-            text=f"""
-                <STEPS_TAKEN>
-                    {self.get_steps_taken_str()}
-                </STEPS_TAKEN>
-            """,
-            model=NextStepModel,
-            system=f"""
-                1. Analyze the users request, the objective and previous step/action taken.
-                2. Review the tools available.
-                3. Develop a single step/action to make next.
-                
-                <TOOLS_AVAILABLE>
-                    {self.map_external_class()}
-                </TOOLS_AVAILABLE>
-                
-                <OBJECTIVE>
-                    {self.overall_objective}
-                </OBJECTIVE>
-                
-                <PLAN>
-                    {self.overall_plan}
-                </PLAN>
-                    
-                    {self.initial_request_tagged}
-            """,
-        )
-
-        if result:
-            self.previous_step = self.current_step
-            self.current_step = result or None
-
-        return result or None
 
 

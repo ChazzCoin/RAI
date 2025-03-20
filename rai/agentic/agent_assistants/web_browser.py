@@ -1,26 +1,19 @@
 import asyncio
 import json
-import re
 from collections import deque
-from typing import Optional, Type, Any, List, Dict, Coroutine, Tuple, Union
-
-from F import LIST, DICT
+from typing import Optional, Type, Any, List
 from browser_use import Browser as BrowserUseBrowser
 from browser_use import BrowserConfig
 from browser_use.browser.context import BrowserContext, BrowserContextConfig
-from browser_use.browser.views import BrowserState
 from browser_use.dom.service import DomService
 from bs4 import BeautifulSoup
 from playwright.async_api import Page, Dialog
-from pydantic import Field, BaseModel, HttpUrl
-from watchfiles import awatch
-
-from rai.agentic.aether.schema import AgentState
-from rai.agentic.aether.tool import ToolResult
+from pydantic import Field, BaseModel
 from rai.agentic.aether.UseBrowserConfig import config
-from rai.agentic.ai_plugins.reason import rAssistantReasoningPlugin, SearchTerms, DOMIndex, Objective
-from rai.agentic.ai_plugins.tool import ToolEngine
-from rai.agentic.ai_tools.text_tools.text_formats import NextStepModel
+from rai.agentic.agent_tools.base import BrowserToolState
+from rai.agentic.agent_tools.engine import ToolEngine
+from rai.agentic.agent_tools.result import ToolResult
+from rai.agentic.ai_plugins.reason import SearchTerms
 from rai.ingest.utilities.TextUtils import TextProcessor
 from rai.ingest.web.soup.BodyExtractor import WebBodyExtractor
 from rai.internal.clients.ioredis_client import IORedis
@@ -45,52 +38,21 @@ content extraction, and tab management. Supported actions include:
 - 'refresh': Refresh the current page
 """
 
-
-class TabInfo(BaseModel):
-    # Assuming TabInfo structure; update this according to actual implementation
-    id: int
-    title: str
-    url: HttpUrl
-
-
-class BrowserToolState(BaseModel):
-    url: HttpUrl
-    title: str
-    tabs: List['TabInfo']
-    screenshot: Optional[str] = None
-    pixels_above: int = 0
-    pixels_below: int = 0
-    browser_errors: List[str] = Field(default_factory=list)
-
-
-class BrowserTool2(ToolEngine):
+class WebBrowserTool(ToolEngine):
 
     @staticmethod
-    def _required_model() -> Type[BaseModel]:
-        pass
-
+    def module_name() -> str: return 'The Web Browser Assistant'
     @staticmethod
-    def module_name() -> str:
-        return 'browse'
-
-    @staticmethod
-    def _required_data_model_type() -> Type[ToolResult]:
-        return ToolResult
-
+    def tool_assistant_name() -> str: return "Web Browser Assistant"
     @staticmethod
     def assistant_rules() -> str:
         return f"""
-            You are a reasoning assistant who can control a web browser.
+            You control a web browser by Matching Index Numbers to their corresponding Names/Details.
             You take in a request, develop a web search plan and accomplish the task.
+            1. Always close/cancel/dismiss popups or dialogs.
         """
-
     @staticmethod
-    def ToolState() -> Type[BrowserToolState]:
-        return BrowserToolState
-
-    @staticmethod
-    def tool_assistant_name() -> str:
-        return "Web Browser Assistant"
+    def ToolState() -> Type[BrowserToolState]: return BrowserToolState
 
     name: str = "browser_use"
     description: str = _BROWSER_DESCRIPTION
@@ -103,11 +65,8 @@ class BrowserTool2(ToolEngine):
     previous_page: Optional[Page] = None
     current_page: Optional[Page] = None
 
+    """ PUB/SUB STREAMING OUTPUT """
     pub = IORedis
-
-    def __init__(self):
-        super().__init__()
-
     async def start_screenshot_stream(self, channel_name="agent", interval=10):
         async def publish_screenshots():
             while True:
@@ -129,6 +88,48 @@ class BrowserTool2(ToolEngine):
                     await asyncio.sleep(interval)
         self.log_voice("WEBSOCKET: Starting screenshot stream")
         asyncio.create_task(publish_screenshots())
+
+    """ OUTPUT """
+    def output_search_results(self, html: str) -> List[ToolResult]:
+        soup = BeautifulSoup(html, 'html.parser')
+        results = []
+
+        for g in soup.select('div.tF2Cxc'):
+            title_el = g.select_one('h3')
+            link_el = g.select_one('a')
+            desc_el = g.select_one('div.VwiC3b')
+
+            if not title_el or not link_el:
+                continue
+
+            title = title_el.get_text() if title_el else ''
+            url = link_el['href']
+            description_el = g.select_one('div.VwiC3b span.aCOpRe') or g.select_one('div.VwiC3b')
+            description = description_el.get_text(strip=True) if (
+                description_el := description_el) else ''
+
+            results.append(ToolResult(
+                result_type="search",
+                result_status="ready",
+                search_url=url,
+                search_description=description,
+                search_title=title,
+            ))
+        return results
+    async def output_with_summary(self, url, html) -> ToolResult:
+        body = await WebBodyExtractor.pipeline_async(html)
+        content = TextProcessor.TEXT_CLEANER(body.combined_text)
+        if not TextProcessor.string_length_is_within(content, 100):
+            content = await self.think_then_summarize(content)
+        return ToolResult(
+            output=f"BrowserTool: Navigated to [ {url} ]",
+            result_type="search",
+            action="search google",
+            url=url,
+            result=content
+        )
+
+    """ CONTEXT/STATE """
     @property
     def safe_context(self) -> Optional[BrowserContext]:
         if type(self.context) in [BrowserContext]: return self.context
@@ -146,7 +147,7 @@ class BrowserTool2(ToolEngine):
             self.get_tool(function_name="close_tab"),
             self.get_tool(function_name="refresh_page")
         ]
-    async def __ensure_browser_initialized(self) -> Optional[BrowserContext]:
+    async def ensure_browser_initialized(self) -> Optional[BrowserContext]:
         """Ensure browser and context are initialized."""
 
         if type(self.context) in [BrowserContext]: return self.context
@@ -197,63 +198,50 @@ class BrowserTool2(ToolEngine):
         self.dom_service = DomService(await context.get_current_page())
         self.context = context
         return context
+    async def get_current_state(self) -> ToolResult:
+        """Get the current browser state as a ToolResult."""
+        async with self.lock:
+            try:
+                context = await self.ensure_browser_initialized()
+                state = await context.get_state()
+                state_info = {
+                    "url": state.url,
+                    "title": state.title,
+                    "tabs": [tab.model_dump() for tab in state.tabs],
+                    "interactive_elements": state.element_tree.clickable_elements_to_string(),
+                }
+                tr = ToolResult(
+                    output=str(json.dumps(state_info)),
+                    result_type="tool_state"
+                )
+                return self.add_and_pass(tool_or_tools=tr)
+            except Exception as e:
+                return self.add_and_pass(tool_or_tools=ToolResult(error=f"Failed to get browser state: {str(e)}"))
 
-    """ OUTPUT """
-    def output_search_results(self, html: str) -> List[ToolResult]:
-        self.soup(html)
-        results = []
-
-        for g in self.soup.select('div.tF2Cxc'):
-            title_el = g.select_one('h3')
-            link_el = g.select_one('a')
-            desc_el = g.select_one('div.VwiC3b')
-
-            if not title_el or not link_el:
-                continue
-
-            title = title_el.get_text() if title_el else ''
-            url = link_el['href']
-            description_el = g.select_one('div.VwiC3b span.aCOpRe') or g.select_one('div.VwiC3b')
-            description = description_el.get_text(strip=True) if (
-                description_el := description_el) else ''
-
-            results.append(ToolResult(
-                result_type="search",
-                url=url,
-                description=description,
-                title=title,
-            ))
-        return results
-    async def output_with_summary(self, url, html) -> ToolResult:
-        body = await WebBodyExtractor.pipeline_async(html)
-        content = TextProcessor.TEXT_CLEANER(body.combined_text)
-        if not TextProcessor.string_length_is_within(content, 100):
-            content = await self.think_then_summarize(content)
-        return ToolResult(
-            output=f"BrowserTool: Navigated to [ {url} ]",
-            result_type="search",
-            action="search google",
-            url=url,
-            result=content
-        )
-
+    """ CORE FUNCTIONS 
+    SEARCH
+        1. add other search providers like duckduckgo
+        2. create a custom search method?
+    EXTRACTION
+        1. Create a custom, get_page_contents function.
+    BROWSER
+        1. Close Browser
     """
-    CORE FUNCTIONS
-    1. add_and_pass all core functions
-    """
+    # Search
     async def deep_search(self, *search_terms:str) -> List[ToolResult]:
-        if not self.is_setup: await self.setup_assistant("\n".join(search_terms))
+        if not self.is_setup:
+            await self.setup_assistant("\n".join(search_terms))
 
         recon_step_count = 0
-        if not search_terms: await self._get_set_search_terms()
-        else: self.find_all_search_results()
-        search_queue = deque(self.find_all_search_results() or [])
+        if search_terms: await self.think_then_set_search_terms()
+        self.find_all_search_results()
+        search_queue = self.tool_plan.search_term_queue or deque(search_terms)
         while search_queue:
             term = search_queue.popleft()
             recon_step_count += 1
             self.log_voice(f"Deep Search step {recon_step_count}")
             self.log_voice(f"Deep Search term: {term}")
-            result = await self.google_search(search_term=term.search_term)
+            result = await self.google_search(search_term=term)
             if result and type(result) in [list, tuple]:
                 for item in result:
                     item.search_term = term
@@ -264,30 +252,28 @@ class BrowserTool2(ToolEngine):
                 result.result_status = "ready"
                 self.add_result(result)
             self.log_voice(f"Deep Search Step {recon_step_count}")
-        return await self._navigate_search_results()
+        return await self.navigate_through_search_results()
     async def google_search(self, search_term: str) -> ToolResult:
-        self.log_voice("google_search called.")
+        self.log_voice(f"I am going to search google for: {search_term}")
         url = f"https://www.google.com/search?q={search_term.replace(' ', '+')}"
         if not url:
             self.log_voice("Failed: URL was not generated.")
             return ToolResult(error="URL is required for 'navigate' action")
-        self.log_voice(f"Generated URL successfully. URL: [ {url} ]")
-        self.log_voice("Initiating navigation.")
         try:
             result = await self.navigate(url, "search")
             self.log_voice("Navigation completed successfully.")
-            return result
+            return self.add_and_pass(result)
         except Exception as e:
             self.log_voice(f"Navigation failed: [ {str(e)} ]")
             self.log_thought(f"Error navigating [ {str(e)} ]")
-            return ToolResult(output=f"BrowserTool: Navigated to [ {url} ]", url=url,
-                              error=f"Error navigating [ {str(e)} ]")
+            return self.add_and_pass(ToolResult(output=f"BrowserTool: Navigated to [ {url} ]", url=url, error=f"Error navigating [ {str(e)} ]"))
+
+    # Navigation Controls
     async def navigate(self, url: Optional[str], output:Optional[str]='html') -> None | ToolResult | list[ToolResult]:
-        self.log_voice("Navigate called.")
-        context = await self.__ensure_browser_initialized()
-        self.log_voice(f"Navigate: Browser initialized: {'Yes' if context else 'No'}")
+        self.log_voice(f"I am going to navigate to [ {url} ]")
+        context = await self.ensure_browser_initialized()
         if not url:
-            self.log_voice("Navigate: Failed: URL is required but missing.")
+            self.log_voice("Umm, I dont seem to see a URL...")
             return ToolResult(error="URL is required for 'navigate' action")
         self.log_voice(f"Navigate: URL validated successfully. URL: [ {url} ]")
 
@@ -302,35 +288,39 @@ class BrowserTool2(ToolEngine):
             await self.think_then_summary_report(content, ensure_length=10000)
 
         try:
-            if type(self.page) not in [Page]:
-                self.page = await context.get_current_page()
+            if type(self.page) not in [Page]: self.page = await context.get_current_page()
             self.previous_page = self.page
             self.page.once("dialog", handle_dialog)
             self.page.once("load", handle_load)
             self.log_voice(f"Navigate: Going to page: [ {url} ]")
             await self.page.goto(url, timeout=5000, wait_until="domcontentloaded")
-
-            self.log_voice("Navigate: Page loaded successfully.")
-            html = await context.get_page_html()
-            self.log_voice("Navigate: HTML content retrieved successfully.")
+            self.log_voice("I have successfully loaded the page.")
 
             toolResult = None
 
-            if output == 'pass':
-                self.log_voice("Navigate: Handling pass.")
-                toolResult = ToolResult(output=f"BrowserTool: Navigated to [ {url} ]", url=url, result="passthrough")
+            if output == 'page':
+                self.log_voice("The requested output is the page object itself.")
+                page = await context.get_current_page()
+                toolResult = ToolResult(output=f"BrowserTool: Navigated to [ {url} ]", holding="page", holder=page)
 
-            if output == 'summary':
-                self.log_voice("Navigate: Handling summarized content.")
+            elif output == 'pass':
+                self.log_voice("I am passing the request. Viewing only it would appear.")
+                toolResult = ToolResult(output=f"BrowserTool: Navigated to [ {url} ]", result="passthrough")
+
+            elif output == 'summary':
+                self.log_voice("I am generating a summary of the page.")
+                html = await context.get_page_html()
                 toolResult = await self.output_with_summary(url, html)
 
             elif output == 'search':
                 self.log_voice("Navigate: Handling parsed search results.")
+                html = await context.get_page_html()
                 toolResult = self.output_search_results(html=html)
 
             elif output == 'html':
                 self.log_voice("Navigate: Handling raw HTML content.")
-                toolResult = ToolResult(output=f"BrowserTool: Navigated to [ {url} ]", url=url, result=html)
+                html = await context.get_page_html()
+                toolResult = ToolResult(output=f"BrowserTool: Navigated to [ {url} ]", result=html)
 
             return toolResult
         except Exception as e:
@@ -374,6 +364,21 @@ class BrowserTool2(ToolEngine):
         await self.context.refresh_page()
         self.log_voice("Page refreshed successfully.")
         return ToolResult(output="Refreshed current page")
+    async def execute_js(self, script: Optional[str]) -> ToolResult:
+        if not script:
+            return ToolResult(error="Script is required for 'execute_js' action")
+        result = await self.context.execute_javascript(script)
+        return ToolResult(output=str(result))
+    async def scroll(self, scroll_amount: Optional[int]) -> ToolResult:
+        if scroll_amount is None:
+            return ToolResult(error="Scroll amount is required for 'scroll' action")
+        await self.context.execute_javascript(f"window.scrollBy(0, {scroll_amount});")
+        direction = "down" if scroll_amount > 0 else "up"
+        return ToolResult(output=f"Scrolled {direction} by {abs(scroll_amount)} pixels")
+    async def go_home(self) -> ToolResult:
+        return await self.navigate(url="https://www.raico.dev", output="page")
+
+    # Page Extraction
     async def get_html(self) -> ToolResult:
         html = await self.context.get_page_html()
         truncated = html[:MAX_LENGTH] + "..." if len(html) > MAX_LENGTH else html
@@ -387,17 +392,8 @@ class BrowserTool2(ToolEngine):
             "document.querySelectorAll('a[href]').forEach((elem) => {if (elem.innerText) {console.log(elem.innerText, elem.href)}})"
         )
         return ToolResult(output=links)
-    async def execute_js(self, script: Optional[str]) -> ToolResult:
-        if not script:
-            return ToolResult(error="Script is required for 'execute_js' action")
-        result = await self.context.execute_javascript(script)
-        return ToolResult(output=str(result))
-    async def scroll(self, scroll_amount: Optional[int]) -> ToolResult:
-        if scroll_amount is None:
-            return ToolResult(error="Scroll amount is required for 'scroll' action")
-        await self.context.execute_javascript(f"window.scrollBy(0, {scroll_amount});")
-        direction = "down" if scroll_amount > 0 else "up"
-        return ToolResult(output=f"Scrolled {direction} by {abs(scroll_amount)} pixels")
+
+    # Browser Controls
     async def switch_tab(self, tab_id: Optional[int]) -> ToolResult:
         if tab_id is None:
             return ToolResult(error="Tab ID is required for 'switch_tab' action")
@@ -411,30 +407,9 @@ class BrowserTool2(ToolEngine):
     async def close_tab(self) -> ToolResult:
         await self.context.close_current_tab()
         return ToolResult(output="Closed current tab")
-    async def go_home(self) -> ToolResult:
-        return await self.navigate(url="https://www.raico.dev", output="page")
-    async def get_current_state(self) -> ToolResult:
-        """Get the current browser state as a ToolResult."""
-        async with self.lock:
-            try:
-                context = await self.__ensure_browser_initialized()
-                state = await context.get_state()
-                state_info = {
-                    "url": state.url,
-                    "title": state.title,
-                    "tabs": [tab.model_dump() for tab in state.tabs],
-                    "interactive_elements": state.element_tree.clickable_elements_to_string(),
-                }
-                tr = ToolResult(
-                    output=str(json.dumps(state_info)),
-                    result_type="tool_state"
-                )
-                return self.add_and_pass(tool=tr)
-            except Exception as e:
-                return self.add_and_pass(tool=ToolResult(error=f"Failed to get browser state: {str(e)}"))
 
     """ DEEP SEARCH MODE """
-    async def _navigate_search_results(self, tool_results: List[ToolResult]=None) -> List[ToolResult]:
+    async def navigate_through_search_results(self, tool_results: List[ToolResult]=None) -> List[ToolResult]:
         recon_step_count = 0
         search_queue = deque(tool_results or self.find_all_search_results() or [])
         while search_queue:
@@ -442,16 +417,16 @@ class BrowserTool2(ToolEngine):
             recon_step_count += 1
             self.log_voice(f"Executing Search Result step {recon_step_count}")
             self.log_voice(f"Search term: {search.search_term}, Search Url: {search.url}")
-            result = await self.navigate(url=search.url, output='summary')
+            result = await self.navigate(url=search.search_url, output='summary')
             result.attach_search_parent(search)
             self.log_voice(f"Extracting Search Result Step {recon_step_count}")
         self.log_voice("Finished handling Search results.")
         await self.go_home()
         return tool_results
-    async def _get_set_search_terms(self) -> Optional[SearchTerms]:
+    async def think_then_set_search_terms(self) -> Optional[SearchTerms]:
         result = await self.llm().formatter_async(
             text=f"""
-                {self.tool_plan.inject_objective_prompt()}
+                {self.inject_objective_tag()}
                 **Based on the objective, create a list of at least 10 web search terms to search google with.**
             """,
             model=SearchTerms,
@@ -461,19 +436,18 @@ class BrowserTool2(ToolEngine):
                     Example: "what is some of the latest geo-political news?"
                     Example: "What are the scores of the latest international soccer games?"
                     Example: "When is the next olympics?"
-                {self.inject_tool_options_prompt()}
-                {self.tool_plan.inject_objective_prompt()}
-                {self.tool_plan.inject_user_request()}
+                {self.inject_tool_options_tag()}
+                {self.inject_objective_tag}
+                {self.inject_user_request_tag()}
             """,
         )
 
         if result:
             self.log_voice(f"Search terms for {self.tool_plan.overall_objective}\n {str(result.search_terms)}")
-            self.tool_results.extend(result.search_terms)
+            self.tool_plan.search_term_queue.extend(result.search_terms)
         return result or None
 
 if __name__ == "__main__":
 
     looper = asyncio.get_event_loop()
-    # looper.run_until_complete(BrowserTool().run(request="Who were the last international soccer teams to play, who played and what were the scores?"))
-    looper.run_until_complete(BrowserTool2().self_navigation("Go to facebook and go to mallory romeo's profile."))
+    looper.run_until_complete(WebBrowserTool().self_navigation("Google search for bruce romeo lawyer in birmingham, al and then tell me what his law firm is called."))

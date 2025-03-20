@@ -28,7 +28,7 @@ class rStateAssistant(rAssistantReasoningPlugin):
         status: str = "started"
 
     @staticmethod
-    def _required_model() -> Type[BaseModel]:
+    def response_model() -> Type[BaseModel]:
         return rStateAssistant.StateObject
 
     @staticmethod

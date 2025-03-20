@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field
 
 class Role(str, Enum):
     """Message role options"""
-
     SYSTEM = "system"
     USER = "user"
     ASSISTANT = "assistant"
@@ -31,6 +30,13 @@ class AgentState(str, Enum):
     FINISHED = "FINISHED"
     ERROR = "ERROR"
 
+class ToolMode(str, Enum):
+    """Agent execution states"""
+    IDLE = "IDLE"
+    RUNNING = "RUNNING"
+    FINISHED = "FINISHED"
+    ERROR = "ERROR"
+
 class Function(BaseModel):
     name: str
     arguments: str
@@ -40,7 +46,6 @@ class ToolCall(BaseModel):
     id: str
     type: str = "function"
     function: Function
-
 
 class Message(BaseModel):
     """Represents a chat message in the conversation"""

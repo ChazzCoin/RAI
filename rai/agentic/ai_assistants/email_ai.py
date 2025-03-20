@@ -49,7 +49,7 @@ class rEmailAssistant(rAssistantReasoningPlugin):
         """
 
     @staticmethod
-    def _required_model() -> Type[BaseModel]:
+    def response_model() -> Type[BaseModel]:
         return fEmail
 
     sender_email: str = "charleskromeo@gmail.com"

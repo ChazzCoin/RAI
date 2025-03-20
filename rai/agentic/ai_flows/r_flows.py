@@ -1,4 +1,6 @@
-from rai.agentic.ai_modules.r import rModule
+import textwrap
+
+from rai.agentic.agent_tools.module import ToolModule
 
 FLOW_REGISTRY = {}
 
@@ -9,7 +11,11 @@ def register_flow(name: str):
 
     return decorator
 
-class rFlows(rModule):
+class rFlows(ToolModule):
+    @staticmethod
+    def module_name() -> str:
+        return 'r_flows'
+
     name = None
 
     def __init_subclass__(cls, flow_name=None, **kwargs):
@@ -45,7 +51,7 @@ def main(name, prefix, user_prompt):
         for item in results.items():
             print(item)
     else:
-        print(results)
+        print(textwrap.fill(results.response, width=50))
 
 
 if __name__ == "__main__":

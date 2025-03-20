@@ -403,7 +403,9 @@ def mains(name:str, prefix, user_prompt):
             user_prompt=user_prompt
         )
     print(user_prompt)
-    if type(results) in [list, tuple]:
+    if type(results) in [RaiQueryAgentResults]:
+        print(results.response)
+    elif type(results) in [list, tuple]:
         for item in results:
             print(item)
     elif type(results) in [dict]:
@@ -413,5 +415,5 @@ def mains(name:str, prefix, user_prompt):
         print(results)
 
 if __name__ == "__main__":
-    user_prompt = "Can you breakdown the flow diagram for the monthly invoice generation job?"
-    mains("base", "rai2025.1", user_prompt=user_prompt)
+    user_prompt = "Who is joel person?"
+    mains("base", "pcsc2025.4", user_prompt=user_prompt)

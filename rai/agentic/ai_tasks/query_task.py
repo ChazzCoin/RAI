@@ -6,7 +6,7 @@ from typing import List
 from F import DICT, LIST
 from pydantic import BaseModel
 
-from rai.agentic.ai_modules.r import rModule
+from rai.agentic.agent_tools.module import ToolModule
 from rai.ingest.utilities.TextUtils import TextProcessor
 
 
@@ -19,7 +19,7 @@ def register_query_agent(name: str):
     return decorator
 
 
-class rQueryTask(ABC, rModule, TextProcessor):
+class rQueryTask(ABC, ToolModule, TextProcessor):
     name = None
 
     first = []
