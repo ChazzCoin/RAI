@@ -1,5 +1,5 @@
 import threading
-from typing import Dict, Type
+from typing import Dict, Type, TypeVar, Optional
 
 import numpy as np
 from F import DICT
@@ -17,6 +17,8 @@ def register_text_tool(name: str):
         TEXT_TOOL_REGISTRY.setdefault(name, []).append(cls)
         return cls
     return decorator
+
+T = TypeVar('T', bound=BaseModel)
 
 
 class rAI:
@@ -102,8 +104,15 @@ class rAI:
             raw_result=raw_result,
             response_only=response_only
         )
+    # @classmethod
+    # async def formatter_async(cls, text, model: Type[BaseModel], system=None) -> Type[BaseModel]:
+    #     return await cls().engine.generate_format_async(
+    #         user=text,
+    #         system=system or "Extract the necessary data/attributes for the provided response format.",
+    #         format=model
+    #     )
     @classmethod
-    async def formatter_async(cls, text, model: Type[BaseModel], system=None) -> Type[BaseModel]:
+    async def formatter_async(cls, text: str, model: Type[T], system: Optional[str] = None) -> T:
         return await cls().engine.generate_format_async(
             user=text,
             system=system or "Extract the necessary data/attributes for the provided response format.",

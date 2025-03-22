@@ -90,7 +90,7 @@ class WebBrowserTool(ToolEngine):
         asyncio.create_task(publish_screenshots())
 
     """ OUTPUT """
-    def output_search_results(self, html: str) -> List[ToolResult]:
+    async def output_search_results(self, html: str) -> ToolResult:
         soup = BeautifulSoup(html, 'html.parser')
         results = []
 
@@ -107,20 +107,29 @@ class WebBrowserTool(ToolEngine):
             description_el = g.select_one('div.VwiC3b span.aCOpRe') or g.select_one('div.VwiC3b')
             description = description_el.get_text(strip=True) if (
                 description_el := description_el) else ''
-
-            results.append(ToolResult(
-                result_type="search",
-                result_status="ready",
-                search_url=url,
-                search_description=description,
-                search_title=title,
-            ))
-        return results
+            temp = f"""
+                search_url={url},
+                search_description={description},
+                search_title={title},
+            """
+            results.append(temp)
+        summary = await self.get_content(html=html, summarize=True)
+        r = "\n".join(results)
+        return ToolResult(
+            result_type="search",
+            result_status="ready",
+            output=summary+r,
+        )
+    async def get_content(self, html:str, summarize:bool=True) -> str:
+        body = await WebBodyExtractor.pipeline_async(html)
+        content = self.TEXT_CLEANER(body.combined_text)
+        if summarize: content = await self.think_then_summarize(content)
+        return content
     async def output_with_summary(self, url, html) -> ToolResult:
         body = await WebBodyExtractor.pipeline_async(html)
         content = TextProcessor.TEXT_CLEANER(body.combined_text)
         if not TextProcessor.string_length_is_within(content, 100):
-            content = await self.think_then_summarize(content)
+            content = await self.think_then_understand(f"WebPage Url: [{url}]\n{content}")
         return ToolResult(
             output=f"BrowserTool: Navigated to [ {url} ]",
             result_type="search",
@@ -137,22 +146,22 @@ class WebBrowserTool(ToolEngine):
     def get_tools(self) -> List[dict[str, Any]]:
         return [
             self.get_tool(function_name="google_search"),
-            self.get_tool(function_name="navigate"),
+            self.get_tool(function_name="navigate_with_summary"),
             self.get_tool(function_name="click"),
             self.get_tool(function_name="input_text"),
             self.get_tool(function_name="execute_js"),
             self.get_tool(function_name="scroll"),
-            self.get_tool(function_name="switch_tab"),
-            self.get_tool(function_name="new_tab"),
-            self.get_tool(function_name="close_tab"),
-            self.get_tool(function_name="refresh_page")
+            self.get_tool(function_name="press_enter"),
+            self.get_tool(function_name="click_and_input_text"),
+            self.get_tool(function_name="finish"),
+            # self.get_tool(function_name="refresh_page")
         ]
     async def ensure_browser_initialized(self) -> Optional[BrowserContext]:
         """Ensure browser and context are initialized."""
 
         if type(self.context) in [BrowserContext]: return self.context
-        await self.pub.connect()
-        await self.start_screenshot_stream()
+        # await self.pub.connect()
+        # await self.start_screenshot_stream()
 
         browser_config_kwargs = {
             "headless": config.browser_config.headless or False,
@@ -227,6 +236,7 @@ class WebBrowserTool(ToolEngine):
     BROWSER
         1. Close Browser
     """
+    def finish(self): return self.quit()
     # Search
     async def deep_search(self, *search_terms:str) -> List[ToolResult]:
         if not self.is_setup:
@@ -269,7 +279,10 @@ class WebBrowserTool(ToolEngine):
             return self.add_and_pass(ToolResult(output=f"BrowserTool: Navigated to [ {url} ]", url=url, error=f"Error navigating [ {str(e)} ]"))
 
     # Navigation Controls
-    async def navigate(self, url: Optional[str], output:Optional[str]='html') -> None | ToolResult | list[ToolResult]:
+    async def navigate_with_summary(self, url: Optional[str]) -> None | ToolResult | list[ToolResult]:
+        return await self.navigate(url, "summary")
+
+    async def navigate(self, url: Optional[str], output:Optional[str]='summary') -> None | ToolResult | list[ToolResult]:
         self.log_voice(f"I am going to navigate to [ {url} ]")
         context = await self.ensure_browser_initialized()
         if not url:
@@ -283,8 +296,8 @@ class WebBrowserTool(ToolEngine):
             print("Dialog dismissed")
         async def handle_load(page: Page) -> None:
             print(f"WebSocket: Page Loaded: {page.url}")
-            html = self.safe_context.get_page_html()
-            content = self.html_to_content(html)
+            html = await self.safe_context.get_page_html()
+            content = await self.html_to_content(html)
             await self.think_then_summary_report(content, ensure_length=10000)
 
         try:
@@ -297,7 +310,7 @@ class WebBrowserTool(ToolEngine):
             self.log_voice("I have successfully loaded the page.")
 
             toolResult = None
-
+            html = await context.get_page_html()
             if output == 'page':
                 self.log_voice("The requested output is the page object itself.")
                 page = await context.get_current_page()
@@ -309,24 +322,29 @@ class WebBrowserTool(ToolEngine):
 
             elif output == 'summary':
                 self.log_voice("I am generating a summary of the page.")
-                html = await context.get_page_html()
                 toolResult = await self.output_with_summary(url, html)
 
             elif output == 'search':
                 self.log_voice("Navigate: Handling parsed search results.")
-                html = await context.get_page_html()
-                toolResult = self.output_search_results(html=html)
+                toolResult = await self.output_search_results(html=html)
+                toolResult.url = url
 
             elif output == 'html':
                 self.log_voice("Navigate: Handling raw HTML content.")
-                html = await context.get_page_html()
                 toolResult = ToolResult(output=f"BrowserTool: Navigated to [ {url} ]", result=html)
 
+            content = await self.get_content(html=html, summarize=False)
+            await self.think_then_summary_report(content)
             return toolResult
         except Exception as e:
             self.log_voice(f"Navigate: Navigation failed: [ {str(e)} ]")
             self.log_thought(f"Error navigating [ {str(e)} ]")
             return ToolResult(output=f"BrowserTool: Navigated to [ {url} ]", url=url, error=f"Error navigating [ {str(e)} ]")
+
+    async def click_and_input_text(self, index: Optional[int], text: Optional[str]) -> ToolResult:
+        await self.click(index)
+        return await self.input_text(index, text)
+
     async def click(self, index: Optional[int]) -> ToolResult:
         self.log_voice(f"click called with index: [ {index} ]")
         if index is None:
@@ -351,9 +369,18 @@ class WebBrowserTool(ToolEngine):
         self.log_voice(f"Element retrieval for input: {'Success' if element else 'Failed'}")
         if not element:
             return ToolResult(error=f"Element with index {index} not found")
+        print(element.is_in_viewport)
+        print(element.viewport_info)
         await self.context._input_text_element_node(element, text)
         self.log_voice("Text input successful.")
         return ToolResult(output=f"Input '{text}' into element at index {index}")
+
+    async def press_enter(self) -> ToolResult:
+        self.log_voice(f"I am going to press enter.")
+        await self.page.keyboard.press("Enter")
+        self.log_voice("I have pressed enter.")
+        return ToolResult(output=f"Pressed enter key.")
+
     async def screenshot(self) -> ToolResult:
         self.log_voice("screenshot called.")
         screenshot = await self.context.take_screenshot(full_page=True)
@@ -450,4 +477,6 @@ class WebBrowserTool(ToolEngine):
 if __name__ == "__main__":
 
     looper = asyncio.get_event_loop()
-    looper.run_until_complete(WebBrowserTool().self_navigation("Google search for bruce romeo lawyer in birmingham, al and then tell me what his law firm is called."))
+    looper.run_until_complete(WebBrowserTool().self_navigation("What is this new movie called the gorge about exactly? It seems weird."))
+    # looper.run_until_complete(WebBrowserTool().self_navigation("go to facebook, search mallory romeo, navigate to her profile."))
+    # looper.run_until_complete(WebBrowserTool().self_navigation("go to twitter, search agentic ai, scroll through the feed for me."))

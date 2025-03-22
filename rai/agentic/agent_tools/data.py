@@ -1,10 +1,18 @@
 import json
-from typing import Dict, Any, Optional, List, Type
+from typing import Dict, Any, Optional, List, Type, TypeVar
 from pydantic import BaseModel, create_model
 from rai.agentic.agent_tools.result import ToolResult
 from rai.agentic.ai_modules.log import mLog
 from rai.assistant.connectors import LLM
 
+T = TypeVar("T", bound=BaseModel)
+
+
+def inject_generic(model: T) -> str:
+    def safe(value):
+        return value if value not in (None, "") else "no data found"
+    if not model: return "No Data"
+    return "\n".join(f"{key}: {safe(value)}" for key, value in model.model_dump().items())
 
 class ToolData(mLog):
 
@@ -37,6 +45,29 @@ class ToolData(mLog):
 
     def _new_data_instance(self) -> BaseModel:
         return self._required_data_model_type().model_construct()
+
+    def inject_latest_import(self) -> str:
+        data = self.get_data()
+        if not data or len(data) == 0: return "NO DATA FOUND"
+        summary = ""
+        if type(data) in [list, tuple]:
+            for item in data:
+                if type(item) == ToolResult:
+                    summary += ToolResult.inject(item)
+                else:
+                    summary += inject_generic(item)
+        else:
+            if type(data) == ToolResult:
+                summary += ToolResult.inject(data)
+            else:
+                summary += inject_generic(data)
+        result = f"""
+            <LATEST_DATA_RESULTS>
+            {summary}
+            </LATEST_DATA_RESULTS>
+        """
+        print(result)
+        return result
 
     def get_data(self) -> List[BaseModel]: return self._data
 

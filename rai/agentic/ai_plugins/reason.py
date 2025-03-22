@@ -1,7 +1,7 @@
 import inspect
 from abc import ABC, abstractmethod
 from collections import deque
-from typing import Any, List, Type, Optional, Union
+from typing import Any, List, Type, Optional, Union, Dict
 
 from pydantic import BaseModel
 from pydantic.v1 import Field
@@ -41,9 +41,17 @@ class HtmlWebElements(BaseModel):
 
 class HtmlDecisionElement(BaseModel):
     element: Union[HtmlButtonElement | HtmlInputElement]
+class Checkpoints(BaseModel):
+    checkpoint: str
+    order_index: int
+class StepCheckpoints(BaseModel):
+    checkpoints: Optional[List[Checkpoints]]
 
 class Objective(BaseModel):
-    objective: str = Field("", description="The objective to accomplish or achieve.")
+    objective: str
+
+class ProposedData(BaseModel):
+    data: Optional[Dict[str,str]]
 
 class Objectives(BaseModel):
     objectives: List[Objective] = []

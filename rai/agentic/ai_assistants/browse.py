@@ -17,8 +17,8 @@ from pydantic import Field, BaseModel, HttpUrl
 from watchfiles import awatch
 
 from rai.agentic.aether.schema import AgentState
-from rai.agentic.aether.tool import ToolResult
 from rai.agentic.aether.UseBrowserConfig import config
+from rai.agentic.agent_tools.result import ToolResult
 from rai.agentic.ai_plugins.reason import rAssistantReasoningPlugin, SearchTerms, DOMIndex, Objective
 from rai.agentic.ai_tools.text_tools.text_formats import NextStepModel
 from rai.ingest.utilities.TextUtils import TextProcessor
@@ -811,4 +811,4 @@ if __name__ == "__main__":
 
     looper = asyncio.get_event_loop()
     # looper.run_until_complete(BrowserTool().run(request="Who were the last international soccer teams to play, who played and what were the scores?"))
-    looper.run_until_complete(BrowserTool().self_navigation("go to facebook, search for mallory romeo, go to her profile"))
+    looper.run_until_complete(BrowserTool().self_navigation("go to facebook, login, search for mallory romeo, go to her profile"))

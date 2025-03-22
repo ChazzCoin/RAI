@@ -1,4 +1,5 @@
 import base64
+import json
 import mimetypes
 import os
 from abc import ABC, abstractmethod
@@ -322,7 +323,14 @@ class OpenAiEngine(FusedAI, engine="openai"):
             # If the model refuses to respond, you will get a refusal message
             if response.refusal:
                 print("Refused:", response.refusal)
-                return response.refusal
+                try:
+                    item = json.loads(response.refusal)
+                    parsed_result = format.model_construct()
+                    response.parsed = parsed_result.model_validate(item)
+                    return response.parsed
+                except Exception as e:
+                    print(e)
+                    return response.refusal
             else:
                 print("Parsed:", response.parsed)
                 return response.parsed

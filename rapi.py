@@ -64,9 +64,8 @@ async def knowledge_base():
         if item.get('model') == model:
             parent_model = item
     query: str = jbody.get('query')
-    knowledge_results = rKnowledgeAssistant.request(
-        prefix=parent_model.get('collection', "pcsc2025.4"),
-        user_prompt=query
+    knowledge_results = rKnowledgeAssistant("pcsc2025.4").request(
+        user_request=query
     )
     dump = knowledge_results.model_dump()
     return jsonify({ "status": 200, "data": dump })

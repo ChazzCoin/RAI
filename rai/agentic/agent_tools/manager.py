@@ -1,19 +1,35 @@
+import asyncio
 import uuid
+from abc import abstractmethod
 from collections import deque
+from contextlib import asynccontextmanager
 from typing import Optional, List, Any, Union
 
-from F import DICT
+from F import DICT, LIST
 from bs4 import BeautifulSoup
+
+from rai.agentic.aether.schema import AgentState
+from rai.agentic.agent_tools.data import ToolData
 from rai.agentic.agent_tools.plan import ToolPlan
 from rai.agentic.agent_tools.result import ToolResult
 from rai.agentic.ai_modules import ToolLog
-from rai.agentic.ai_tools.text_tools.text_formats import NextStepModel
+from rai.agentic.ai_tools.text_tools.text_formats import NextStepModel, ChainOfStepsToolFormat
 from rai.ingest.utilities.TextUtils import TextProcessor
+from rai.ingest.web.soup.BodyExtractor import WebBodyExtractor
 
 
-class ToolManager(ToolLog, TextProcessor):
-    def log_key(self) -> str:
-        return "tool"
+class ToolManager(ToolData, ToolLog, TextProcessor):
+
+    @abstractmethod
+    def get_tools(self) -> List[dict[str, Any]]: pass
+    @abstractmethod
+    async def get_current_state(self) -> ToolResult: pass
+    def log_key(self) -> str: return "tool"
+
+    is_setup: bool = False
+    state: AgentState = AgentState.IDLE
+    tool_state: ToolResult = ToolResult()
+    lock: asyncio.Lock = asyncio.Lock()
 
     name: Optional[str] = None
     tool_id: str = str(uuid.uuid4())
@@ -21,6 +37,31 @@ class ToolManager(ToolLog, TextProcessor):
     tool_results: List['ToolResult'] = []
 
     soup = lambda html: BeautifulSoup(html, 'html.parser')
+
+    @asynccontextmanager
+    async def state_context(self, new_state: AgentState):
+        """Context manager for safe agent state transitions.
+        Args: new_state: The state to transition to during the context.
+        Yields: None: Allows execution within the new state.
+        Raises: ValueError: If the new_state is invalid.
+        """
+        if not isinstance(new_state, AgentState):
+            raise ValueError(f"Invalid state: {new_state}")
+        previous_state = self.state
+        self.state = new_state
+        try:
+            yield
+        except Exception as e:
+            self.state = AgentState.ERROR  # Transition to ERROR on failure
+            raise e
+        finally:
+            self.state = previous_state  # Revert to previous state
+    """ Helpers """
+    def stepQueueIsLive(self) -> bool:
+        return self.maxStepsHasNotBeenMet and self.state != AgentState.FINISHED
+    async def html_to_content(self, html):
+        body = await WebBodyExtractor.pipeline_async(html)
+        return self.TEXT_CLEANER(body.combined_text)
 
     """ Tool Step Queue"""
     @property
@@ -41,9 +82,26 @@ class ToolManager(ToolLog, TextProcessor):
 
         self.log_thought("I am adding the new step to our step queue.")
         self.tool_plan.step_queue.append(step)
-    def pop_next_step(self) -> NextStepModel:
+    def add_steps(self, steps: ChainOfStepsToolFormat):
+        for chain_step in steps.chain_of_steps:
+            self.add_step(NextStepModel(next_step_or_action=chain_step.step_action))
+    def pop_next_step(self) -> bool:
         self.log_thought("I am grabbing the next step from our step queue.")
-        return self.tool_plan.step_queue.popleft()
+        try:
+            step = self.tool_plan.step_queue.popleft()
+            if not step: return False
+            self.tool_plan.previous_step = self.tool_plan.current_step
+            self.tool_plan.current_step = step.next_step_or_action
+            self.tool_plan.current_step_count += 1
+            return True
+        except Exception as e:
+            self.log_thought(f"Failed to grab the next step: {e}")
+            return False
+    def peak_next_step(self) -> NextStepModel:
+        self.log_thought("I am peaking at the next step from our step queue.")
+        temp = self.tool_plan.step_queue.popleft()
+        self.tool_plan.step_queue.appendleft(temp)
+        return temp
     def pop_oldest_step(self) -> NextStepModel:
         self.log_thought("I am grabbing the oldest step from our step queue.")
         return self.tool_plan.step_queue.pop()
@@ -79,7 +137,7 @@ class ToolManager(ToolLog, TextProcessor):
     def add_and_pass(self, tool_or_tools: Union['ToolResult' | List['ToolResult']]) -> None | tuple[str, Any] | ToolResult | list[ToolResult]:
         if type(tool_or_tools) in [ToolResult]:
             if tool_or_tools.result_type == "tool_state":
-                self.log_thought(f"I am getting a new current state update: {tool_or_tools.result}")
+                self.log_thought(f"I am getting a new current state update: {tool_or_tools.output}")
                 self.tool_plan.current_state = tool_or_tools
             self.log_thought(f"I have gathered the results: {tool_or_tools.output}")
             self.tool_results.append(tool_or_tools)
@@ -87,7 +145,7 @@ class ToolManager(ToolLog, TextProcessor):
         else:
             for tool in tool_or_tools:
                 if tool.result_type == "tool_state":
-                    self.log_thought(f"I am getting a new current state update: {tool.result}")
+                    self.log_thought(f"I am getting a new current state update: {tool.output}")
                     self.tool_plan.current_state = tool
                 self.log_thought(f"I have gathered the results: {tool.output}")
                 self.tool_results.append(tool)
@@ -110,7 +168,7 @@ class ToolManager(ToolLog, TextProcessor):
     def find_all_pending_search_results(self) -> List['ToolResult']:
         return [item for item in self.tool_results if getattr(item, "result_type", None) == "search" and getattr(item, "result_status", None) == "complete"]
 
-    """ Tool Prompt/Tag Injections """
+    """ Tag Injections """
     def inject_user_request_tag(self) -> str:
         return f"""
                <USER_REQUEST>
@@ -119,7 +177,8 @@ class ToolManager(ToolLog, TextProcessor):
            """
     def inject_decisions_tag(self) -> str:
         decisions = ""
-        for d in self.tool_plan.decisions_made:
+
+        for d in LIST.flatten(self.tool_plan.decisions_made):
             data = DICT.get("function", d, None)
             func_name = data.get('name') if isinstance(data, dict) else getattr(data, 'name', None)
             args_source = data.get('arguments') if isinstance(data, dict) else getattr(data, 'arguments', None)
@@ -164,7 +223,7 @@ class ToolManager(ToolLog, TextProcessor):
     def inject_next_step_tag(self) -> str:
         return f"""
             <NEXT_STEP_TO_ACHIEVE>
-                {self.tool_plan.current_step.next_step_or_action}
+                {self.tool_plan.current_step}
             </NEXT_STEP_TO_ACHIEVE>
         """
     def inject_summary_report_tag(self) -> str:
@@ -173,10 +232,93 @@ class ToolManager(ToolLog, TextProcessor):
                 {self.tool_plan.summary_report}
             </PROCESS_SUMMARY>
         """
-    def prompt_decide_action_user(self):
+    def inject_tool_state_tag(self):
+        return f"""
+              <CURRENT_BROWSER_STATE>
+                  {self.tool_state.inject(self.tool_state)}
+              </CURRENT_BROWSER_STATE>
+          """
+    def inject_tool_options_tag(self):
+        return f"""
+              <TOOLS_AVAILABLE>
+                  {self.get_tools()}
+              </TOOLS_AVAILABLE>
+          """
+
+    """ Prompt Injections """
+    def prompt_ask_the_ref_system(self):
+        return f"""
+            **You are the game referee.**
+            
+        """
+
+    def prompt_create_plan_user(self):
+        return f"""
+        Create a detailed step by step plan for the following details.
+        {self.inject_user_request_tag()}
+        {self.inject_objective_tag()}
+        """
+    def prompt_create_plan_system(self):
+        return f"""
+        You are a professional step by step planner.
+        **Based on the User Prompt details, create a step by step plan**
+        **Each step should include one of the following functions to call with the step**
+        {self.inject_tool_options_tag()}
+        """
+    def prompt_summary_report_system(self):
+        return f"""
+            **You keep and update an on-going summary of content you've read.**
+            You are to creating an on-going summary or timeline of reading results.
+            You will 'merge' the results together into 1 single memory timeline.
+            {self.inject_contextual_tag()}
+        """
+    async def prompt_decide_action_user(self):
+        tool_state = await self.get_current_state()
         return f"""
             <USER_DATA>
-                {self.tool_plan.user_data.__str__()} 
+            facebook:
+                User/Email: chazzromeo@gmail.com
+                Password: laurelpark8294
             </USER_DATA>
             {self.inject_next_step_tag()}
+            <CURRENT_STATE>
+                {tool_state.inject(tool=tool_state)}
+            </CURRENT_STATE>
+        """
+    def prompt_decide_action_system(self):
+        temp = self.NORMALIZER(f"""
+            Review the following web html DOM index interactive elements.
+            Based on the User Prompt, pick the index and tool function accordingly.
+                {self.inject_tool_options_tag()}
+        """)
+        print(temp)
+        return temp
+    def prompt_next_step_user(self):
+        return f"""
+        {self.inject_decisions_tag()}  
+        {self.inject_tool_state_tag()}
+        Based on our current state and the decisions we have made, what should be our next single step?
+        """
+    def prompt_next_step_system(self):
+        return self.NORMALIZER(f"""
+            Pretend you are walking a 5 year old through how to accomplish the users request/objective to then win the game.
+                **Review the current state you are in.**
+                **You can only do 1 'action' at a time.**
+                **You can only call 1 function at a time.**
+                {self.inject_tool_options_tag()}
+            """)
+    def prompt_next_step_2_system(self):
+        return self.NORMALIZER(f"""
+            **RULES TO THE GAME**
+            Pretend you are walking a 5 year old through how to accomplish the users request/objective to then win the game.
+            What is the next function we need to call?
+                    {self.inject_objective_tag()}  
+                    {self.inject_decisions_tag()}  
+                    {self.inject_tool_options_tag()}
+            **REMEMBER: WE CAN NOT DO 2 THINGS AT ONCE, 1 STEP, 1 ACTION ONLY.**
+            """)
+    def prompt_objective_system(self):
+        return f"""
+            **Based on the users request, decide what the objective or goal is to achieve.**
+            **What is the end goal?**
         """
