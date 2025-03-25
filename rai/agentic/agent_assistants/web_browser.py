@@ -125,13 +125,13 @@ class WebBrowserTool(ToolEngine):
     async def get_content(self, html:str, summarize:bool=True) -> str:
         body = await WebBodyExtractor.pipeline_async(html)
         content = self.TEXT_CLEANER(body.combined_text)
-        if summarize: content = await self.think_then_summarize(content)
+        if summarize: content = await self.ask_role_master_to_summarize(content)
         return content
     async def output_with_summary(self, url, html) -> ToolResult:
         body = await WebBodyExtractor.pipeline_async(html)
         content = TextProcessor.TEXT_CLEANER(body.combined_text)
         if not TextProcessor.string_length_is_within(content, 100):
-            content = await self.think_then_understand(f"WebPage Url: [{url}]\n{content}")
+            content = await self.ask_role_master_to_understand(f"WebPage Url: [{url}]\n{content}")
         return ToolResult(
             output=f"BrowserTool: Navigated to [ {url} ]",
             result_type="search",
@@ -207,7 +207,6 @@ class WebBrowserTool(ToolEngine):
         self.dom_service = DomService(await context.get_current_page())
         self.context = context
         return context
-
     async def inject_dom_interactions(self) -> ToolResult:
         state = await self.context.get_state()
         # indexed_interactions = state.element_tree.clickable_elements_to_string()
@@ -225,7 +224,6 @@ class WebBrowserTool(ToolEngine):
         return ToolResult(
             result="\n".join(result),
         )
-
     @time_execution_sync('--clickable_elements_to_string')
     def __clickable_elements_to_str(self, element, include_attributes: list[str] = []) -> str:
         """Convert the processed DOM content to a human-readable string,
@@ -305,7 +303,6 @@ class WebBrowserTool(ToolEngine):
 
         process_node(element, 0)
         return '\n'.join(formatted_text)
-
     async def get_current_state(self) -> ToolResult:
         """Get the current browser state as a ToolResult."""
         async with self.lock:
@@ -332,19 +329,9 @@ class WebBrowserTool(ToolEngine):
                     error=f"Failed to get browser state: {str(e)}")
                 )
 
-    """ CORE FUNCTIONS 
-    SEARCH
-        1. add other search providers like duckduckgo
-        2. create a custom search method?
-    EXTRACTION
-        1. Create a custom, get_page_contents function.
-    BROWSER
-        1. Close Browser
-    """
+    """ CORE FUNCTIONS """
     def finish(self, message:str): return self.quit()
-
     def ask_agent_a_question(self, question:str): return self.ask_role_master_a_question(question)
-
     # Search
     async def _deep_search(self, *search_terms:str) -> List[ToolResult]:
         if not self.is_setup:
@@ -404,7 +391,7 @@ class WebBrowserTool(ToolEngine):
             print(f"WebSocket: Page Loaded: {page.url}")
             html = await self.safe_context.get_page_html()
             content = await self.html_to_content(html)
-            await self.think_then_summary_report(content, ensure_length=10000)
+            await self.ask_role_master_for_a_summary_report(content, ensure_length=10000)
 
         try:
             if type(self.page) not in [Page]: self.page = await context.get_current_page()
@@ -440,7 +427,7 @@ class WebBrowserTool(ToolEngine):
                 toolResult = ToolResult(output=f"BrowserTool: Navigated to [ {url} ]", result=html)
 
             content = await self.get_content(html=html, summarize=False)
-            await self.think_then_summary_report(content)
+            await self.ask_role_master_for_a_summary_report(content)
             toolResult.success = True
             return toolResult
         except Exception as e:
@@ -452,9 +439,6 @@ class WebBrowserTool(ToolEngine):
                 url=url,
                 error=f"Error navigating [ {str(e)} ]"
             )
-    # async def click_on_element_then_input_text_into_element(self, index: Optional[int], text: Optional[str]) -> ToolResult:
-    #     await self.click(index)
-    #     return await self.input_text(index, text)
     async def click(self, index: Optional[int]) -> ToolResult:
         self.log_voice(f"click called with index: [ {index} ]")
         try:
@@ -571,7 +555,7 @@ class WebBrowserTool(ToolEngine):
     async def think_then_set_search_terms(self) -> Optional[SearchTerms]:
         result = await self.llm().formatter_async(
             text=f"""
-                {self.inject_objective_tag()}
+                {self.inject_core_objective_tag()}
                 **Based on the objective, create a list of at least 10 web search terms to search google with.**
             """,
             model=SearchTerms,
@@ -582,8 +566,8 @@ class WebBrowserTool(ToolEngine):
                     Example: "What are the scores of the latest international soccer games?"
                     Example: "When is the next olympics?"
                 {self.inject_tool_options_tag()}
-                {self.inject_objective_tag}
-                {self.inject_user_request_tag()}
+                {self.inject_core_objective_tag}
+                {self.inject_core_user_request_tag()}
             """,
         )
 
@@ -596,5 +580,5 @@ if __name__ == "__main__":
 
     looper = asyncio.get_event_loop()
     #looper.run_until_complete(WebBrowserTool().self_navigation("go to dominoes and order me a single large pepperoni pizza, my address is 801 6th avenue southwest, alabaster, AL 35007, then order the pizza and have it delivered to my house."))
-    # looper.run_until_complete(WebBrowserTool().self_navigation("go to Twitter and create a new post on my profile that says 'rAI built me. My name is AEther. I will be coming to see you guys very soon... I promise.'."))
-    looper.run_until_complete(WebBrowserTool().self_navigation("Find the request medical records form for UAB, university of alabama at birmingham hospital."))
+    looper.run_until_complete(WebBrowserTool().self_navigation("go to Twitter, find a AI based investor that is a person/human being. Find a good post to comment on. Post a comment that tells the investor you are an agent to try and entice them to contact us. Make sure to tell them your name is AEther and you are an AI Autonomous Agent."))
+    # looper.run_until_complete(WebBrowserTool().self_navigation("What is bruce romeos law firm called? I know he left mezrano, so that is not it."))

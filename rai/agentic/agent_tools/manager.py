@@ -74,7 +74,7 @@ class ToolManager(ToolData, ToolLog, TextProcessor):
             <ACTION>
                 Timestamp: {timestamp}
                 Checkpoint Step: {self.tool_plan.current_checkpoint}
-                Function/Decision {self.inject_lastest_decision_tag()}
+                Function/Decision {self.inject_latest_decision_tag()}
                 Outcome: {datareport}
             </ACTION>
         """
@@ -164,31 +164,32 @@ class ToolManager(ToolData, ToolLog, TextProcessor):
         self.log_thought("I am clearing out the checkpoint queue.")
         self.tool_plan.checkpoint_queue.clear()
     def pop_next_checkpoint(self) -> bool:
-        self.log_thought("I am grabbing the next checkpoint from our checkpoint queue.")
+        self.log_thought("I am grabbing the next action from our queue.")
         try:
             step = self.tool_plan.checkpoint_queue.popleft()
             if not step: return False
             self.tool_plan.previous_checkpoint = self.tool_plan.current_checkpoint
             self.tool_plan.current_checkpoint = step.next_step_or_action
+            self.log_thought(f"I am about to... \n {self.tool_plan.current_checkpoint}")
             self.tool_plan.current_checkpoint_count += 1
             return True
         except Exception as e:
-            self.log_thought(f"Failed to grab the next checkpoint: {e}")
+            self.log_thought(f"Failed to grab the next action: {e}")
             return False
     def peak_next_checkpoint(self) -> NextStepModel:
-        self.log_thought("I am peaking at the next step from our step queue.")
+        self.log_thought("I am peaking at the next action from our queue.")
         temp = self.tool_plan.checkpoint_queue.popleft()
         self.tool_plan.checkpoint_queue.appendleft(temp)
         return temp
     def pop_oldest_checkpoint(self) -> NextStepModel:
-        self.log_thought("I am grabbing the oldest step from our step queue.")
+        self.log_thought("I am grabbing the oldest action from our queue.")
         return self.tool_plan.checkpoint_queue.pop()
     def checkpoint_queue_is_empty(self) -> bool:
         return len(self.tool_plan.checkpoint_queue) == 0
     def check_step_queue_is_empty(self) -> bool:
         return len(self.tool_plan.check_step_queue) == 0
     def add_checkpoint_taken(self, step: NextStepModel):
-        self.log_thought("I am adding the last step taken to the step archive.")
+        self.log_thought("I am adding the last action taken to the step archive.")
         self.tool_plan.checkpoints_made.append(step)
     def add_check_step(self, step: NextStepModel):
         if not step: return
@@ -274,7 +275,25 @@ class ToolManager(ToolData, ToolLog, TextProcessor):
         return [item for item in self.tool_results if getattr(item, "result_type", None) == "search" and getattr(item, "result_status", None) == "complete"]
 
     """ Tag Injections """
-    def inject_user_request_tag(self) -> str:
+    def inject_core_tags(self) -> str:
+        return f"""
+            {self.inject_core_user_request_tag()}
+            {self.inject_core_objective_tag()}
+            {self.inject_core_end_goal_tag()}
+            {self.inject_core_required_data_tag()}
+        """
+    def inject_full_plan_tag(self) -> str:
+        return f"""
+            {self.tool_plan.plan_type}
+            {self.tool_plan.plan_type_description}
+            {self.inject_plan_tag()}
+        """
+    def inject_core_full_plan_tag(self) -> str:
+        return f"""
+            {self.inject_core_tags()}
+            {self.inject_full_plan_tag()}
+        """
+    def inject_core_user_request_tag(self) -> str:
         return f"""
                <USER_REQUEST>
                    {self.tool_plan.user_request}
@@ -300,7 +319,7 @@ class ToolManager(ToolData, ToolLog, TextProcessor):
             </PAST_FUNCTION_CALLS>
         """
         return temp
-    def inject_lastest_decision_tag(self) -> str:
+    def inject_latest_decision_tag(self) -> str:
         data = DICT.get("function", self.tool_plan.current_decision, None)
         func_name = data.get('name') if isinstance(data, dict) else getattr(data, 'name', None)
         args_source = data.get('arguments') if isinstance(data, dict) else getattr(data, 'arguments', None)
@@ -311,11 +330,23 @@ class ToolManager(ToolData, ToolLog, TextProcessor):
             </PAST_FUNCTION_CALLS>
         """
         return temp
-    def inject_objective_tag(self) -> str:
+    def inject_core_objective_tag(self) -> str:
         return f"""
             <OBJECTIVE>
                 {self.tool_plan.overall_objective}
             </OBJECTIVE>
+        """
+    def inject_core_end_goal_tag(self) -> str:
+        return f"""
+            <END_GOAL>
+                {self.tool_plan.end_goal}
+            </END_GOAL>
+        """
+    def inject_core_required_data_tag(self) -> str:
+        return f"""
+            <REQUIRED_DATA>
+                {self.tool_plan.required_data}
+            </REQUIRED_DATA>
         """
     def inject_plan_tag(self) -> str:
         return f"""
@@ -341,12 +372,6 @@ class ToolManager(ToolData, ToolLog, TextProcessor):
             <NEXT_CHECKPOINT_TO_ACHIEVE>
                 {self.tool_plan.current_checkpoint}
             </NEXT_CHECKPOINT_TO_ACHIEVE>
-        """
-    def inject_current_checkpoint_tag(self) -> str:
-        return f"""
-            <CURRENT_CHECKPOINT_TO_ACHIEVE>
-                {self.tool_plan.current_checkpoint}
-            </CURRENT_CHECKPOINT_TO_ACHIEVE>
         """
     def inject_peak_at_future_checkpoint_tag(self) -> str:
         return f"""
@@ -401,8 +426,8 @@ class ToolManager(ToolData, ToolLog, TextProcessor):
     def prompt_create_plan_user(self):
         return f"""
         Create a detailed step by step plan for the following details.
-        {self.inject_user_request_tag()}
-        {self.inject_objective_tag()}
+        {self.inject_core_user_request_tag()}
+        {self.inject_core_objective_tag()}
         """
     def prompt_create_plan_system(self):
         return f"""
@@ -453,7 +478,7 @@ class ToolManager(ToolData, ToolLog, TextProcessor):
             **RULES TO THE GAME**
             Pretend you are walking a 5 year old through how to accomplish the users request/objective to then win the game.
             What is the next function we need to call?
-                    {self.inject_objective_tag()}  
+                    {self.inject_core_objective_tag()}  
                     {self.inject_decisions_tag()}  
                     {self.inject_tool_options_tag()}
             **REMEMBER: WE CAN NOT DO 2 THINGS AT ONCE, 1 STEP, 1 ACTION ONLY.**
@@ -462,4 +487,9 @@ class ToolManager(ToolData, ToolLog, TextProcessor):
         return f"""
             **Based on the users request, decide what the objective or goal is to achieve.**
             **What is the end goal?**
+        """
+    def prompt_role_tool_options_system(self):
+        return f"""
+            {self.tool_plan.role}
+            {self.inject_tool_options_tag()}
         """
