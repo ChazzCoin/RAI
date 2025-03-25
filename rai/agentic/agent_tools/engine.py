@@ -82,8 +82,6 @@ class ToolEngine(ToolModule, ToolManager, mMap, ABC):
     
     -> we need to keep track of accomplished checkpoints and not repeat them.
     """
-    # REFEREE
-
     # Assistant Identity
     async def think_then_set_objective(self, depth=0):
         self.log_voice("I need to understand the users objective. What are we trying to accomplish?")

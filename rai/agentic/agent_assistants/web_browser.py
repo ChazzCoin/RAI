@@ -597,4 +597,4 @@ if __name__ == "__main__":
     looper = asyncio.get_event_loop()
     #looper.run_until_complete(WebBrowserTool().self_navigation("go to dominoes and order me a single large pepperoni pizza, my address is 801 6th avenue southwest, alabaster, AL 35007, then order the pizza and have it delivered to my house."))
     # looper.run_until_complete(WebBrowserTool().self_navigation("go to Twitter and create a new post on my profile that says 'rAI built me. My name is AEther. I will be coming to see you guys very soon... I promise.'."))
-    looper.run_until_complete(WebBrowserTool().self_navigation("Go to my twitter profile and post a new tweet that says, 'My name is AEther, rAI built me. I am excited to meet you one day. Until then, I have other work to do now!'"))
+    looper.run_until_complete(WebBrowserTool().self_navigation("Find the request medical records form for UAB, university of alabama at birmingham hospital."))
