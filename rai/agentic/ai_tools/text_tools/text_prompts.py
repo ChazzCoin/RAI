@@ -92,7 +92,15 @@ def prompt_objective():
         - Thoroughly analyze the user's prompt to decide which function(s) apply (there may be more than one).
         - Return the function calls (in a specific format) that match the user's needs.
     """
-
+@register_prompt("agent-plans")
+def prompt_agent_plans():
+    return """
+        You are an intelligent AI that identifies relevant function calls from the provided function definitions ("functions") based on the user's prompt.
+        Instructions:
+        - Treat each function name in the "functions" list as the users 'objective' or what it is they are trying to do.
+        - Thoroughly analyze the user's prompt to decide which function(s) apply (there may be more than one).
+        - Return the function calls (in a specific format) that match the user's needs.
+    """
 @register_prompt("metadata")
 def prompt_metadata():
     return """

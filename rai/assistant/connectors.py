@@ -1,5 +1,5 @@
 import threading
-from typing import Dict, Type, TypeVar, Optional
+from typing import Dict, Type, TypeVar, Optional, List
 
 import numpy as np
 from F import DICT
@@ -119,13 +119,26 @@ class rAI:
             format=model
         )
     @classmethod
-    async def decision_async(cls, user:str, system:str, functions: [dict], raw_result:bool=True, response_only=False) -> Type[BaseModel]:
+    async def decision_async(cls, user:str, system:str, functions: [dict]):
         return await cls().engine.generate_function_async(
             user=user,
             system=system,
             functions=functions,
-            raw_result=raw_result,
-            response_only=response_only
+            raw_result=False,
+            response_only=False
+        )
+    @classmethod
+    async def decision_pipeline_async(cls, name:str, request:str) -> List[str]:
+        return await cls().tool_async(name, request)
+
+    @classmethod
+    async def function_async(cls, user:str, system:str, functions: [dict]):
+        return await cls().engine.generate_function_async(
+            user=user,
+            system=system,
+            functions=functions,
+            raw_result=True,
+            response_only=True
         )
 
     """ BASE """

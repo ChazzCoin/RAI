@@ -10,8 +10,9 @@ class ToolResult(BaseModel):
     name: Optional[str] = None
     assistant_name: Optional[str] = None
     agent_name: Optional[str] = None
-    timestamp: Optional[datetime] = int(datetime.timestamp(datetime.now()))
+    timestamp: datetime = int(datetime.timestamp(datetime.now()))
     """ Output """
+    success: bool = False
     output: Optional[str] = None
     error: Optional[str] = None
     system: Optional[str] = None
@@ -44,34 +45,42 @@ class ToolResult(BaseModel):
 
     @staticmethod
     def inject(tool: "ToolResult") -> str:
-        # Helper function to check each attribute
-        def safe(value):
-            return value if value not in [None, ""] else "no data found"
-        return f"""
-                ID: {safe(tool.id)}
-                Parent ID: {safe(tool.parent_id)}
-                Name: {safe(tool.name)}
-                Assistant Name: {safe(tool.assistant_name)}
-                Agent Name: {safe(tool.agent_name)}
-                Timestamp: {safe(tool.timestamp)}
-                Output: {safe(tool.output)}
-                Error: {safe(tool.error)}
-                System: {safe(tool.system)}
-                Result: {safe(tool.result)}
-                HTML: {safe(tool.html)}
-                Result Type: {safe(tool.result_type)}
-                Search Term: {safe(tool.search_term)}
-                Search URL: {safe(tool.search_url)}
-                Search Title: {safe(tool.search_title)}
-                Search Description: {safe(tool.search_description)}
-                URL: {safe(tool.url)}
-                Action: {safe(tool.action)}
-                Log: {safe(tool.log)}
-                Source: {safe(tool.source)}
-                Description: {safe(tool.description)}
-                Title: {safe(tool.title)}
-                Are we holding external data?: {safe(tool.holding)}
-            """
+        lines = []
+
+        # List of tuples with the attribute label and the corresponding tool attribute.
+        attributes = [
+            ("ID", tool.id),
+            ("Parent ID", tool.parent_id),
+            ("Name", tool.name),
+            ("Assistant Name", tool.assistant_name),
+            ("Agent Name", tool.agent_name),
+            ("Timestamp", tool.timestamp),
+            ("Output", tool.output),
+            ("Error", tool.error),
+            ("System", tool.system),
+            ("Result", tool.result),
+            ("HTML", tool.html),
+            ("Result Type", tool.result_type),
+            ("Search Term", tool.search_term),
+            ("Search URL", tool.search_url),
+            ("Search Title", tool.search_title),
+            ("Search Description", tool.search_description),
+            ("URL", tool.url),
+            ("Action", tool.action),
+            ("Log", tool.log),
+            ("Source", tool.source),
+            ("Description", tool.description),
+            ("Title", tool.title),
+            ("Are we holding external data?", tool.holding),
+        ]
+
+        # Add only non-empty attributes.
+        for label, value in attributes:
+            if value is not None and value != "":
+                lines.append(f"{label}: {value}")
+
+        return "\n".join(lines)
+
     def to_str(self) -> str: return str(self.model_dump())
     def attach_search_parent(self, search_results: 'ToolResult') -> 'ToolResult':
         self.parent_id = search_results.id

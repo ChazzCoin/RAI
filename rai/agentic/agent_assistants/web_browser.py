@@ -1,11 +1,13 @@
 import asyncio
 import json
 from collections import deque
-from typing import Optional, Type, Any, List
+from typing import Optional, Type, Any, List, Union
 from browser_use import Browser as BrowserUseBrowser
 from browser_use import BrowserConfig
 from browser_use.browser.context import BrowserContext, BrowserContextConfig
 from browser_use.dom.service import DomService
+from browser_use.dom.views import DOMTextNode, DOMBaseNode, DOMElementNode
+from browser_use.utils import time_execution_sync
 from bs4 import BeautifulSoup
 from playwright.async_api import Page, Dialog
 from pydantic import Field, BaseModel
@@ -48,7 +50,7 @@ class WebBrowserTool(ToolEngine):
     def assistant_rules() -> str:
         return f"""
             You control a web browser by Matching Index Numbers to their corresponding Names/Details.
-            You take in a request, develop a web search plan and accomplish the task.
+            You take in a request, develop a plan and accomplish the task.
             1. Always close/cancel/dismiss popups or dialogs.
         """
     @staticmethod
@@ -146,15 +148,13 @@ class WebBrowserTool(ToolEngine):
     def get_tools(self) -> List[dict[str, Any]]:
         return [
             self.get_tool(function_name="google_search"),
-            self.get_tool(function_name="navigate_with_summary"),
+            self.get_tool(function_name="navigate_to_url"),
             self.get_tool(function_name="click"),
             self.get_tool(function_name="input_text"),
-            self.get_tool(function_name="execute_js"),
             self.get_tool(function_name="scroll"),
             self.get_tool(function_name="press_enter"),
-            self.get_tool(function_name="click_and_input_text"),
-            self.get_tool(function_name="finish"),
-            # self.get_tool(function_name="refresh_page")
+            self.get_tool(function_name="ask_agent_a_question"),
+            self.get_tool(function_name="finish")
         ]
     async def ensure_browser_initialized(self) -> Optional[BrowserContext]:
         """Ensure browser and context are initialized."""
@@ -207,6 +207,105 @@ class WebBrowserTool(ToolEngine):
         self.dom_service = DomService(await context.get_current_page())
         self.context = context
         return context
+
+    async def inject_dom_interactions(self) -> ToolResult:
+        state = await self.context.get_state()
+        # indexed_interactions = state.element_tree.clickable_elements_to_string()
+        sel_map = state.selector_map
+
+        result = []
+        for k,v in sel_map.items():
+            index = k
+            element = v
+            stringed_element = self.__clickable_elements_to_str(element)
+            if index >= 100: continue
+            result.append(stringed_element)
+            print(index, stringed_element)
+
+        return ToolResult(
+            result="\n".join(result),
+        )
+
+    @time_execution_sync('--clickable_elements_to_string')
+    def __clickable_elements_to_str(self, element, include_attributes: list[str] = []) -> str:
+        """Convert the processed DOM content to a human-readable string,
+        returning only relevant interactive elements."""
+        formatted_text = []
+
+        def process_parent(node: DOMBaseNode, depth: int) -> Union[str | None]:
+            if depth >= 10: return None
+            if node.parent:
+                p = node.parent
+                attrs = p.attributes
+                if not attrs: return process_parent(p, depth + 1)
+                return process_node(node, 0)
+
+
+        def process_node(node: DOMBaseNode, depth: int) -> None:
+            indent = '  ' * depth  # Indentation reflects DOM hierarchy
+            try:
+                if isinstance(node, DOMElementNode):
+                    # Process only interactive elements with a highlight_index.
+                    if node.is_interactive and node.highlight_index is not None:
+
+                        # parent_attrs = process_parent(node, 0)
+
+                        # Combine requested attributes with additional contextual keys.
+                        extra_keys = ['id', 'class', 'aria-label', 'role', 'placeholder']
+                        all_keys = set(include_attributes) | set(extra_keys)
+                        attributes_list = []
+                        for key in all_keys:
+                            if key in node.attributes:
+                                attr_value = node.attributes[key]
+                                # Avoid including redundant data if the attribute value equals the tag name.
+                                if attr_value != node.tag_name:
+                                    attributes_list.append(f'{key}="{attr_value}"')
+                        attributes_str = ' '.join(attributes_list)
+
+                        # Extract associated text; for input-like elements, fallback to the 'value' attribute.
+                        text = node.get_all_text_till_next_clickable_element()
+                        # if str(text) == '': return None
+                        if not text and node.tag_name.lower() in ['input', 'button']:
+                            text = node.attributes.get('value', '')
+
+                        # Append viewport and coordinate details if available.
+                        viewport_info = ''
+                        if node.viewport_coordinates:
+                            viewport_info += f' [viewport: {node.viewport_coordinates}]'
+                        if node.page_coordinates:
+                            viewport_info += f' [page: {node.page_coordinates}]'
+                        if node.is_in_viewport:
+                            viewport_info += ' [visible]'
+                        if node.is_interactive:
+                            viewport_info += ' [is_interactive]'
+                        if node.is_top_element:
+                            viewport_info += ' [is_top_element]'
+                        # if parent_attrs:
+                        #     viewport_info += f' [{parent_attrs}]'
+
+                        # Format the line with indentation, highlight index, tag name, attributes, text, and viewport info.
+                        line = f"{indent}[{node.highlight_index}] <{node.tag_name}"
+                        if attributes_str:
+                            line += f" {attributes_str}"
+                        if text:
+                            line += f"> {text}"
+                        else:
+                            line += ">"
+                        line += f"/>{viewport_info}"
+                        formatted_text.append(line)
+
+                    # Process children regardless of the current node's interactivity.
+                    for child in node.children:
+                        process_node(child, depth + 1)
+
+                # Skip processing DOMTextNode, as we're focused solely on interactive elements.
+            except Exception as e:
+                # In production, consider logging the error.
+                formatted_text.append(f"{indent}[Error processing node: {e}]")
+
+        process_node(element, 0)
+        return '\n'.join(formatted_text)
+
     async def get_current_state(self) -> ToolResult:
         """Get the current browser state as a ToolResult."""
         async with self.lock:
@@ -217,15 +316,21 @@ class WebBrowserTool(ToolEngine):
                     "url": state.url,
                     "title": state.title,
                     "tabs": [tab.model_dump() for tab in state.tabs],
-                    "interactive_elements": state.element_tree.clickable_elements_to_string(),
+                    # "interactive_elements": state.element_tree.clickable_elements_to_string(),
                 }
                 tr = ToolResult(
                     output=str(json.dumps(state_info)),
                     result_type="tool_state"
                 )
-                return self.add_and_pass(tool_or_tools=tr)
+                interactions: ToolResult = await self.inject_dom_interactions()
+                tri = interactions.merge(tr)
+                tri.success = True
+                return self.add_and_pass(tool_or_tools=tri)
             except Exception as e:
-                return self.add_and_pass(tool_or_tools=ToolResult(error=f"Failed to get browser state: {str(e)}"))
+                return self.add_and_pass(tool_or_tools=ToolResult(
+                    success=False,
+                    error=f"Failed to get browser state: {str(e)}")
+                )
 
     """ CORE FUNCTIONS 
     SEARCH
@@ -236,9 +341,12 @@ class WebBrowserTool(ToolEngine):
     BROWSER
         1. Close Browser
     """
-    def finish(self): return self.quit()
+    def finish(self, message:str): return self.quit()
+
+    def ask_agent_a_question(self, question:str): return self.ask_role_master_a_question(question)
+
     # Search
-    async def deep_search(self, *search_terms:str) -> List[ToolResult]:
+    async def _deep_search(self, *search_terms:str) -> List[ToolResult]:
         if not self.is_setup:
             await self.setup_assistant("\n".join(search_terms))
 
@@ -270,19 +378,17 @@ class WebBrowserTool(ToolEngine):
             self.log_voice("Failed: URL was not generated.")
             return ToolResult(error="URL is required for 'navigate' action")
         try:
-            result = await self.navigate(url, "search")
+            result = await self._navigate(url, "search")
             self.log_voice("Navigation completed successfully.")
             return self.add_and_pass(result)
         except Exception as e:
             self.log_voice(f"Navigation failed: [ {str(e)} ]")
             self.log_thought(f"Error navigating [ {str(e)} ]")
             return self.add_and_pass(ToolResult(output=f"BrowserTool: Navigated to [ {url} ]", url=url, error=f"Error navigating [ {str(e)} ]"))
-
     # Navigation Controls
-    async def navigate_with_summary(self, url: Optional[str]) -> None | ToolResult | list[ToolResult]:
-        return await self.navigate(url, "summary")
-
-    async def navigate(self, url: Optional[str], output:Optional[str]='summary') -> None | ToolResult | list[ToolResult]:
+    async def navigate_to_url(self, url: Optional[str]) -> None | ToolResult | list[ToolResult]:
+        return await self._navigate(url, "summary")
+    async def _navigate(self, url: Optional[str], output:Optional[str]= 'summary') -> None | ToolResult | list[ToolResult]:
         self.log_voice(f"I am going to navigate to [ {url} ]")
         context = await self.ensure_browser_initialized()
         if not url:
@@ -335,52 +441,64 @@ class WebBrowserTool(ToolEngine):
 
             content = await self.get_content(html=html, summarize=False)
             await self.think_then_summary_report(content)
+            toolResult.success = True
             return toolResult
         except Exception as e:
             self.log_voice(f"Navigate: Navigation failed: [ {str(e)} ]")
             self.log_thought(f"Error navigating [ {str(e)} ]")
-            return ToolResult(output=f"BrowserTool: Navigated to [ {url} ]", url=url, error=f"Error navigating [ {str(e)} ]")
-
-    async def click_and_input_text(self, index: Optional[int], text: Optional[str]) -> ToolResult:
-        await self.click(index)
-        return await self.input_text(index, text)
-
+            return ToolResult(
+                success=False,
+                output=f"BrowserTool: Navigated to [ {url} ]",
+                url=url,
+                error=f"Error navigating [ {str(e)} ]"
+            )
+    # async def click_on_element_then_input_text_into_element(self, index: Optional[int], text: Optional[str]) -> ToolResult:
+    #     await self.click(index)
+    #     return await self.input_text(index, text)
     async def click(self, index: Optional[int]) -> ToolResult:
         self.log_voice(f"click called with index: [ {index} ]")
-        if index is None:
-            self.log_voice("Click failed: No index provided.")
-            return ToolResult(error="Index is required for 'click' action")
-        element = await self.context.get_dom_element_by_index(index)
-        self.log_voice(f"Element retrieval: {'Success' if element else 'Failed'}")
-        if not element:
-            return ToolResult(error=f"Element with index {index} not found")
-        download_path = await self.context._click_element_node(element)
-        self.log_voice(f"Element clicked: {'Success' if download_path else 'No download initiated'}")
-        output = f"Clicked element at index {index}"
-        if download_path:
-            output += f" - Downloaded file to {download_path}"
-        return ToolResult(output=output)
+        try:
+            if index is None:
+                self.log_voice("Click failed: No index provided.")
+                return ToolResult(success=False, error="Index is required for 'click' action")
+            element = await self.context.get_dom_element_by_index(index)
+            self.log_voice(f"Element retrieval: {'Success' if element else 'Failed'}")
+            if not element:
+                return ToolResult(success=False, error=f"Element with index {index} not found")
+            download_path = await self.context._click_element_node(element)
+            self.log_voice(f"Element clicked: {'Success' if download_path else 'No download initiated'}")
+            output = f"Clicked element at index {index}"
+            if download_path:
+                output += f" - Downloaded file to {download_path}"
+            return ToolResult(
+                success=True,
+                output=output)
+        except Exception as e:
+            self.log_voice(f"Click element failed: [ {str(e)} ]")
+            return ToolResult(success=False, error=f"Click element failed: [ {str(e)} ]")
     async def input_text(self, index: Optional[int], text: Optional[str]) -> ToolResult:
         self.log_voice("input_text called.")
-        if index is None or not text:
-            self.log_voice("Input text failed: Index or text missing.")
-            return ToolResult(error="Index and text are required for 'input_text' action")
-        element = await self.context.get_dom_element_by_index(index)
-        self.log_voice(f"Element retrieval for input: {'Success' if element else 'Failed'}")
-        if not element:
-            return ToolResult(error=f"Element with index {index} not found")
-        print(element.is_in_viewport)
-        print(element.viewport_info)
-        await self.context._input_text_element_node(element, text)
-        self.log_voice("Text input successful.")
-        return ToolResult(output=f"Input '{text}' into element at index {index}")
-
+        try:
+            if index is None or not text:
+                self.log_voice("Input text failed: Index or text missing.")
+                return ToolResult(success=False, error="Index and text are required for 'input_text' action")
+            element = await self.context.get_dom_element_by_index(index)
+            self.log_voice(f"Element retrieval for input: {'Success' if element else 'Failed'}")
+            if not element:
+                return ToolResult(success=False, error=f"Element with index {index} not found")
+            print(element.is_in_viewport)
+            print(element.viewport_info)
+            await self.context._input_text_element_node(element, text)
+            self.log_voice("Text input successful.")
+            return ToolResult(success=True, output=f"Input '{text}' into element at index {index}")
+        except Exception as e:
+            self.log_voice(f"Input text failed: [ {str(e)} ]")
+            return ToolResult(success=False, error=f"Input text failed: [ {str(e)} ]")
     async def press_enter(self) -> ToolResult:
         self.log_voice(f"I am going to press enter.")
         await self.page.keyboard.press("Enter")
         self.log_voice("I have pressed enter.")
-        return ToolResult(output=f"Pressed enter key.")
-
+        return ToolResult(success=True, output=f"Pressed enter key.")
     async def screenshot(self) -> ToolResult:
         self.log_voice("screenshot called.")
         screenshot = await self.context.take_screenshot(full_page=True)
@@ -398,27 +516,27 @@ class WebBrowserTool(ToolEngine):
         return ToolResult(output=str(result))
     async def scroll(self, scroll_amount: Optional[int]) -> ToolResult:
         if scroll_amount is None:
-            return ToolResult(error="Scroll amount is required for 'scroll' action")
+            return ToolResult(success=False, error="Scroll amount is required for 'scroll' action")
         await self.context.execute_javascript(f"window.scrollBy(0, {scroll_amount});")
         direction = "down" if scroll_amount > 0 else "up"
-        return ToolResult(output=f"Scrolled {direction} by {abs(scroll_amount)} pixels")
+        return ToolResult(success=True, output=f"Scrolled {direction} by {abs(scroll_amount)} pixels")
     async def go_home(self) -> ToolResult:
-        return await self.navigate(url="https://www.raico.dev", output="page")
+        return await self._navigate(url="https://www.raico.dev", output="page")
 
     # Page Extraction
     async def get_html(self) -> ToolResult:
         html = await self.context.get_page_html()
         truncated = html[:MAX_LENGTH] + "..." if len(html) > MAX_LENGTH else html
-        return ToolResult(output=truncated)
+        return ToolResult(success=True, output=truncated)
     async def get_text(self) -> ToolResult:
         text = await self.context.execute_javascript("document.body.innerText")
         print("BrowserUseTool: get_text: ", text)
-        return ToolResult(output=text)
+        return ToolResult(success=True, output=text)
     async def read_links(self) -> ToolResult:
         links = await self.context.execute_javascript(
             "document.querySelectorAll('a[href]').forEach((elem) => {if (elem.innerText) {console.log(elem.innerText, elem.href)}})"
         )
-        return ToolResult(output=links)
+        return ToolResult(success=True, output=links)
 
     # Browser Controls
     async def switch_tab(self, tab_id: Optional[int]) -> ToolResult:
@@ -444,7 +562,7 @@ class WebBrowserTool(ToolEngine):
             recon_step_count += 1
             self.log_voice(f"Executing Search Result step {recon_step_count}")
             self.log_voice(f"Search term: {search.search_term}, Search Url: {search.url}")
-            result = await self.navigate(url=search.search_url, output='summary')
+            result = await self._navigate(url=search.search_url, output='summary')
             result.attach_search_parent(search)
             self.log_voice(f"Extracting Search Result Step {recon_step_count}")
         self.log_voice("Finished handling Search results.")
@@ -477,6 +595,6 @@ class WebBrowserTool(ToolEngine):
 if __name__ == "__main__":
 
     looper = asyncio.get_event_loop()
-    looper.run_until_complete(WebBrowserTool().self_navigation("What is this new movie called the gorge about exactly? It seems weird."))
-    # looper.run_until_complete(WebBrowserTool().self_navigation("go to facebook, search mallory romeo, navigate to her profile."))
-    # looper.run_until_complete(WebBrowserTool().self_navigation("go to twitter, search agentic ai, scroll through the feed for me."))
+    #looper.run_until_complete(WebBrowserTool().self_navigation("go to dominoes and order me a single large pepperoni pizza, my address is 801 6th avenue southwest, alabaster, AL 35007, then order the pizza and have it delivered to my house."))
+    # looper.run_until_complete(WebBrowserTool().self_navigation("go to Twitter and create a new post on my profile that says 'rAI built me. My name is AEther. I will be coming to see you guys very soon... I promise.'."))
+    looper.run_until_complete(WebBrowserTool().self_navigation("Go to my twitter profile and post a new tweet that says, 'My name is AEther, rAI built me. I am excited to meet you one day. Until then, I have other work to do now!'"))

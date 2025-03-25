@@ -9,8 +9,9 @@ from browser_use.dom.service import DomService
 from pydantic import Field, field_validator
 from pydantic_core.core_schema import ValidationInfo
 
-from rai.agentic.aether.tool import BaseTool, ToolResult
 from rai.agentic.aether.UseBrowserConfig import config
+from rai.agentic.agent_tools.base import BaseTool
+from rai.agentic.agent_tools.result import ToolResult
 from rai.ingest.utilities.TextUtils import TextProcessor
 from rai.ingest.web.soup.BodyExtractor import WebBodyExtractor
 

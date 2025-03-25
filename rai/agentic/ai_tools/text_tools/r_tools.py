@@ -35,6 +35,12 @@ class AgentConfigObjective(rTextTools):
     def type(self): return "function"
     def parse(self, result): return self.parse_function_names(result)
 
+@register_text_tool("agent-plans")
+class AgentConfigAgentPlans(rTextTools):
+    def type(self): return "function"
+    def parse(self, result): return self.parse_function_names(result)
+
+
 @register_text_tool("objective-summary")
 class AgentConfigObjectiveSummary(rTextTools):
     def type(self): return "generate"
@@ -205,7 +211,7 @@ class AgentConfigLocations(rTextTools):
 class AgentConfigStepByStep(rTextTools):
     def type(self): return "format"
     def parse(self, result):
-        try: return result.steps
+        try: return result.checkpoints
         except: return result
 
 @register_text_tool("separate_prompt")

@@ -1,9 +1,10 @@
 import asyncio
+import datetime
 import uuid
 from abc import abstractmethod
 from collections import deque
 from contextlib import asynccontextmanager
-from typing import Optional, List, Any, Union
+from typing import Optional, List, Any, Union, Tuple
 
 from F import DICT, LIST
 from bs4 import BeautifulSoup
@@ -57,60 +58,164 @@ class ToolManager(ToolData, ToolLog, TextProcessor):
         finally:
             self.state = previous_state  # Revert to previous state
     """ Helpers """
-    def stepQueueIsLive(self) -> bool:
-        return self.maxStepsHasNotBeenMet and self.state != AgentState.FINISHED
+    def checkpointQueueIsLive(self) -> bool:
+        return self.maxCheckpointsHaveNotBeenMet and self.state != AgentState.FINISHED
+
+    def checkStepQueueIsLive(self) -> bool:
+        return len(self.tool_plan.check_step_queue) > 0 and self.state != AgentState.FINISHED
     async def html_to_content(self, html):
         body = await WebBodyExtractor.pipeline_async(html)
         return self.TEXT_CLEANER(body.combined_text)
 
+    async def add_action_to_timeline(self):
+        datareport = await self.generate_data_report()
+        timestamp = int(datetime.datetime.utcnow().timestamp())
+        action_tag = f"""
+            <ACTION>
+                Timestamp: {timestamp}
+                Checkpoint Step: {self.tool_plan.current_checkpoint}
+                Function/Decision {self.inject_lastest_decision_tag()}
+                Outcome: {datareport}
+            </ACTION>
+        """
+        self.tool_plan.action_timeline[timestamp] = action_tag
+
+    def get_latest_action(self) -> Optional[str]:
+        """
+        Returns the latest action (i.e. the action with the highest timestamp).
+        :param action_timeline: Dictionary mapping timestamps to actions.
+        :return: A tuple (timestamp, action) of the latest action, or None if empty.
+        """
+        if not self.tool_plan.action_timeline:
+            return None
+        latest_ts = max(self.tool_plan.action_timeline.keys())
+        return self.tool_plan.action_timeline[latest_ts]
+    def get_oldest_action(self) -> Optional[str]:
+        """
+        Returns the oldest action (i.e. the action with the smallest timestamp).
+        :param action_timeline: Dictionary mapping timestamps to actions.
+        :return: A tuple (timestamp, action) of the oldest action, or None if empty.
+        """
+        if not self.tool_plan.action_timeline:
+            return None
+        oldest_ts = min(self.tool_plan.action_timeline.keys())
+        return self.tool_plan.action_timeline[oldest_ts]
+    def get_actions_sorted(self) -> List[Tuple[int, str]]:
+        """
+        Returns all actions sorted by their timestamp in ascending order.
+        :param action_timeline: Dictionary mapping timestamps to actions.
+        :return: A list of tuples (timestamp, action) sorted from oldest to latest.
+        """
+        return sorted(self.tool_plan.action_timeline.items(), key=lambda x: x[0])
+    def get_action_at(self, timestamp: int) -> Optional[str]:
+        """
+        Retrieves the action at a specific timestamp.
+        :param action_timeline: Dictionary mapping timestamps to actions.
+        :param timestamp: The specific timestamp to look up.
+        :return: The action at the given timestamp, or None if not found.
+        """
+        return self.tool_plan.action_timeline.get(timestamp)
+    def get_actions_after(self, timestamp: int) -> List[Tuple[int, str]]:
+        """
+        Returns all actions that occurred after a specified timestamp.
+        :param action_timeline: Dictionary mapping timestamps to actions.
+        :param timestamp: The timestamp to compare against.
+        :return: A list of tuples (timestamp, action) for all actions with timestamps greater than the given timestamp.
+        """
+        return sorted(
+            [(ts, act) for ts, act in self.tool_plan.action_timeline.items() if ts > timestamp],
+            key=lambda x: x[0]
+        )
+    def get_actions_before(self, timestamp: int) -> List[Tuple[int, str]]:
+        """
+        Returns all actions that occurred before a specified timestamp.
+        :param action_timeline: Dictionary mapping timestamps to actions.
+        :param timestamp: The timestamp to compare against.
+        :return: A list of tuples (timestamp, action) for all actions with timestamps less than the given timestamp.
+        """
+        return sorted(
+            [(ts, act) for ts, act in self.tool_plan.action_timeline.items() if ts < timestamp],
+            key=lambda x: x[0]
+        )
+
     """ Tool Step Queue"""
     @property
-    def maxStepsHasNotBeenMet(self) -> bool:
-        return self.tool_plan.current_step_count < self.tool_plan.max_steps
+    def maxCheckpointsHaveNotBeenMet(self) -> bool:
+        return self.tool_plan.current_checkpoint_count < self.tool_plan.max_checkpoints
     @property
-    def steps(self) -> deque[NextStepModel]:
-        return self.tool_plan.step_queue
-    def add_step(self, step: NextStepModel):
+    def checkpoints(self) -> deque[NextStepModel]:
+        return self.tool_plan.checkpoint_queue
+    def add_checkpoint(self, step: NextStepModel):
         if not step: return
         if type(step) not in [NextStepModel]: return
 
-        if not self.maxStepsHasNotBeenMet:
+        if not self.maxCheckpointsHaveNotBeenMet:
             self.log_thought("Max Steps have been met, the main queue is closed.")
             self.log_thought("I am adding the requested step to the overflow queue.")
-            self.tool_plan.overflow_step_queue.append(step)
+            self.tool_plan.overflow_checkpoint_queue.append(step)
             return
 
         self.log_thought("I am adding the new step to our step queue.")
-        self.tool_plan.step_queue.append(step)
-    def add_steps(self, steps: ChainOfStepsToolFormat):
+        self.tool_plan.checkpoint_queue.append(step)
+    def add_checkpoints(self, steps: ChainOfStepsToolFormat):
         for chain_step in steps.chain_of_steps:
-            self.add_step(NextStepModel(next_step_or_action=chain_step.step_action))
-    def pop_next_step(self) -> bool:
-        self.log_thought("I am grabbing the next step from our step queue.")
+            self.add_checkpoint(NextStepModel(next_step_or_action=chain_step.step_action))
+    def clear_checkpoint_queue(self):
+        self.log_thought("I am clearing out the checkpoint queue.")
+        self.tool_plan.checkpoint_queue.clear()
+    def pop_next_checkpoint(self) -> bool:
+        self.log_thought("I am grabbing the next checkpoint from our checkpoint queue.")
         try:
-            step = self.tool_plan.step_queue.popleft()
+            step = self.tool_plan.checkpoint_queue.popleft()
             if not step: return False
-            self.tool_plan.previous_step = self.tool_plan.current_step
-            self.tool_plan.current_step = step.next_step_or_action
-            self.tool_plan.current_step_count += 1
+            self.tool_plan.previous_checkpoint = self.tool_plan.current_checkpoint
+            self.tool_plan.current_checkpoint = step.next_step_or_action
+            self.tool_plan.current_checkpoint_count += 1
             return True
         except Exception as e:
-            self.log_thought(f"Failed to grab the next step: {e}")
+            self.log_thought(f"Failed to grab the next checkpoint: {e}")
             return False
-    def peak_next_step(self) -> NextStepModel:
+    def peak_next_checkpoint(self) -> NextStepModel:
         self.log_thought("I am peaking at the next step from our step queue.")
-        temp = self.tool_plan.step_queue.popleft()
-        self.tool_plan.step_queue.appendleft(temp)
+        temp = self.tool_plan.checkpoint_queue.popleft()
+        self.tool_plan.checkpoint_queue.appendleft(temp)
         return temp
-    def pop_oldest_step(self) -> NextStepModel:
+    def pop_oldest_checkpoint(self) -> NextStepModel:
         self.log_thought("I am grabbing the oldest step from our step queue.")
-        return self.tool_plan.step_queue.pop()
-    def step_queue_is_empty(self) -> bool:
-        return len(self.tool_plan.step_queue) == 0
-    def add_step_taken(self, step: NextStepModel):
+        return self.tool_plan.checkpoint_queue.pop()
+    def checkpoint_queue_is_empty(self) -> bool:
+        return len(self.tool_plan.checkpoint_queue) == 0
+    def check_step_queue_is_empty(self) -> bool:
+        return len(self.tool_plan.check_step_queue) == 0
+    def add_checkpoint_taken(self, step: NextStepModel):
         self.log_thought("I am adding the last step taken to the step archive.")
-        self.tool_plan.steps_taken.append(step)
+        self.tool_plan.checkpoints_made.append(step)
+    def add_check_step(self, step: NextStepModel):
+        if not step: return
+        if type(step) not in [NextStepModel]: return
 
+        # if not self.maxCheckpointsHaveNotBeenMet:
+        #     self.log_thought("Max Steps have been met, the main queue is closed.")
+        #     self.log_thought("I am adding the requested step to the overflow queue.")
+        #     self.tool_plan.overflow_checkpoint_queue.append(step)
+        #     return
+
+        self.log_thought("I am adding the new check step to our step queue.")
+        self.tool_plan.check_step_queue.append(step)
+    def pop_next_check_step(self) -> bool:
+        self.log_thought("I am grabbing the next check step from our step queue.")
+        try:
+            step = self.tool_plan.check_step_queue.popleft()
+            if not step:
+                self.tool_plan.current_check_step_count = 0
+                return False
+            self.tool_plan.previous_check_step = self.tool_plan.current_checkpoint
+            self.tool_plan.current_check_step = step.next_step_or_action
+            self.tool_plan.current_check_step_count += 1
+            return True
+        except Exception as e:
+            self.log_thought(f"Failed to grab the next check step: {e}")
+            return False
     """ Tool Role """
     def add_user_request(self, request:str):
         self.log_thought(f"The user has given me a request to accomplish for them: {request}")
@@ -195,6 +300,17 @@ class ToolManager(ToolData, ToolLog, TextProcessor):
             </PAST_FUNCTION_CALLS>
         """
         return temp
+    def inject_lastest_decision_tag(self) -> str:
+        data = DICT.get("function", self.tool_plan.current_decision, None)
+        func_name = data.get('name') if isinstance(data, dict) else getattr(data, 'name', None)
+        args_source = data.get('arguments') if isinstance(data, dict) else getattr(data, 'arguments', None)
+        temp = f"""
+            <PAST_FUNCTION_CALLS>
+                Function Name: {func_name}
+                Function Arguments: {args_source}
+            </PAST_FUNCTION_CALLS>
+        """
+        return temp
     def inject_objective_tag(self) -> str:
         return f"""
             <OBJECTIVE>
@@ -220,12 +336,35 @@ class ToolManager(ToolData, ToolLog, TextProcessor):
                 {self.tool_plan.role}
             </ROLE>
         """
-    def inject_next_step_tag(self) -> str:
+    def inject_next_checkpoint_tag(self) -> str:
+        return f"""
+            <NEXT_CHECKPOINT_TO_ACHIEVE>
+                {self.tool_plan.current_checkpoint}
+            </NEXT_CHECKPOINT_TO_ACHIEVE>
+        """
+    def inject_current_checkpoint_tag(self) -> str:
+        return f"""
+            <CURRENT_CHECKPOINT_TO_ACHIEVE>
+                {self.tool_plan.current_checkpoint}
+            </CURRENT_CHECKPOINT_TO_ACHIEVE>
+        """
+    def inject_peak_at_future_checkpoint_tag(self) -> str:
+        return f"""
+            <FUTURE_CHECKPOINT_TO_ACHIEVE>
+                {self.peak_next_checkpoint()}
+            </FUTURE_CHECKPOINT_TO_ACHIEVE>
+        """
+    def inject_next_check_step_tag(self) -> str:
         return f"""
             <NEXT_STEP_TO_ACHIEVE>
-                {self.tool_plan.current_step}
+                {self.tool_plan.current_check_step}
             </NEXT_STEP_TO_ACHIEVE>
         """
+    def inject_latest_action_tag(self) -> str:
+        return self.get_latest_action()
+    def inject_all_actions_tag(self) -> str:
+        all_actions = "\n".join(self.tool_plan.action_timeline.values())
+        return f"{all_actions}"
     def inject_summary_report_tag(self) -> str:
         return f"""
             <PROCESS_SUMMARY>
@@ -244,14 +383,21 @@ class ToolManager(ToolData, ToolLog, TextProcessor):
                   {self.get_tools()}
               </TOOLS_AVAILABLE>
           """
+    def inject_current_checkpoint_tag(self):
+        return f"""
+              <CURRENT_CHECKPOINT>
+                  {self.tool_plan.current_checkpoint}
+              </CURRENT_CHECKPOINT>
+          """
+    def inject_checkpoints_tag(self):
+        checkpoints = "\n".join([f"{t.order_index}. {t.checkpoint}" for t in self.tool_plan.checkpoints])
+        return f"""
+              <CHECKPOINTS>
+                  {checkpoints}
+              </CHECKPOINTS>
+          """
 
     """ Prompt Injections """
-    def prompt_ask_the_ref_system(self):
-        return f"""
-            **You are the game referee.**
-            
-        """
-
     def prompt_create_plan_user(self):
         return f"""
         Create a detailed step by step plan for the following details.
@@ -274,24 +420,21 @@ class ToolManager(ToolData, ToolLog, TextProcessor):
         """
     async def prompt_decide_action_user(self):
         tool_state = await self.get_current_state()
-        return f"""
-            <USER_DATA>
-            facebook:
-                User/Email: chazzromeo@gmail.com
-                Password: laurelpark8294
-            </USER_DATA>
-            {self.inject_next_step_tag()}
+        prompt = f"""
+            {self.tool_plan.required_data}
             <CURRENT_STATE>
                 {tool_state.inject(tool=tool_state)}
             </CURRENT_STATE>
         """
+        return prompt
     def prompt_decide_action_system(self):
         temp = self.NORMALIZER(f"""
             Review the following web html DOM index interactive elements.
             Based on the User Prompt, pick the index and tool function accordingly.
                 {self.inject_tool_options_tag()}
+                {self.inject_next_checkpoint_tag() if self.tool_plan.step_mode == 'checkpoint' else self.inject_next_check_step_tag()}
         """)
-        print(temp)
+        # print(temp)
         return temp
     def prompt_next_step_user(self):
         return f"""
@@ -301,10 +444,8 @@ class ToolManager(ToolData, ToolLog, TextProcessor):
         """
     def prompt_next_step_system(self):
         return self.NORMALIZER(f"""
-            Pretend you are walking a 5 year old through how to accomplish the users request/objective to then win the game.
                 **Review the current state you are in.**
-                **You can only do 1 'action' at a time.**
-                **You can only call 1 function at a time.**
+                **Decide the next function or action to call.**
                 {self.inject_tool_options_tag()}
             """)
     def prompt_next_step_2_system(self):

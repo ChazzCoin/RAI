@@ -4,6 +4,7 @@ from pydantic import BaseModel, create_model
 from rai.agentic.agent_tools.result import ToolResult
 from rai.agentic.ai_modules.log import mLog
 from rai.assistant.connectors import LLM
+from rai.ingest.utilities.TextUtils import TextProcessor
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -70,11 +71,9 @@ class ToolData(mLog):
         return result
 
     def get_data(self) -> List[BaseModel]: return self._data
-
     def get_last_item_in_data(self) -> Optional[BaseModel]:
         if not self.has_data(): return None
         return self._data[-1]
-
     def get_data_archived(self) -> Dict[int, List[BaseModel]]: return self._archived_data
     def has_data(self) -> bool:
         if not self._data: return False
@@ -163,18 +162,28 @@ class ToolData(mLog):
     def report_data_count(self) -> int:
         return len(self._data) or 0
     def report_prompt(self) -> str:
-        return f"""
-            <DATA_ASSISTANT_PROCESS_LOG>
-                {self.get_log_str("data")}
-            </DATA_ASSISTANT_PROCESS_LOG>
-            - HAS DATA CURRENTLY LOADED: [ {self.has_data()} ]
-            - CURRENT ITEMS IN DATA LIST: [ {self.report_data_count()} ]
-        """
-    def generate_data_report(self):
-        return LLM.tool(
+        return TextProcessor.ensure_within_limit(
+            f"""
+                    <DATA_ASSISTANT_PROCESS_LOG>
+                        {self.get_log_str("data")}
+                    </DATA_ASSISTANT_PROCESS_LOG>
+                    {self.inject_latest_import()}
+                - HAS DATA CURRENTLY LOADED: [ {self.has_data()} ]
+                - CURRENT ITEMS IN DATA LIST: [ {self.report_data_count()} ]
+                """,
+            limit=10000
+        )
+    async def generate_data_report(self):
+        return await LLM.tool_async(
             name="generate",
             user_prompt=self.report_prompt(),
-            system_prompt=""
+            system_prompt=f"""
+                You are a master data analyst and data extraction.
+                You analyze raw data and generating a clear and concise summary of the data you are reading.
+                **Break down the type of data, how much exists, whats in the data**
+                **We want to have a analytical and human readable breakdown and summary of whatever data is given to you**
+                **Extract all relevant content**
+            """
         )
 
     """ IMPORTING """
