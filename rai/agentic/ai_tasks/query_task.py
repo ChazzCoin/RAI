@@ -1,11 +1,13 @@
 
 from abc import ABC, abstractmethod
+from collections import defaultdict
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union
 
 from F import DICT, LIST
 from pydantic import BaseModel
 
+from rai.RAG.models import StoreDocument
 from rai.agentic.agent_tools.module import ToolModule
 from rai.ingest.utilities.TextUtils import TextProcessor
 
@@ -39,26 +41,52 @@ class rQueryTask(ABC, ToolModule, TextProcessor):
     }
 
     @classmethod
-    def execute(cls, name: str, prefix: str, query: str):
-        agent_classes = QUERY_AGENT_REGISTRY.get(name)
-        if not agent_classes: return None
-        cls.name = name
-        agent_cls = agent_classes[0]
-        agent_instance = agent_cls()
-        return agent_instance.run(prefix=prefix, query=query)
-    @abstractmethod
-    def run(self, prefix:str, query:str): pass
+    def get(cls, collection:str, limit:int=100, offset:int=0, where:dict=None) -> List[StoreDocument]:
+        try:
+            return cls().rStore().get_all_from_store(
+                collection=collection,
+                limit=limit,
+                offset=offset,
+                where=where
+            )
+        except Exception as e:
+            print(e)
+            return []
+    @classmethod
+    def get_pages(cls, prefix: str) -> List[StoreDocument]:
+        return cls.get(collection=f"{prefix}.pages")
+    @classmethod
+    def get_pages_where(cls, prefix: str, where:dict) -> List[StoreDocument]:
+        return cls.get(collection=f"{prefix}.pages", where=where)
 
-    def system(self, name:str): return ""
-    def user(self, query:str, data:str):
-        return f"""
-            KNOWLEDGE LIBRARY:
-            {data}
-            REAL-TIME DATA:
-            {self.real_time_data()}
-            USER PROMPT:
-            {query}
-        """
+    @staticmethod
+    def where_id_equals(idx:str): return rQueryTask.where_key_equals(key='id', value=idx)
+    @staticmethod
+    def where_key_equals(key, value): return {key: {"$eq": value}}
+    @staticmethod
+    def where_key_is_gte(key, value): return {key: {"$gte": value}}
+    @staticmethod
+    def where_key_is_lte(key, value): return {key: {"$lte": value}}
+    @staticmethod
+    def _get_date(query_date: Union[str, datetime]):
+        if isinstance(query_date, str):
+            query_date = datetime.strptime(query_date, "%Y-%m-%d")
+        return datetime(query_date.year, query_date.month, query_date.day)
+    @staticmethod
+    def _get_date_now(): return int(datetime.now().timestamp())
+    @staticmethod
+    def where_between_dates(start: datetime, end: datetime):
+        return {"$and": [{"timestamp": {"$gte": start}}, {"timestamp": {"$lt": end}}]}
+    @staticmethod
+    def where_parent_id(parent_id):
+        return {"parent_id": {"$eq": parent_id}}
+    @staticmethod
+    def where_page_id(page_id):
+        return {"page_id": {"$eq": page_id}}
+    @staticmethod
+    def where_page_number(page_number):
+        return {"page_number": {"$eq": page_number}}
+
     @staticmethod
     def remove_text_before_last_period(text: str) -> str:
         if '.' not in text: return text
@@ -163,6 +191,23 @@ class rQueryTask(ABC, ToolModule, TextProcessor):
     def get_collections(self, prefix):
         return [f"{prefix}.{c}" for c in self.collections]
 
+    @staticmethod
+    def sort_documents(documents: List[Dict[str, Any]]) -> Dict[str, Dict[int, Dict[str, Any]]]:
+        sorted_by_brief = defaultdict(list)
+
+        # Group documents by brief_id
+        for doc in documents:
+            brief_id = doc['metadata']['brief_id']
+            sorted_by_brief[brief_id].append(doc)
+
+        # Sort each brief_id group by page_index
+        result = {}
+        for brief_id, docs in sorted_by_brief.items():
+            sorted_docs = sorted(docs, key=lambda d: d['metadata']['page_index'])
+            # Map sorted docs by page_index
+            result[brief_id] = {doc['metadata']['page_index']: doc for doc in sorted_docs}
+
+        return result
 
 """
 pages = self.unwrap_collection('pages', wrapped_results)
@@ -203,51 +248,10 @@ class QueryAgentBaseRunner(rQueryTask):
         return {"page_id": {"$eq": page_id}}
     def where_page_number(self, page_number):
         return {"page_number": {"$eq": page_number}}
-    def run(self, prefix: str, query: str, where: dict={}):
-        try:
-            wrapped_results: List[Dict[str, Any]] = self.rStore().query(
-                f"{prefix}.pages",
-                user_message=query,
-                k=100,
-                where=where
-            )
 
-            # rank_1_result = self.unwrap_first(wrapped_results, k=1)
-            # rank_1_top_doc: RaiLoaderDocument = LIST.get(0, rank_1_result, None)
-            # rank_1_top_doc_meta = DICT.get("metadata", rank_1_top_doc, None)
-            # top_parent_id = DICT.get("parent_id", top_doc_meta, None)
-            # top_page_id = DICT.get("page_id", top_doc_meta, None)
-            # top_page_number = DICT.get("page_number", top_doc_meta, None)
-            # parent_where_query = {"parent_id": {"$eq": top_parent_id}}
-            # page_where_query = {"page_id": {"$eq": top_page_id}}
-            # number_where_query = {"page_number": {"$eq": top_page_number}}
-            # where_results = self.store.queries(
-            #     *self.get_collections(prefix),
-            #     user_prompt=query,
-            #     k=5,
-            #     where=page_where_query
-            # )
-            # rank_2_result = self.unwrap_second(wrapped_results, k=1)
-            # rank_3_result = self.unwrap_third(wrapped_results, k=1)
-            #
-            # where = {
-            #     "category": "sports",
-            #     "priority": {"$gte": 5}
-            # }
 
-            unwrapped_results = self.rStore().unwrap_results(wrapped_results)
-            formatted_results = self.rStore().unwrap_formatted(unwrapped_results, k=1)
-            return RaiQueryAgentResults(
-                query=query,
-                query_expanded=query,
-                documents=unwrapped_results,
-                sub_documents=[],
-                formatted=TextProcessor.clean_text_for_openai_embedding(formatted_results),
-                response="",
-            )
-        except Exception as e:
-            print(f"Error: {e}")
-            return None
+
+
 
 @register_query_agent("base")
 class QueryAgentBaseRunner(rQueryTask):
@@ -310,8 +314,8 @@ class QueryAgentBaseRunner(rQueryTask):
 
 async def main(prefix, query):
     # from rai.pipeline.utilities.text_data import schedule_text
-    results = await rQueryTask.execute_async(
-            name="base",
+    results = rQueryTask.execute(
+            name="pages",
             prefix=prefix,
             query=query
         )
@@ -326,6 +330,6 @@ async def main(prefix, query):
 
 
 if __name__ == "__main__":
-    q = "Who is joel person?"
-    results = rQueryTask.execute('base', "rai2025.1", query=q)
+    q = ""
+    results = rQueryTask.get_pages("referral2025.3")
     print(results)

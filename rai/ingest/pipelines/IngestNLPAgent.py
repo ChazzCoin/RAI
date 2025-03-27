@@ -11,9 +11,7 @@ import nlp.Keywords
 from nlp.ext import NLPAssistant
 from rai.agentic.ai_tools.image_tools.r_tools import rImageTools
 from rai.ingest.utilities.IngestModels import IngestBrief, IngestPage, FNLPAssistantModel, NLPAssistantModel, TextNLPAgentModel
-from rai.ingest.miners.PdfMiner import IngestPdfMiner
 from rai.ingest.utilities.TextUtils import TextProcessor, to_sentences
-from rai.ingest.utilities.text_data import schedule_text
 from rai.agentic.ai_tools.text_tools.r_tools import rTextTools
 
 INGEST_NLP_AGENT_REGISTRY = {}
@@ -94,43 +92,9 @@ class Agents:
             table_extractor = "table_extractor"
             form_extractor = "form_extractor"
 
-class PdfPlan:
-    open = IngestPdfMiner
-
-    def extraction(self):
-        return {
-            1: "rag_query_generator",
-        }
-    def enhancement(self):
-        return {
-            1: "rag_query_generator",
-        }
 
 
-class WebPlan:
-    open = IngestPdfMiner
 
-    def extraction(self):
-        return {
-            1: "rag_query_generator",
-        }
-
-    def enhancement(self):
-        return {
-            1: "rag_query_generator",
-        }
-class IngestPipelineInterface(ABC):
-    @classmethod
-    @abstractmethod
-    def get_registry(cls): pass
-    @classmethod
-    @abstractmethod
-    def execute(cls, name: str, **kwargs): pass
-    @classmethod
-    @abstractmethod
-    def executes(cls, name: str, **kwargs): pass
-    @abstractmethod
-    def run(self): pass
 class IngestNLPAgent(ABC):
     name = "base"
     cleaner = TextProcessor()  # Assumes a TextProcessor with a TEXT_CLEANER and content_splitter is defined
@@ -396,6 +360,8 @@ class IngestNLPAgent(ABC):
         self.metadata["page_id"] = str(self.page.id)
         try: self.metadata["brief_id"] = str(self.page.brief.id)
         except: pass
+        try: self.metadata["page_index"] = str(self.page.brief.index)
+        except: pass
         try: self.metadata["title"] = self.cleaned_content.strip()[:50]
         except: self.metadata["title"] = self.cleaned_content.strip()
         try: self.metadata["page_screenshot"] = str(self.page.brief.page_screenshot)
@@ -484,8 +450,3 @@ class IngestNLPAgentInjection(IngestNLPAgent):
         self.nlp_agent()
         self.metadata_agent()
         return self.page
-
-if __name__ == "__main__":
-    agent = IngestNLPAgent()
-    page_result = agent.execute(content=schedule_text)
-    print(page_result)

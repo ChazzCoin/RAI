@@ -8,7 +8,7 @@ from tqdm import tqdm
 from typing_extensions import Any  # noqa: F401
 
 from rai.RAG.QHelp import DocumentQueryUtils
-from rai.RAG.models import VectorItem
+from rai.RAG.models import VectorItem, StoreDocument
 from rai.assistant.connectors import rAI
 from rai.ingest.utilities.IngestModels import IngestLoaderDocument
 from rai.ingest.utilities.DataUtilities import ensure_metadata_format_for_chroma
@@ -53,10 +53,15 @@ class VectorStore(ChromaClient, DocumentQueryUtils):
                     return VectorStore.get_documents(item, results)
         return None
 
-    def get_all(self, collection):
-        results = self.get(collection)
+    def get_all(self, collection, limit:int=100, offset:int=0, where:dict={}, combined=False):
+        results = self.get(collection, limit=limit, offset=offset, where=where, combined=combined)
         # Uses the document merging function from DocumentQueryUtils
         return DocumentQueryUtils.merge_sort_all_results(query_results=[results.model_dump()])
+
+    def get_all_from_store(self, collection, limit:int=100, offset:int=0, where:dict={}, combined=False) -> List[StoreDocument]:
+        results = self.get(collection, limit=limit, offset=offset, where=where, combined=combined)
+        merged_results = DocumentQueryUtils.merge_sort_all_results(query_results=[results.model_dump()])
+        return [StoreDocument.model_validate(record) for record in merged_results]
 
     def queries(self, *collections, user_prompt: str, k: int = 5, where: dict = None):
         query_results = {}

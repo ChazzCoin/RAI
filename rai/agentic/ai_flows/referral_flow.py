@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from rai.agentic.ai_flows import rRagFlow
 from rai.ingest.miners.Pdf import FPDF
-from rai.agentic.ai_tasks.query_task import RaiQueryAgentResults
+from rai.agentic.ai_tasks.query_task import RaiQueryAgentResults, rQueryTask
 from rai.assistant.connectors import rAI
 from rai.ingest.utilities.TextUtils import TextProcessor
 
@@ -72,7 +72,7 @@ class rReferralFlow(ABC, rAI, TextProcessor):
     second = []
     third = []
 
-    prefix = 'referral2025.1'
+    prefix = 'referral2025.3'
 
     @classmethod
     def flow(cls, name: str, user_prompt: str):
@@ -161,8 +161,13 @@ class ReferralAgentFormatRunner(rReferralFlow):
 class ReferralAgentChatRunner(rReferralFlow):
     def run(self, user_prompt: str) -> Optional[RaiQueryAgentResults]:
         try:
-            response = rRagFlow.flow(name="base", prefix=self.prefix, user_prompt=user_prompt)
-            _user = self.user(f"{user_prompt}\n{response}")
+            results = rQueryTask.get_pages(self.prefix)
+            str_results = []
+            for result in results:
+                str_results.append(result.document)
+            str_prompt = "\n".join(str_results)
+            # response = rRagFlow.flow(name="base", prefix=self.prefix, user_prompt=user_prompt)
+            _user = self.user(f"{user_prompt}\n{str_prompt}")
             _system = self.system()
             return self.generate(_user, _system)
         except Exception as e:

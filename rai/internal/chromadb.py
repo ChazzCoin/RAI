@@ -97,11 +97,11 @@ class ChromaClient(cChromadb):
             return getResult
         return None
 
-    def get(self, collection_name: str, combined=False):
+    def get(self, collection_name: str, limit:int=100, offset:int=0, where:dict={}, combined=False):
         # Get all the items in the collection.
         collection = self.client.get_collection(name=collection_name)
         if collection:
-            result = collection.get()
+            result = collection.get(limit=limit, offset=offset, where=where)
             getResult = GetResult(
                 **{
                     "ids": [result["ids"]],

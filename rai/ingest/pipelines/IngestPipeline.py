@@ -5,12 +5,11 @@ from F import LIST
 
 from rai.agentic.ai_assistants.QCache import VectorCache
 from rai.agentic.ai_assistants.QStore import VectorStore
-from rai.assistant.connectors import rAI
 from rai.ingest.utilities.IngestModels import IngestRecord, IngestLoaderDocument, IngestBrief, IngestPage
 from rai.ingest.utilities.TextUtils import TextProcessor
 from rai.ingest.pipelines.IngestNLPAgent import IngestNLPAgent
 from rai.ingest.pipelines.IngestDocumentCreator import IngestDocumentCreator
-from rai.ingest.pipelines.IngestSourceAgent import IngestSourceAgent
+from rai.ingest.pipelines.IngestSourceMiner import IngestSourceMiner
 
 INGEST_PIPELINES = {}
 
@@ -23,7 +22,7 @@ def register_ingest_pipeline(name: str):
     return decorator
 
 
-class rIngestWorkFlow(ABC, rAI, TextProcessor):
+class rIngestWorkFlow(ABC, TextProcessor):
     name = None
     prefix = None
 
@@ -63,14 +62,14 @@ class rIngestWorkFlow(ABC, rAI, TextProcessor):
         return page_results
 
     def get_all_briefs(self, datas) -> {}:
-        self.briefs = IngestSourceAgent.executes(name=self.name, datas=datas)
+        self.briefs = IngestSourceMiner.executes(name=self.name, datas=datas)
         return self.briefs
 
     def get_briefs(self, data) -> {}:
         if type(data) is list:
             self.get_all_briefs(data)
         else:
-            self.briefs = IngestSourceAgent.execute(name=self.name, data=data)
+            self.briefs = IngestSourceMiner.execute(name=self.name, data=data)
             return self.briefs
 
     def to_pages(self, briefs: {}) -> {}:
@@ -91,11 +90,12 @@ class rIngestWorkFlow(ABC, rAI, TextProcessor):
     def add_to_cache(self): return self.vector_cache.caches(self.prefix, self.docs)
 
 """
-These seem to be turning into Configurations for agents.
-What they do, how they do it...what they need...etc...
-- remove term of service issues
-- summarize data
-- 
+1. IngestSourceMiner -> Matches the incoming data with its respective miner.
+    :returns -> IngestBrief
+2. IngestNLPAgent -> Analyzes and Prepares mined content for document intake.
+    :returns -> IngestPage (holds the original IngestBrief)
+3. IngestDocumentCreator -> Creates LoaderDocuments for ChromaDB.
+    :returns -> IngestPage with added LoaderDocuments to represent IngestPage
 """
 @register_ingest_pipeline("content-only")
 class IngestPipelineDocuments(rIngestWorkFlow):
@@ -221,9 +221,9 @@ class IngestPipelineCacheDocuments(rIngestWorkFlow):
 
 if __name__ == "__main__":
     # from rai.pipeline.utilities.text_data import schedule_text
-    pdf_file_path = "/Users/chazzromeo/Desktop/portal/docs/referral3.pdf"
-    website = "https://www.cnn.com/2025/03/10/us/mahmoud-khalil-columbia-university-israel-hnk/index.html"
+    pdf_file_path = "/Users/chazzromeo/Desktop/portal/docs/referral1.pdf"
+    # website = "https://www.cnn.com/2025/03/10/us/mahmoud-khalil-columbia-university-israel-hnk/index.html"
     pipe = "injection-store"
-    prefix = 'referral2025.1'
+    prefix = 'referral2025.3'
     docs = rIngestWorkFlow.pipeline(name=pipe, data=pdf_file_path, prefix=prefix)
     print(docs)

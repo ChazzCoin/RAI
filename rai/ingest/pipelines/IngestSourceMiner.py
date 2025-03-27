@@ -277,7 +277,7 @@ class DataTypeUtils:
         return False
 
 
-class IngestSourceAgent:
+class IngestSourceMiner:
     name = "base"
     cleaner = TextProcessor()  # Assumes a TextProcessor with a TEXT_CLEANER and content_splitter is defined
 
@@ -324,7 +324,7 @@ class IngestSourceAgent:
         return briefs
 
     @classmethod
-    def load_data(cls, name:str, data) -> 'IngestSourceAgent':
+    def load_data(cls, name:str, data) -> 'IngestSourceMiner':
         self = cls()
         self.name = name
         self.data_in = data
@@ -464,6 +464,6 @@ class IngestSourceAgent:
 
 
 if __name__ == "__main__":
-    agent = IngestSourceAgent()
+    agent = IngestSourceMiner()
     page_result = agent.load_data(data=schedule_text)
     print(page_result)

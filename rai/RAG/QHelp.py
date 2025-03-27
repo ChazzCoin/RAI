@@ -64,10 +64,12 @@ class DocumentQueryUtils:
     def merge_sort_all_results(query_results: List[Dict[str, List[List[Any]]]]) -> List[Dict[str, Any]]:
         combined_entries: List[Dict[str, Any]] = []
         for result in query_results:
+            ids = result.get("ids", [[]])[0]
             documents = result.get("documents", [[]])[0]
             metadatas = result.get("metadatas", [[]])[0]
-            for doc, meta in zip(documents, metadatas):
+            for idx, doc, meta in zip(ids, documents, metadatas):
                 combined_entries.append({
+                    "id": idx,
                     "document": doc,
                     "metadata": meta,
                     "formatted": f"DOCUMENT:\n{doc}\nMETADATA:\n{str(meta)}"
