@@ -1,19 +1,17 @@
 from datetime import datetime
-
-from F.LOG import Log
-
-from rai.ingest.utilities.BaseLoad import RaiBaseLoader
-
-Log = Log("composers.DocumentCreatorAgent")
-
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Any
 
-from rai.assistant.connectors import rAI
+from rai.assistant.AiUtils import TokenProcessor
+from rai.assistant.ai_models import AiModels
 from rai.ingest.utilities.IngestModels import IngestPage, IngestLoaderDocument
 from rai.ingest.utilities.TextUtils import TextProcessor
 
-class IngestDocumentCreator(RaiBaseLoader, TextProcessor, rAI):
+from F.LOG import Log
+Log = Log("composers.DocumentCreatorAgent")
+
+
+class IngestDocumentCreator(TextProcessor, TokenProcessor):
     """
     A condensed document creator that processes an IngestPage and creates
     a document for each logical grouping: pages (full content), parts (split
@@ -24,21 +22,18 @@ class IngestDocumentCreator(RaiBaseLoader, TextProcessor, rAI):
     cache: List['IngestLoaderDocument'] = []
     documents: List['IngestLoaderDocument'] = []
 
-    def __init__(self):
-        super().__init__(file_path="")
-
     @classmethod
     def execute(cls, page: IngestPage) -> IngestPage:
         self = cls()
         self.load_page(page)
-        return self.run()
+        return self.create()
 
     @classmethod
     def executes(cls, pages: {}) -> {}:
         def runner(page):
             instance = cls()
             instance.load_page(page)
-            return instance.run()
+            return instance.create()
 
         results = {}
         with ThreadPoolExecutor() as executor:
@@ -81,31 +76,33 @@ class IngestDocumentCreator(RaiBaseLoader, TextProcessor, rAI):
         meta = metadata.copy()
         meta['collection'] = collection
         meta['timestamp'] = int(datetime.utcnow().timestamp())
-        meta['splits'] = 0
-        split_count = 7000
+
+        try:
+            ai_token_count = self.count_tokens(content, AiModels.DEFAULT_OPENAI)
+            meta['ai_token_count'] = int(ai_token_count)
+            meta['ai_token_model'] = AiModels.DEFAULT_OPENAI
+        except Exception as e:
+            print(f"Error processing ai token count: {e}")
+        try:
+            embed_token_count = self.count_tokens(content, AiModels.DEFAULT_OPENAI_EMBEDDING)
+            meta['embed_token_count'] = int(embed_token_count)
+            meta['embed_token_model'] = AiModels.DEFAULT_OPENAI_EMBEDDING
+        except Exception as e:
+            print(f"Error processing embed token count: {e}")
 
         cleaned_content = self.NORMALIZE_NEW_LINES(str(content))
 
-        if not self.string_length_is_within(text=cleaned_content, max_length=split_count):
-            content_parts = self.split_string_by_limit(cleaned_content, char_limit=split_count)
-            meta['splits'] = len(content_parts) or 0
-        else:
-            content_parts = [cleaned_content]
+        doc = IngestLoaderDocument(
+            page_content=cleaned_content,
+            metadata=meta
+        )
 
-        split_index = 0
-        for part in content_parts:
-            meta['split_index'] = split_index
-            doc = IngestLoaderDocument(
-                page_content=part,
-                metadata=meta
-            )
-            split_index += 1
-            if self.has_doc(doc):
-                continue
-            self.cache.append(doc)
-            self.documents.append(doc)
+        if self.has_doc(doc):
+            return
+        self.cache.append(doc)
+        self.documents.append(doc)
 
-    def run(self) -> IngestPage:
+    def create(self) -> IngestPage:
         """
         Combine the various fields from the IngestPage into six condensed documents:
          - pages: the full page content (even if very long)
@@ -167,10 +164,10 @@ class IngestDocumentCreator(RaiBaseLoader, TextProcessor, rAI):
             image_parts = []
             if self.page.images:
                 for image in self.page.images:
-                    if getattr(image, 'content', None):
-                        image_parts.append(image.content)
-                    elif getattr(image, 'url', None):
-                        image_parts.append(image.url)
+                    if getattr(image, 'src', None):
+                        image_parts.append(image.src)
+                    elif getattr(image, 'alt', None):
+                        image_parts.append(image.alt)
             combined_images = "\n\n".join(image_parts)
             if combined_images.strip():
                 Log.i("Creating combined Images document. -> [ images ]")

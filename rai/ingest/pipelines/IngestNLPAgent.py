@@ -120,10 +120,13 @@ class WebPlan:
             1: "rag_query_generator",
         }
 class IngestPipelineInterface(ABC):
+    @classmethod
     @abstractmethod
     def get_registry(cls): pass
+    @classmethod
     @abstractmethod
     def execute(cls, name: str, **kwargs): pass
+    @classmethod
     @abstractmethod
     def executes(cls, name: str, **kwargs): pass
     @abstractmethod
@@ -158,15 +161,16 @@ class IngestNLPAgent(ABC):
 
     @classmethod
     def execute(cls, name:str, brief: IngestBrief) -> IngestPage:
+        name = name.split("-", 1)[0]
         agent_cls = INGEST_NLP_AGENT_REGISTRY.get(name)
         cls.name = name
         self = agent_cls[0]()
         self.load_brief(brief)
-        return self.run()
+        return self.plan()
 
     @classmethod
     def executes(cls, name:str, briefs: {}) -> {}:
-
+        name = name.split("-", 1)[0]
         def runner(brief):
             agent_cls = INGEST_NLP_AGENT_REGISTRY.get(name)
             cls.name = name
@@ -225,70 +229,24 @@ class IngestNLPAgent(ABC):
     def pre_process_content(self, content: str):
         self.content = self.cleaner.NORMALIZER(content)
         self.content_character_count = len(content)
-
-        # Choose a pipeline plan based on the character count
-        if self.content_character_count <= 1000:
-            self.content_size = 0
-            self.run = self.plan_0
-        elif self.content_character_count <= 3000:
-            self.content_size = 1
-            self.run = self.plan_1
-        elif self.content_character_count <= 5000:
-            self.content_size = 2
-            self.run = self.plan_2
-        elif self.content_character_count <= 8000:
-            self.content_size = 3
-            self.run = self.plan_3
-        elif self.content_character_count <= 12000:
-            self.content_size = 4
-            self.run = self.plan_4
-        elif self.content_character_count <= 16000:
-            self.content_size = 5
-            self.run = self.plan_5
-        else:
-            self.content_size = 6
-            self.run = self.plan_6
-
-        # Split content if it’s a very large document
-        if self.content_character_count >= DOC_SPLIT_SIZE:
-            self.split_content = self.cleaner.content_splitter.split_text(content)
-        else:
-            self.split_content = [content]
-
         self.cleaned_content = content
-
-
+        self.page.content = self.cleaner.NORMALIZER(self.original_content)
+        self.setup_metadata()
     # -------------------------------
     # Pipeline plans based on content size
     # -------------------------------
-    def plan_0(self) -> IngestPage:
-        print("INGEST: Starting Plan 0")
-        self.page.content = self.cleaner.NORMALIZER(self.original_content)
-        self.setup_metadata()
+    def plan_nlp_basic(self) -> IngestPage:
+        print("INGEST: Starting Plan NLP Basic")
         self.nlp(self.original_content)
         self.metadata_nlp()
-        return self.page_passthrough(page=self.page)
-    def plan_1(self) -> IngestPage:
-        print("INGEST: Starting Plan 1")
         self.fnlp(self.original_content)
         self.metadata_fnlp()
-        return self.page_passthrough(page=self.page)
-    def plan_2(self) -> IngestPage:
-        print("INGEST: Starting Plan 2")
+        return self.page
+    def plan_nlp_agent(self) -> IngestPage:
+        print("INGEST: Starting Plan NLP Agent")
         self.nlp_agent()
         self.metadata_agent()
-        return self.page_passthrough(page=self.page)
-    def plan_3(self) -> IngestPage:
-        return self.page_passthrough(page=self.page)
-    def plan_4(self) -> IngestPage:
-        return self.page_passthrough(page=self.page)
-    def plan_5(self) -> IngestPage:
-        return self.page_passthrough(page=self.page)
-    def plan_6(self) -> IngestPage:
-        return self.page_passthrough(page=self.page)
-
-    def page_passthrough(self, page: IngestPage) -> IngestPage:
-        return page
+        return self.page
 
     # -------------------------------
     # FairNLP/NLTK/SpaCy/AI & Enhancement Methods
@@ -440,7 +398,8 @@ class IngestNLPAgent(ABC):
         except: pass
         try: self.metadata["title"] = self.cleaned_content.strip()[:50]
         except: self.metadata["title"] = self.cleaned_content.strip()
-
+        try: self.metadata["page_screenshot"] = str(self.page.brief.page_screenshot)
+        except: pass
         self.page.metadata = self.metadata
         return self.metadata
     def metadata_nlp(self) -> Dict[str, Any]:
@@ -503,38 +462,18 @@ class IngestNLPAgent(ABC):
 class IngestNLPAgentInjection(IngestNLPAgent):
     def plan(self) -> IngestPage:
         print("INGEST: Starting Plan [ Injection ]")
-        self.page.content = self.cleaner.NORMALIZER(self.original_content)
-        self.setup_metadata()
-        self.nlp(self.original_content)
-        self.metadata_nlp()
-        return self.page_passthrough(page=self.page)
-
-@register_ingest_nlp_agent_plan("injection-store")
-class IngestNLPAgentInjection(IngestNLPAgent):
-    def plan(self) -> IngestPage:
-        print("INGEST: Starting Plan [ Injection ]")
-        self.page.content = self.cleaner.NORMALIZER(self.original_content)
-        self.setup_metadata()
-        self.nlp(self.original_content)
-        self.metadata_nlp()
-        return self.page_passthrough(page=self.page)
+        return self.page
 
 @register_ingest_nlp_agent_plan("store")
 class IngestNLPAgentStore(IngestNLPAgent):
     def plan(self) -> IngestPage:
         print("INGEST: Starting Plan [ Store ]")
-        self.page.content = self.cleaner.NORMALIZER(self.original_content)
-        self.setup_metadata()
-        self.nlp(self.original_content)
-        self.metadata_nlp()
-        return self.page_passthrough(page=self.page)
+        return self.plan_nlp_basic()
 
 @register_ingest_nlp_agent_plan("deep")
 class IngestNLPAgentInjection(IngestNLPAgent):
     def plan(self) -> IngestPage:
         print("INGEST: Starting Plan [ Deep ]")
-        self.page.content = self.cleaner.NORMALIZER(self.original_content)
-        self.setup_metadata()
         # Basic NLP
         self.nlp(self.original_content)
         self.metadata_nlp()
@@ -544,7 +483,7 @@ class IngestNLPAgentInjection(IngestNLPAgent):
         # NLP Agent
         self.nlp_agent()
         self.metadata_agent()
-        return self.page_passthrough(page=self.page)
+        return self.page
 
 if __name__ == "__main__":
     agent = IngestNLPAgent()

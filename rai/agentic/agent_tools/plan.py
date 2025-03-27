@@ -4,7 +4,7 @@ from typing import List, Optional, Any, Dict
 from pydantic import BaseModel
 from rai.agentic.agent_tools.result import ToolResult
 from rai.agentic.ai_plugins.reason import Objectives, Checkpoints
-from rai.agentic.ai_tools.text_tools.text_formats import NextStepModel, ChainOfStepsToolFormat
+from rai.agentic.ai_tools.text_tools.text_formats import NextStepModel, ChainOfStepsToolFormat, RequiredActions
 
 PLAN_TYPES = {
     "deep_research": "User Prompt Context Involves ongoing, exploratory research that continuously gathers, documents, and summarizes evolving insights on a given topic.",
@@ -74,6 +74,7 @@ class ToolPlan(BaseModel):
     current_check_step: Optional[str] = None
 
     required_data: str = "None"
+    required_actions: RequiredActions = []
     current_state: ToolResult = ToolResult()
 
     def get_plan_type_description(self) -> str:

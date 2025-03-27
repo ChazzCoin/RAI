@@ -78,6 +78,20 @@ class QuestionAnswer(BaseModel):
     question: Optional[str] = None
     answer: Optional[str] = None
 
+class RequiredAction(BaseModel):
+    action: str
+    iscomplete: bool
+
+class RequiredActions(BaseModel):
+    required_actions: List[RequiredAction]
+
+class InteractiveElement(BaseModel):
+    dom_index: int
+    element: str
+
+class InteractiveElements(BaseModel):
+    interactive_elements: List[InteractiveElement]
+
 @register_format("faq")
 class ListOfQuestionAnswers(BaseModel):
     faqs: List[QuestionAnswer]

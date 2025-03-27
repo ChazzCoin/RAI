@@ -20,6 +20,7 @@ class AiModels:
 
     class OpenAi:
         # GPT-4 Series
+        GPT4_5 = "gpt-4.5"
         GPT4o = "gpt-4o"
         GPT4oMini = "gpt-4o-mini"
         GPT4_TURBO = "gpt-4-turbo"

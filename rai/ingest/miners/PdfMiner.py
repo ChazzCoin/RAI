@@ -2,6 +2,8 @@ import uuid
 
 import pytesseract
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+from F import LIST
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.pdfpage import PDFPage
 from pdfminer.layout import (
@@ -100,58 +102,79 @@ class IngestPdfMiner(TextProcessor):
                         return ocr_text
             except Exception as e:
                 print(f"Image OCR error: {e}")
-            return None
+            return "No Image OCR Text Found."
 
         def process_page(page_tuple) -> (int, IngestBrief):
             """
             Worker function to process a single PDF page.
             Each thread creates its own PDFMiner resource manager, device, and interpreter.
             """
-            page, page_index = page_tuple
-            local_rsrcmgr = PDFResourceManager()
-            local_laparams = LAParams()
-            local_device = PDFPageAggregator(local_rsrcmgr, laparams=local_laparams)
-            local_interpreter = PDFPageInterpreter(local_rsrcmgr, local_device)
+            try:
+                page, page_index = page_tuple
+                local_rsrcmgr = PDFResourceManager()
+                local_laparams = LAParams()
+                local_device = PDFPageAggregator(local_rsrcmgr, laparams=local_laparams)
+                local_interpreter = PDFPageInterpreter(local_rsrcmgr, local_device)
+                local_interpreter.process_page(page)
+                layout = local_device.get_result()
 
-            local_interpreter.process_page(page)
-            layout = local_device.get_result()
-            page_height = layout.bbox[3]
+                body_text = ""
+                try:
+                    page_height = layout.bbox[3]
+                    text_details, image_details = self._extract_text_lines_from_layout(layout._objs, page_height)
+                    body_text = self._filter_body_text(text_details)
+                except Exception as e:
+                    print(f"PDFMiner error: {e}")
 
-            # Extract text lines (and OCR any images)
-            text_details, image_details = self._extract_text_lines_from_layout(layout._objs, page_height)
+                page_image = None
+                page_image_text = ""
+                try:
+                    page_image = self.page_images[page_index] if page_index < len(self.page_images) else None
+                    page_image_text = attempt_image_extraction(page_image or "Empty Text")
+                except Exception as e:
+                    print(f"PDFMiner error: {e}")
 
-            tables = self._extract_tables_from_layout(layout._objs)
-            # Retrieve the page image if available
-            page_image = self.page_images[page_index] if page_index < len(self.page_images) else None
+                body_validation = self.content_is_valid(body_text)
+                ocr_validation = self.content_is_valid(page_image_text)
 
-            body_text = self._filter_body_text(text_details)
-            page_image_text = attempt_image_extraction(page_image) or ""
-            tool_image_text = rImageTools.tool(name="text_extractor", image=page_image) or ""
+                tool_image_text = None
+                tool_validation = False
+                if not body_validation or not ocr_validation:
+                    tool_image_text = rImageTools.tool(name="text_extractor", image=page_image) or ""
+                    tool_validation = self.content_is_valid(tool_image_text)
 
-            content_validation = self.content_is_valid(body_text)
-            local_device.close()
+                combined_content = f"{body_text} \n {page_image_text}"
+                content = body_text if body_validation else page_image_text if ocr_validation else tool_image_text if tool_validation else "No Content Found"
+                local_device.close()
 
-            return page_index, IngestBrief(
-                source=str(self.pdf_file),
-                success=content_validation,
-                index=page_index,
-                original_content=str(body_text),
-                content=TextProcessor.NORMALIZE_NEW_LINES(f"{body_text}\n---- AI EXTRACTION ----\n{tool_image_text}"),
-                page_screenshot=page_image
-            )
+                return page_index, IngestBrief(
+                    source=str(self.pdf_file),
+                    success=True,
+                    index=page_index,
+                    original_content=str(combined_content),
+                    content=TextProcessor.NORMALIZE_NEW_LINES(content),
+                    page_screenshot=page_image
+                )
+            except Exception as e:
+                print(f"Failed to process page {page_index}: {e}")
+                return page_index, None
 
 
         results = {}
         # --- Step 2: Process pages concurrently ---
         with ThreadPoolExecutor() as executor:
-            future_to_index = {
-                executor.submit(process_page, (page, idx)): idx
-                for idx, page in enumerate(pages)
-            }
+            future_to_index = { executor.submit(process_page, (page, idx)): idx for idx, page in enumerate(pages) }
             for future in as_completed(future_to_index):
                 try:
                     page_index, page_result = future.result()
-                    results[page_index] = page_result
+                    if page_result:
+                        results[page_index] = page_result
+                    else:
+                        page = LIST.get(page_index, pages, None)
+                        if page is None: continue
+                        p_index, p_result = process_page((page, page_index))
+                        if p_result:
+                            results[p_index] = p_result
                 except Exception as e:
                     idx = future_to_index[future]
                     print(f"Error processing page {idx}: {e}")
@@ -170,25 +193,33 @@ class IngestPdfMiner(TextProcessor):
             text_details (list[TextLineDetail]): List of extracted text details.
             extracted_images_text (list[str]): List of text strings extracted via OCR from images.
         """
-        text_details = []
-        extracted_images_text = []
+        try:
+            text_details = []
+            extracted_images_text = []
 
-        for obj in layout_objects:
-            if isinstance(obj, (LTTextBox, LTTextLine)):
-                text_str = obj.get_text()
-                if not only_spaces_and_newlines(text_str):
-                    classification = self._classify_textline(obj, page_height)
-                    text_details.append(TextLineDetail(
-                        text=text_str,
-                        classification=classification
-                    ))
-            elif isinstance(obj, LTFigure):
-                # Recursively process nested figures
-                sub_text_details, sub_images_text = self._extract_text_lines_from_layout(obj._objs, page_height)
-                text_details.extend(sub_text_details)
-                extracted_images_text.extend(sub_images_text)
+            for obj in layout_objects:
+                try:
+                    if isinstance(obj, (LTTextBox, LTTextLine)):
+                        text_str = obj.get_text()
+                        if not only_spaces_and_newlines(text_str):
+                            classification = self._classify_textline(obj, page_height)
+                            text_details.append(TextLineDetail(
+                                text=text_str,
+                                classification=classification
+                            ))
+                    elif isinstance(obj, LTFigure):
+                        # Recursively process nested figures
+                        sub_text_details, sub_images_text = self._extract_text_lines_from_layout(obj._objs, page_height)
+                        text_details.extend(sub_text_details)
+                        extracted_images_text.extend(sub_images_text)
+                except Exception as e:
+                    print(f"Failed to extract text from page {obj}: {e}")
+                    continue
 
-        return text_details, extracted_images_text
+            return text_details, extracted_images_text
+        except Exception as e:
+            print(f"Failed to extract text lines from layout object: {e}")
+            return None, None
 
     def _classify_textline(self, obj, page_height, font_size_threshold=12) -> TextLineClassification:
         """
@@ -219,11 +250,15 @@ class IngestPdfMiner(TextProcessor):
         """
         Filters out header and footer text lines and returns the concatenated body text.
         """
-        body_lines = [
-            detail.text for detail in text_details
-            if not (detail.classification.header or detail.classification.footer)
-        ]
-        return "\n".join(body_lines)
+        try:
+            body_lines = [
+                detail.text for detail in text_details
+                if not (detail.classification.header or detail.classification.footer)
+            ]
+            return "\n".join(body_lines)
+        except Exception as e:
+            print(f"Failed to filter body text for page {text_details[0].index}: {e}")
+            return "No Body Text Found"
 
     def _extract_tables_from_layout(self, layout_objects) -> list:
         """

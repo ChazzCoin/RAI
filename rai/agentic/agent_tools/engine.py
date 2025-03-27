@@ -7,7 +7,8 @@ from rai.agentic.agent_tools.module import ToolModule
 from rai.agentic.agent_tools.result import ToolResult
 from rai.agentic.ai_modules.map import mMap
 from rai.agentic.ai_plugins.reason import Objective, StepCheckpoints
-from rai.agentic.ai_tools.text_tools.text_formats import NextStepModel
+from rai.agentic.ai_tools.text_tools.text_formats import NextStepModel, RequiredActions
+
 
 class ToolEngine(ToolModule, ToolManager, mMap, ABC):
 
@@ -45,11 +46,13 @@ class ToolEngine(ToolModule, ToolManager, mMap, ABC):
         self.tool_plan.user_request = user_request
         await self.think_then_set_core_objective()
         await self.think_then_set_core_end_goal()
+        await self.think_then_set_core_required_data()
+        await self.think_then_set_core_required_actions()
         await self.think_then_set_plan_type()
         await self.think_then_set_plan()
         await self.think_then_set_role_master()
         await self.decide_the_next_action()
-        await self.think_then_set_core_required_data()
+
         self.log_voice("All setup. It is time to accomplish a task!")
 
     """ Thinking """
@@ -101,7 +104,27 @@ class ToolEngine(ToolModule, ToolManager, mMap, ABC):
         if result: self.tool_plan.required_data = result
         elif depth <= 3: return await self.think_then_set_core_required_data(depth=depth + 1)
         self.log_voice("I have created some required data I believe we will need along the way.")
-
+    async def think_then_set_core_required_actions(self, depth=0):
+        self.log_voice("I need to figure out if there is required actions to keep track of.")
+        result = await self.think.formatter_async(
+            text=f"""
+                {self.inject_core_user_request_tag()}
+                {self.inject_required_data_tag()}
+            """,
+            model=RequiredActions,
+            system=f"""
+                Extract the relevant actions from the User Prompt/Plan that we need to remember throughout the task.
+                ## Example Data to Extract for Memory
+                1. Logging into something
+                2. Finding something
+                3. Verifying something
+                4. Do Something
+                5. DONT do something
+            """,
+        )
+        if result: self.tool_plan.required_actions = result
+        elif depth <= 3: return await self.think_then_set_core_required_actions(depth=depth + 1)
+        self.log_voice("I have created some required actions I believe we will need along the way.")
     # PLAN
     async def think_then_set_plan_type(self, depth=0):
         self.log_voice("I am coming up with a plan type to develop.")
@@ -144,7 +167,7 @@ class ToolEngine(ToolModule, ToolManager, mMap, ABC):
         current_ss = await self.ask_role_master_to_summarize_current_state()
         result = await self.think.formatter_async(
             text=f"""
-                {self.inject_core_full_plan_tag()}
+                {self.inject_core_required_plan_tag()}
                 {current_ss}
                 **Based on where we are right now, and what we are trying to do, create the checkpoints.**
             """,
@@ -164,7 +187,7 @@ class ToolEngine(ToolModule, ToolManager, mMap, ABC):
             text=f"""
                 {self.inject_all_actions_tag()}
                 {self.inject_summary_report_tag()}
-                {self.inject_core_required_data_tag()}
+                {self.inject_core_required_plan_tag()}
                 {current_ss.inject(current_ss)}
             """,
             model=StepCheckpoints,
@@ -386,7 +409,8 @@ class ToolEngine(ToolModule, ToolManager, mMap, ABC):
     def prompt_create_role_user(self):
         return f"""
         Create a detailed agent role for the following details.
-        {self.inject_core_full_plan_tag()}
+        {self.inject_core_tags()}
+        {self.inject_full_plan_tag()}
         """
     def prompt_create_role_system(self):
         return f"""

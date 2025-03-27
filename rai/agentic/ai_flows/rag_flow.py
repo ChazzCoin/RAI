@@ -415,5 +415,5 @@ def mains(name:str, prefix, user_prompt):
         print(results)
 
 if __name__ == "__main__":
-    user_prompt = "Who is joel person?"
-    mains("base", "pcsc2025.4", user_prompt=user_prompt)
+    user_prompt = "What can you tell me about alexus edwards?"
+    mains("base", "referral2025.1", user_prompt=user_prompt)

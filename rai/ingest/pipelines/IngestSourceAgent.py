@@ -302,11 +302,12 @@ class IngestSourceAgent:
 
     @classmethod
     def execute(cls, name:str, data:str) -> {}:
+        name = name.split("-", 1)[0]
         return cls.load_data(name, data).run()
 
     @classmethod
     def executes(cls, name:str, datas:List) -> {}:
-
+        name = name.split("-", 1)[0]
         def runner(name:str, data:str):
             return cls.load_data(name, data).run()
 

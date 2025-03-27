@@ -359,6 +359,7 @@ class WebCrawlerPlanDeep(WebCrawlerConfig):
     @staticmethod
     def browser() -> BrowserConfig:
         return BrowserConfig(
+            user_data_dir="/Users/chazzromeo/Library/Caches/ms-playwright/chromium-1161/chrome-mac/Chromium.app",
             headless=True,
             light_mode=True,
             accept_downloads=False,

@@ -4,13 +4,36 @@ import nltk
 from nltk import word_tokenize, sent_tokenize, FreqDist
 from nltk.util import ngrams
 from nltk.sentiment import SentimentIntensityAnalyzer
-
+import ssl
 from rai.ingest.utilities.IngestModels import NLPAssistantModel
+import spacy.cli
+
+def download_nltk_data(resource_name: str):
+    try:
+        nltk.data.find(resource_name)
+        print(f"'{resource_name}' already exists.")
+    except LookupError:
+        print(f"'{resource_name}' not found. Attempting download...")
+        try:
+            # Temporarily bypass SSL verification
+            _create_unverified_https_context = ssl._create_unverified_context
+            ssl._create_default_https_context = _create_unverified_https_context
+
+            nltk.download(resource_name.split('/')[1])
+
+            print(f"'{resource_name}' downloaded successfully.")
+        except Exception as e:
+            print(f"Failed to download '{resource_name}': {e}")
+        finally:
+            # Reset to default SSL context after download
+            ssl._create_default_https_context = ssl.create_default_context
+
 
 # Ensure necessary NLTK resources are available
-nltk.download("punkt", quiet=True)
-nltk.download("vader_lexicon", quiet=True)
-import spacy.cli
+# nltk.download("punkt", quiet=True)
+# nltk.download("vader_lexicon", quiet=True)
+download_nltk_data('tokenizers/punkt')
+download_nltk_data('sentiment/vader_lexicon')
 spacy.cli.download("en_core_web_sm")
 
 class NLPAssistant:

@@ -4,6 +4,8 @@ import os
 from abc import ABC, abstractmethod
 from typing import Optional
 from pydantic import BaseModel
+
+from rai.agentic.ai_flows import rRagFlow
 from rai.ingest.miners.Pdf import FPDF
 from rai.agentic.ai_tasks.query_task import RaiQueryAgentResults
 from rai.assistant.connectors import rAI
@@ -70,6 +72,7 @@ class rReferralFlow(ABC, rAI, TextProcessor):
     second = []
     third = []
 
+    prefix = 'referral2025.1'
 
     @classmethod
     def flow(cls, name: str, user_prompt: str):
@@ -94,7 +97,7 @@ class rReferralFlow(ABC, rAI, TextProcessor):
     async def run_async(self, user_prompt:str): pass
     def system(self): return diag_prompt(isChat=True if str(self.name).endswith("chat") else False)
     def user(self, user_prompt:str):
-        return self.decode_base64_to_file(user_prompt)
+        return self.decode_base64_to_file(user_prompt) if str(self.name).endswith("format") else user_prompt
 
     def decode_base64_to_file(self, file_input: str):
         # Determine the input type and obtain the file data in bytes
@@ -138,7 +141,7 @@ class ReferralResponse(BaseModel):
     reason: str
 
 @register_referral_agent("medical-format")
-class ReferralAgentBaseRunner(rReferralFlow):
+class ReferralAgentFormatRunner(rReferralFlow):
     def run(self, user_prompt: str):
         try:
             _user = self.user(user_prompt)
@@ -153,14 +156,20 @@ class ReferralAgentBaseRunner(rReferralFlow):
         except Exception as e:
             print(f"Error: {e}")
             return None
+
 @register_referral_agent("medical-chat")
-class ReferralAgentBaseRunner(rReferralFlow):
+class ReferralAgentChatRunner(rReferralFlow):
     def run(self, user_prompt: str) -> Optional[RaiQueryAgentResults]:
         try:
-            return self.generate_format("", "", ReferralResponse)
+            response = rRagFlow.flow(name="base", prefix=self.prefix, user_prompt=user_prompt)
+            _user = self.user(f"{user_prompt}\n{response}")
+            _system = self.system()
+            return self.generate(_user, _system)
         except Exception as e:
             print(f"Error: {e}")
             return None
+
+
     async def run_async(self, user_prompt: str) -> Optional[RaiQueryAgentResults]:
         try:
             return self.generate_format("", "", ReferralResponse)
@@ -192,5 +201,6 @@ def mains(name:str, user_prompt):
         print(results)
 
 if __name__ == "__main__":
-    user_prompt = "/Users/chazzromeo/Desktop/portal/docs/Referral_Steven_Parker.pdf"
-    mains("medical-format", user_prompt=user_prompt)
+    user_prompt = "/Users/chazzromeo/Desktop/portal/docs/referral1.pdf"
+    query = "What is the diagnosis?"
+    mains("medical-chat", user_prompt=query)

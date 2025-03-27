@@ -44,6 +44,7 @@ class HtmlDecisionElement(BaseModel):
 class Checkpoints(BaseModel):
     checkpoint: str
     order_index: int
+    confidence: float
 class StepCheckpoints(BaseModel):
     checkpoints: Optional[List[Checkpoints]]
 

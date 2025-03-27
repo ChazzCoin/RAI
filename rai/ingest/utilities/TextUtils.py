@@ -233,7 +233,11 @@ class TextProcessor(DictComparator, StringComparator):
 
     @staticmethod
     def content_is_valid(content: str) -> bool:
-        return len(TextProcessor.TEXT_CLEANER(content)) > 1
+        try:
+            return len(TextProcessor.TEXT_CLEANER(content)) > 5
+        except Exception as e:
+            print(e)
+            return False
 
     """ MASTER """
     @staticmethod

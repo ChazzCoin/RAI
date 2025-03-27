@@ -280,17 +280,36 @@ class ToolManager(ToolData, ToolLog, TextProcessor):
             {self.inject_core_user_request_tag()}
             {self.inject_core_objective_tag()}
             {self.inject_core_end_goal_tag()}
-            {self.inject_core_required_data_tag()}
         """
+    def inject_core_and_required_tags(self) -> str:
+        return f"""
+            {self.inject_core_tags()}
+            {self.inject_required_tags()}
+        """
+    def inject_required_tags(self) -> str:
+        return f"""
+            {self.inject_required_data_tag()}
+            {self.inject_required_actions_tags()}
+        """
+    def inject_required_actions_tags(self) -> str:
+        final_results = ""
+        for item in self.tool_plan.required_actions.required_actions:
+            temp =f"""
+                Required Action: [ {item.action} ]
+                Completion Status: [ {item.iscomplete} ]
+            """
+            final_results += temp
+        return final_results
+
     def inject_full_plan_tag(self) -> str:
         return f"""
             {self.tool_plan.plan_type}
             {self.tool_plan.plan_type_description}
             {self.inject_plan_tag()}
         """
-    def inject_core_full_plan_tag(self) -> str:
+    def inject_core_required_plan_tag(self) -> str:
         return f"""
-            {self.inject_core_tags()}
+            {self.inject_core_and_required_tags()}
             {self.inject_full_plan_tag()}
         """
     def inject_core_user_request_tag(self) -> str:
@@ -342,7 +361,7 @@ class ToolManager(ToolData, ToolLog, TextProcessor):
                 {self.tool_plan.end_goal}
             </END_GOAL>
         """
-    def inject_core_required_data_tag(self) -> str:
+    def inject_required_data_tag(self) -> str:
         return f"""
             <REQUIRED_DATA>
                 {self.tool_plan.required_data}

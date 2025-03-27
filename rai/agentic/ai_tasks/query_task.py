@@ -1,7 +1,7 @@
 
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import List
+from typing import List, Dict, Any
 
 from F import DICT, LIST
 from pydantic import BaseModel
@@ -190,8 +190,71 @@ class RaiQueryAgentResults(BaseModel):
     formatted: str
     response: str
 
+@register_query_agent("pages")
+class QueryAgentBaseRunner(rQueryTask):
+
+    @staticmethod
+    def module_name() -> str:
+        return "query_base"
+
+    def where_parent_id(self, parent_id):
+        return {"parent_id": {"$eq": parent_id}}
+    def where_page_id(self, page_id):
+        return {"page_id": {"$eq": page_id}}
+    def where_page_number(self, page_number):
+        return {"page_number": {"$eq": page_number}}
+    def run(self, prefix: str, query: str, where: dict={}):
+        try:
+            wrapped_results: List[Dict[str, Any]] = self.rStore().query(
+                f"{prefix}.pages",
+                user_message=query,
+                k=100,
+                where=where
+            )
+
+            # rank_1_result = self.unwrap_first(wrapped_results, k=1)
+            # rank_1_top_doc: RaiLoaderDocument = LIST.get(0, rank_1_result, None)
+            # rank_1_top_doc_meta = DICT.get("metadata", rank_1_top_doc, None)
+            # top_parent_id = DICT.get("parent_id", top_doc_meta, None)
+            # top_page_id = DICT.get("page_id", top_doc_meta, None)
+            # top_page_number = DICT.get("page_number", top_doc_meta, None)
+            # parent_where_query = {"parent_id": {"$eq": top_parent_id}}
+            # page_where_query = {"page_id": {"$eq": top_page_id}}
+            # number_where_query = {"page_number": {"$eq": top_page_number}}
+            # where_results = self.store.queries(
+            #     *self.get_collections(prefix),
+            #     user_prompt=query,
+            #     k=5,
+            #     where=page_where_query
+            # )
+            # rank_2_result = self.unwrap_second(wrapped_results, k=1)
+            # rank_3_result = self.unwrap_third(wrapped_results, k=1)
+            #
+            # where = {
+            #     "category": "sports",
+            #     "priority": {"$gte": 5}
+            # }
+
+            unwrapped_results = self.rStore().unwrap_results(wrapped_results)
+            formatted_results = self.rStore().unwrap_formatted(unwrapped_results, k=1)
+            return RaiQueryAgentResults(
+                query=query,
+                query_expanded=query,
+                documents=unwrapped_results,
+                sub_documents=[],
+                formatted=TextProcessor.clean_text_for_openai_embedding(formatted_results),
+                response="",
+            )
+        except Exception as e:
+            print(f"Error: {e}")
+            return None
+
 @register_query_agent("base")
 class QueryAgentBaseRunner(rQueryTask):
+
+    @staticmethod
+    def module_name() -> str:
+        return "query_base"
 
     def where_parent_id(self, parent_id):
         return {"parent_id": {"$eq": parent_id}}

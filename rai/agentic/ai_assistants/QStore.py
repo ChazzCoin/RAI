@@ -92,7 +92,9 @@ class VectorStore(ChromaClient, DocumentQueryUtils):
         except Exception as e:
             Log.e("Failed to query", e)
             return None
-    def prepares(self, prefix, docs: List['IngestLoaderDocument']):
+
+    @staticmethod
+    def prepares(prefix, docs: List['IngestLoaderDocument']):
         items = {}
         for idx, doc in enumerate(tqdm(docs, desc="Preparing Documents.", colour="yellow")):
             temp = {

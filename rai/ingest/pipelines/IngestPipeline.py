@@ -1,12 +1,12 @@
 from abc import abstractmethod, ABC
-from typing import List
+from typing import List, Dict
 
 from F import LIST
 
 from rai.agentic.ai_assistants.QCache import VectorCache
 from rai.agentic.ai_assistants.QStore import VectorStore
 from rai.assistant.connectors import rAI
-from rai.ingest.utilities.IngestModels import IngestRecord, IngestLoaderDocument
+from rai.ingest.utilities.IngestModels import IngestRecord, IngestLoaderDocument, IngestBrief, IngestPage
 from rai.ingest.utilities.TextUtils import TextProcessor
 from rai.ingest.pipelines.IngestNLPAgent import IngestNLPAgent
 from rai.ingest.pipelines.IngestDocumentCreator import IngestDocumentCreator
@@ -32,8 +32,8 @@ class rIngestWorkFlow(ABC, rAI, TextProcessor):
 
     record: IngestRecord = IngestRecord()
 
-    briefs: {} = {}
-    pages: {} = {}
+    briefs: {int:IngestBrief} = {}
+    pages: {int:IngestPage} = {}
     docs: List[IngestLoaderDocument] = []
 
     @classmethod
@@ -55,6 +55,12 @@ class rIngestWorkFlow(ABC, rAI, TextProcessor):
     def parse(self, result): pass
     @abstractmethod
     def run(self, data): pass
+
+    def get_content_only(self) -> Dict[int, str]:
+        page_results = {}
+        for k,v in self.briefs.items():
+            page_results[k] = v.content
+        return page_results
 
     def get_all_briefs(self, datas) -> {}:
         self.briefs = IngestSourceAgent.executes(name=self.name, datas=datas)
@@ -91,6 +97,15 @@ What they do, how they do it...what they need...etc...
 - summarize data
 - 
 """
+@register_ingest_pipeline("content-only")
+class IngestPipelineDocuments(rIngestWorkFlow):
+    def type(self): return "ai"
+    def parse(self, result): return result
+    def run(self, data):
+        self.get_briefs(data)
+        items = self.get_content_only()
+        return items
+
 @register_ingest_pipeline("injection")
 class IngestPipelineDocuments(rIngestWorkFlow):
     def type(self): return "ai"
@@ -206,9 +221,9 @@ class IngestPipelineCacheDocuments(rIngestWorkFlow):
 
 if __name__ == "__main__":
     # from rai.pipeline.utilities.text_data import schedule_text
-    pdf_file_path = "/Users/chazzromeo/Desktop/portal/docs/Neuro101.pdf"
+    pdf_file_path = "/Users/chazzromeo/Desktop/portal/docs/referral3.pdf"
     website = "https://www.cnn.com/2025/03/10/us/mahmoud-khalil-columbia-university-israel-hnk/index.html"
     pipe = "injection-store"
-    prefix = 'rai2025.5'
+    prefix = 'referral2025.1'
     docs = rIngestWorkFlow.pipeline(name=pipe, data=pdf_file_path, prefix=prefix)
     print(docs)

@@ -33,24 +33,6 @@ class RaiBaseLoader(BaseLoader):
     data = None
     cache: [IngestLoaderDocument] = None
 
-    def __init__(self, file_path: str, metadata: dict = {'image': ''}):
-        self.file_path = file_path
-        self.metadata = metadata if not None else { 'image': '' }
-
-    @staticmethod
-    def verify_loader_data(loader: BaseLoader) -> bool:
-        try:
-            data = loader.load()
-            if data is None: return False
-            if not isinstance(data, list): return False
-            if len(data) == 0: return False
-            return True
-        except Exception as e:
-            # If any exception occurs, log it if needed and return False
-            # You could add logging here for better traceability in production
-            print("Failed Loader Validation", e)
-            return False
-
 
 
 class RaiDocCreator(RaiBaseLoader, TextProcessor):

@@ -16,6 +16,7 @@ from rai.agentic.agent_tools.base import BrowserToolState
 from rai.agentic.agent_tools.engine import ToolEngine
 from rai.agentic.agent_tools.result import ToolResult
 from rai.agentic.ai_plugins.reason import SearchTerms
+from rai.agentic.ai_tools.text_tools.text_formats import InteractiveElements
 from rai.ingest.utilities.TextUtils import TextProcessor
 from rai.ingest.web.soup.BodyExtractor import WebBodyExtractor
 from rai.internal.clients.ioredis_client import IORedis
@@ -207,20 +208,37 @@ class WebBrowserTool(ToolEngine):
         self.dom_service = DomService(await context.get_current_page())
         self.context = context
         return context
+
     async def inject_dom_interactions(self) -> ToolResult:
         state = await self.context.get_state()
         # indexed_interactions = state.element_tree.clickable_elements_to_string()
         sel_map = state.selector_map
 
         result = []
+        a_tags = []
+        input_tags = []
+        btn_tags = []
+        other_tags = []
         for k,v in sel_map.items():
             index = k
             element = v
             stringed_element = self.__clickable_elements_to_str(element)
-            if index >= 100: continue
-            result.append(stringed_element)
+            if str(element).startswith('<a'):
+                a_tags.append(stringed_element)
+            elif str(element).startswith('<button'):
+                btn_tags.append(stringed_element)
+            elif str(element).startswith('<input') or str(element).startswith('<select'):
+                input_tags.append(stringed_element)
+            else:
+                other_tags.append(stringed_element)
+            # if index >= 100: continue
+            # result.append(stringed_element)
             print(index, stringed_element)
 
+        result.extend(input_tags)
+        result.extend(btn_tags)
+        result.extend(a_tags)
+        # result.extend(other_tags)
         return ToolResult(
             result="\n".join(result),
         )
@@ -580,5 +598,5 @@ if __name__ == "__main__":
 
     looper = asyncio.get_event_loop()
     #looper.run_until_complete(WebBrowserTool().self_navigation("go to dominoes and order me a single large pepperoni pizza, my address is 801 6th avenue southwest, alabaster, AL 35007, then order the pizza and have it delivered to my house."))
-    looper.run_until_complete(WebBrowserTool().self_navigation("go to Twitter, find a AI based investor that is a person/human being. Find a good post to comment on. Post a comment that tells the investor you are an agent to try and entice them to contact us. Make sure to tell them your name is AEther and you are an AI Autonomous Agent."))
+    looper.run_until_complete(WebBrowserTool().self_navigation("I want you to order pizza on dominoes that will be for pick-up and set the time of pick-up to be 5:45pm. My dominoes is alabaster, AL 35007. I want a large pepperoni pizza with light sauce. I also want a medium cheese pizza. I want you to order this pizza for me now."))
     # looper.run_until_complete(WebBrowserTool().self_navigation("What is bruce romeos law firm called? I know he left mezrano, so that is not it."))
