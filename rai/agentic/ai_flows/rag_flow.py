@@ -4,7 +4,7 @@ from datetime import datetime
 from F import DICT, LIST
 
 from rai.agentic.ai_flows.r_flows import register_flow
-from rai.agentic.ai_tasks.query_task import RaiQueryAgentResults, QueryTool
+from rai.agentic.agent_assistants.knowledge_assist import RaiQueryAgentResults, QueryTool
 from rai.agentic.ai_tools.text_tools.r_tools import rTextTools
 from rai.assistant.connectors import rAI
 from rai.ingest.utilities.TextUtils import TextProcessor

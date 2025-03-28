@@ -252,6 +252,39 @@ class rAI:
 
         return pipe_results
 
+    async def chain_of_thinking(self, topic:str, thoughts:int=2) -> str:
+        persona_one = "raava"
+        persona_two = "vaatu"
+        thought_count = 0
+        keep_thinking = True
+        running_discussion = [topic]
+        while keep_thinking:
+            # check every other thought/loop
+            if thought_count >= thoughts:
+                keep_thinking = False
+                continue
+            discussion = "\n".join(running_discussion)
+            topic_response = await self.generate_async(
+                user=discussion,
+                system=f"""
+                    Your name is {persona_one if thought_count % 2 == 0 else persona_two}.
+                    **Your objective is to further discuss and debate the subject/topic**
+                    **Analyze every part of the topic**
+                    **Ask Questions about the topic to analyze all angles**
+                    **Work out every aspect you can as you go**
+                    **Challenge the status quo, theres always more**
+                """
+            )
+            personal_response = f"""
+                {persona_one if thought_count % 2 == 0 else persona_two} Said:
+                {topic_response}
+            """
+            running_discussion.append(personal_response)
+            thought_count += 1
+        result = "\n".join(running_discussion)
+        print(result)
+        return result
+
     # @abstractmethod
     def type(self):
         pass

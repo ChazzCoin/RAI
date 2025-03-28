@@ -1,4 +1,3 @@
-import hashlib
 import os
 import re
 import shutil
@@ -9,7 +8,6 @@ from F.LOG import Log
 from F import OS
 Log = Log("RaiPath/Files")
 
-from rai.internal import connectors
 
 class RaiDirectories:
     @staticmethod
@@ -266,17 +264,3 @@ class RaiPath(str):
         return directory_chains
     def __str__(self) -> str: return self.path.absolute().__str__()
     def __repr__(self) -> str: return self.__str__()
-
-# Example Usage
-if __name__ == "__main__":
-    # Initialize a file or directory
-    # entity = RaiPath(__file__)
-    sanny = RaiPath.get_directory_chains("/Users/chazzromeo/Desktop/pcsc2024")
-    print("Parent Directory: [ /Users/chazzromeo/Desktop/pcsc2024 ]")
-    for item in sanny:
-        print(item)
-    # Example operations
-    # if entity.is_file:
-    #     print("File Size:", entity.size, "bytes")
-    # elif entity.is_directory:
-    #     print("Directory Contents:", entity.list_directory())

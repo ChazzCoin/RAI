@@ -5,9 +5,8 @@ from abc import ABC, abstractmethod
 from typing import Optional
 from pydantic import BaseModel
 
-from rai.agentic.ai_flows import rRagFlow
 from rai.ingest.miners.Pdf import FPDF
-from rai.agentic.ai_tasks.query_task import RaiQueryAgentResults, QueryTool
+from rai.agentic.agent_assistants.knowledge_assist import RaiQueryAgentResults, QueryTool
 from rai.assistant.connectors import rAI
 from rai.ingest.utilities.TextUtils import TextProcessor
 

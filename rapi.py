@@ -8,7 +8,7 @@ from quart_cors import cors
 from F.LOG import Log
 from rai.agentic.ai_assistants.knowledge import rKnowledgeAssistant
 from rai.agentic.ai_flows.rag_flow import rRagFlow
-from rai.agentic.ai_tasks.query_task import RaiQueryAgentResults
+from rai.agentic.agent_assistants.knowledge_assist import RaiQueryAgentResults
 from rai.assistant.connectors import rAI
 from rai.internal.clients.ioredis_client import RedisIO
 from rai.internal.connectors import REDIS_DB_CLIENT_0, REDIS_DB_CLIENT_1, PostgresTables

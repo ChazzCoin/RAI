@@ -6,12 +6,13 @@ from typing import Any, Type, List
 from F import LIST, DICT
 from pydantic import BaseModel
 
-from rai.agentic.ai_modules import rModule, mData
+from rai.agentic.agent_tools.data import ToolData
+from rai.agentic.ai_modules.r import rModule
 from rai.ingest.utilities.TextUtils import TextProcessor
 
 ASSIST_LOG = []
 
-class pAssistant(rModule, mData):
+class pAssistant(rModule, ToolData):
 
     initial_request_tagged = f"<USER REQUEST> </USER REQUEST>"
 
@@ -231,7 +232,7 @@ class pAssistant(rModule, mData):
             raise e
     def decide_function(self, user_prompt):
         tools = self.get_json_tools()
-        decision = self.rAI().generate_function(
+        decision = self.llm().generate_function(
             user=user_prompt,
             system=self.system_prompt(),
             functions=tools,
@@ -247,7 +248,7 @@ class pAssistant(rModule, mData):
                 self.get_assistant_log_str(),
                 self.initial_request_tagged,
             )
-            response = self.rAI().generate(
+            response = self.llm().generate(
                 user=final_response_request,
                 system="You are a personal assistant, analyze the data provided, create the appropriate summarized response of what happen to send back to the user."
             )

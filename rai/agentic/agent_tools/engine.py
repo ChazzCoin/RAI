@@ -1,6 +1,9 @@
 from abc import ABC, abstractmethod
+from collections import deque
 from typing import Optional
 from F import LIST
+from watchfiles import awatch
+
 from rai.agentic.aether.schema import AgentState
 from rai.agentic.agent_tools.manager import ToolManager
 from rai.agentic.agent_tools.module import ToolModule
@@ -24,6 +27,69 @@ class ToolEngine(ToolModule, ToolManager, mMap, ABC):
         pass
 
     """ ASSISTANT """
+    def generate_mini_plan(self, request: str):
+        """AI CALL: Generate a chain-of-steps plan based on the provided prompt."""
+        try:
+            steps = self.llm().tool("chain-of-steps", request)
+            plan = [f"<ACTION> {step.order_index}. {step.step_action} </ACTION>" for step in steps]
+            self.log_voice("\nGenerated the following Action Plan\n", "\n".join(plan))
+            return steps
+        except Exception as e:
+            self.log_voice(f"Failed to generate a plan. [ {str(e)} ]")
+            return [request]
+    async def call(self, request: str):
+        """Generate a decision on which function/tool to call based on the user prompt."""
+        try:
+            tools = self.get_tools()
+            self.log_voice("Based on what I want to do next, I need to decide which function to call.")
+            decision = await self.llm().generate_function_async(
+                user=request,
+                system=self.assistant_rules(),
+                functions=tools,
+                raw_result=True
+            )
+            if decision: return await self.parse_and_call_function_async(decision)
+            return None
+        except Exception as e:
+            self.log_thought(f"An error occurred while trying to decide: {e}")
+            self.log_voice("I am having trouble making a decision.")
+            return None
+    async def ask(self, request: str) -> 'ToolResponse':
+        try:
+            max_steps = 10
+            step_queue = deque(self.generate_mini_plan(request=request) or [])
+            steps_taken = 0
+
+            # Process the queue until it's empty or the objective is met.
+            while step_queue:
+                step = step_queue.popleft()
+                steps_taken += 1
+                try:
+                    action = self.tag_data("ACTION", f"{steps_taken}.{step.step_action}")
+                    result = await self.call(request=action)
+                    self.import_result_and_pass(result)
+                except Exception as e:
+                    self.log_voice(f"Failed to complete step [{steps_taken}]", str(e))
+
+                if max_steps < steps_taken: break
+
+            self.log_voice("")
+            data = self.get_data()
+            return self.ToolResponse(
+                prefix="",
+                session_id="",
+                answer="I have completed your request.",
+                data=data
+            )
+        except Exception as e:
+            self.log_voice(f"Overall Reasoning Error: [ {str(e)} ]")
+            return self.ToolResponse(
+                prefix="",
+                session_id="",
+                answer=f"I have failed to complete your request. [ {str(e)} ]",
+                data=None
+            )
+    ##############################
     async def self_navigation(self, request: Optional[str] = None) -> str:
         await self.setup_assistant(user_request=request)
         async with self.state_context(AgentState.RUNNING):
@@ -52,7 +118,6 @@ class ToolEngine(ToolModule, ToolManager, mMap, ABC):
         await self.think_then_set_plan()
         await self.think_then_set_role_master()
         await self.decide_the_next_action()
-
         self.log_voice("All setup. It is time to accomplish a task!")
 
     """ Thinking """
@@ -290,10 +355,10 @@ class ToolEngine(ToolModule, ToolManager, mMap, ABC):
         content = self.ensure_within_limit(content, ensure_length)
         result = await self.llm().generate_async(
             user=f"""
-                        **Summarize the following content, make sense of it.**
-                        **I want to know, Who, What, When, Where, How, Why!?**
-                        {content}
-                    """,
+                **Summarize the following content, make sense of it.**
+                **I want to know, Who, What, When, Where, How, Why!?**
+                {content}
+            """,
             system=self.tool_plan.role
         )
         return result

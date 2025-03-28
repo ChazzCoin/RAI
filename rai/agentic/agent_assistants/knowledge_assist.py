@@ -1,4 +1,5 @@
 import asyncio
+import uuid
 from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Union, Type
@@ -123,6 +124,7 @@ class QueryTool(ToolEngine, QueryModule):
             self.get_tool('get_pages_on_date'),
             self.get_tool('get_pages_between_dates'),
             self.get_tool('search'),
+            self.get_tool('add_page'),
             self.get_tool('update_page'),
             self.get_tool('delete_page')
         ]
@@ -161,6 +163,30 @@ class QueryTool(ToolEngine, QueryModule):
             print(e)
             return []
 
+    def add_page(self, raw_text: str, metadata: dict = None) -> ToolResult:
+        """
+        Add a new document to the collection with provided raw text and optional metadata.
+        """
+        try:
+            doc_id = str(uuid.uuid4())
+            self.log_voice(f"Adding a new document with id [ {doc_id} ]")
+            item = {
+                "id": doc_id,
+                "text": raw_text,
+                "vector": self.llm().embed(raw_text),
+                "metadata": metadata if metadata else {'type': 'user entry', 'timestamp': self._get_date_now()},
+            }
+            self.rStore().upsert(f"{self.prefix}.pages", [item])
+            self.log_voice(f"New document added with ID '{doc_id}'.")
+            return ToolResult(
+                output=f"New document added with ID '{doc_id}'.",
+                success=True
+            )
+        except Exception as e:
+            return ToolResult(
+                output=f"Something went wrong adding the document. {e}",
+                success=False
+            )
     def delete_page(self, doc_id: str) -> ToolResult:
         """Delete a document from the collection based on its ID."""
         try:
@@ -233,4 +259,4 @@ class QueryTool(ToolEngine, QueryModule):
 
 if __name__ == "__main__":
     looper = asyncio.get_event_loop()
-    looper.run_until_complete(QueryTool(prefix="referral2025.1").self_navigation(request="Which documents are Electronically signed by Kasmia,Abdei H, MD?"))
+    looper.run_until_complete(QueryTool(prefix="referral2025.1").ask(request="Which documents are Electronically signed by Kasmia,Abdei H, MD?"))

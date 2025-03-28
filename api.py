@@ -14,7 +14,7 @@ from F.DATE import get_timestamp_str as get_current_timestamp
 from rai.RaiModels import RAI_MODs, getRaiModels
 from rai.agentic.ai_assistants.knowledge import rKnowledgeAssistant
 from rai.agentic.ai_flows.rag_flow import rRagFlow
-from rai.agentic.ai_tasks.query_task import RaiQueryAgentResults
+from rai.agentic.agent_assistants.knowledge_assist import RaiQueryAgentResults
 from rai.assistant.ai_models import AiModels
 from rai.assistant.connectors import rAI
 
