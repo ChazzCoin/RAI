@@ -99,7 +99,7 @@ class AgentConfigTopicLaw(rTextTools):
 @register_text_tool("context_expander")
 class AgentConfigPromptExpander(rTextTools):
     def type(self): return "format"
-    def parse(self, result): return result.queries
+    def parse(self, result): return result.queries_store
 
 @register_text_tool("metadata")
 class AgentConfigMetadata(rTextTools):
@@ -229,4 +229,4 @@ class AgentConfigSubject(rTextTools):
 @register_text_tool("rag_query_generator")
 class AgentConfigRagQueryGenerator(rTextTools):
     def type(self): return "format"
-    def parse(self, result): return result.queries
+    def parse(self, result): return result.queries_store

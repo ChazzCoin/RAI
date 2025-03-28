@@ -3,7 +3,7 @@ import time
 from typing import Optional
 
 from rai.internal.chromadb import Base, JSONField, get_db
-from rai.internal.models.users import Users
+from rai.internal.models.users import Useærs
 from rai.env import SRC_LOG_LEVELS
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import BigInteger, Column, String, Text
@@ -111,7 +111,7 @@ class ToolsTable:
 
     def get_tools(self) -> list[ToolModel]:
         with get_db() as db:
-            return [ToolModel.model_validate(tool) for tool in db.queries(Tool).all()]
+            return [ToolModel.model_validate(tool) for tool in db.queries_store(Tool).all()]
 
     def get_tool_valves_by_id(self, id: str) -> Optional[dict]:
         try:
@@ -125,7 +125,7 @@ class ToolsTable:
     def update_tool_valves_by_id(self, id: str, valves: dict) -> Optional[ToolValves]:
         try:
             with get_db() as db:
-                db.queries(Tool).filter_by(id=id).update(
+                db.queries_store(Tool).filter_by(id=id).update(
                     {"valves": valves, "updated_at": int(time.time())}
                 )
                 db.commit()
@@ -177,12 +177,12 @@ class ToolsTable:
     def update_tool_by_id(self, id: str, updated: dict) -> Optional[ToolModel]:
         try:
             with get_db() as db:
-                db.queries(Tool).filter_by(id=id).update(
+                db.queries_store(Tool).filter_by(id=id).update(
                     {**updated, "updated_at": int(time.time())}
                 )
                 db.commit()
 
-                tool = db.queries(Tool).get(id)
+                tool = db.queries_store(Tool).get(id)
                 db.refresh(tool)
                 return ToolModel.model_validate(tool)
         except Exception:
@@ -191,7 +191,7 @@ class ToolsTable:
     def delete_tool_by_id(self, id: str) -> bool:
         try:
             with get_db() as db:
-                db.queries(Tool).filter_by(id=id).delete()
+                db.queries_store(Tool).filter_by(id=id).delete()
                 db.commit()
 
                 return True

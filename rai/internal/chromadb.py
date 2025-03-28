@@ -12,8 +12,22 @@ Log = Log("Chromadb Database Client")
 
 class ChromaClient(cChromadb):
 
-    def __init__(self):
-        super().__init__()
+    def get_all_sub_collections(self, prefix: str):
+        try:
+
+            # Assuming you have a ChromaDB client instance named 'VECTOR_DB_CLIENT'
+            collections = self.client.list_collections()
+            collection_names = [collection.name for collection in collections]
+
+            # Filter by prefix if provided
+            final_names = [col for col in collection_names if col.startswith(prefix)]
+
+            return final_names
+
+        except Exception as e:
+            # Log error with proper context
+            Log.e(f"Error retrieving collections from ChromaDB: {e}")
+            return []
 
     def get_all_collections_by_chain(self, *collection_paths: str):
         try:

@@ -70,7 +70,7 @@ class MemoriesTable:
     ) -> Optional[MemoryModel]:
         with get_db() as db:
             try:
-                db.queries(Memory).filter_by(id=id).update(
+                db.queries_store(Memory).filter_by(id=id).update(
                     {"content": content, "updated_at": int(time.time())}
                 )
                 db.commit()
@@ -81,7 +81,7 @@ class MemoriesTable:
     def get_memories(self) -> list[MemoryModel]:
         with get_db() as db:
             try:
-                memories = db.queries(Memory).all()
+                memories = db.queries_store(Memory).all()
                 return [MemoryModel.model_validate(memory) for memory in memories]
             except Exception:
                 return None
@@ -89,7 +89,7 @@ class MemoriesTable:
     def get_memories_by_user_id(self, user_id: str) -> list[MemoryModel]:
         with get_db() as db:
             try:
-                memories = db.queries(Memory).filter_by(user_id=user_id).all()
+                memories = db.queries_store(Memory).filter_by(user_id=user_id).all()
                 return [MemoryModel.model_validate(memory) for memory in memories]
             except Exception:
                 return None
@@ -105,7 +105,7 @@ class MemoriesTable:
     def delete_memory_by_id(self, id: str) -> bool:
         with get_db() as db:
             try:
-                db.queries(Memory).filter_by(id=id).delete()
+                db.queries_store(Memory).filter_by(id=id).delete()
                 db.commit()
 
                 return True
@@ -116,7 +116,7 @@ class MemoriesTable:
     def delete_memories_by_user_id(self, user_id: str) -> bool:
         with get_db() as db:
             try:
-                db.queries(Memory).filter_by(user_id=user_id).delete()
+                db.queries_store(Memory).filter_by(user_id=user_id).delete()
                 db.commit()
 
                 return True
@@ -126,7 +126,7 @@ class MemoriesTable:
     def delete_memory_by_id_and_user_id(self, id: str, user_id: str) -> bool:
         with get_db() as db:
             try:
-                db.queries(Memory).filter_by(id=id, user_id=user_id).delete()
+                db.queries_store(Memory).filter_by(id=id, user_id=user_id).delete()
                 db.commit()
 
                 return True

@@ -237,8 +237,13 @@ class mMap:
                 return f"'{func_name}' is not callable."
 
             f"Calling function '{func_name}' with arguments: {arguments}"
-            result = await func(**arguments)
-            return result
+            try:
+                result = await func(**arguments)
+                return result
+            except Exception as e:
+                print(e)
+                result = func(**arguments)
+                return result
         except Exception as e:
             return f"Error in parse_and_call: {json_input} | Exception: {e}"
 

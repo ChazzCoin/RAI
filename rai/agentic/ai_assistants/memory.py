@@ -46,7 +46,7 @@ class rMemoryAssistant(pAssistant):
     """ LOGGING MEMORY """
     def search_logs(self, query: str):
         """ """
-        return rMemoryAssistant.rCache().query(
+        return rMemoryAssistant.rCache().query_store(
             prefix=self.key(),
             query=query,
         )

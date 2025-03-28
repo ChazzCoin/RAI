@@ -233,7 +233,10 @@ class ToolEngine(ToolModule, ToolManager, mMap, ABC):
         action_result = await self.parse_and_call_function_async(decision)
         if action_result:
             self.log_voice(f"The function seems to have returned something, I am going to take a deeper look at the data given to me.")
-            self.import_new_data(action_result)
+            self.import_result_and_pass(action_result)
+            if self._holding_data and self._is_store_documents:
+                self.quit()
+                return await self.finish_and_then_respond()
         else:
             self.log_voice(f"The function was called but either no data came back or something went wrong. I am looking into it.")
         return await self.add_action_to_timeline()
@@ -393,13 +396,14 @@ class ToolEngine(ToolModule, ToolManager, mMap, ABC):
             return response
         except Exception as e:
             return self.add_problem(f"<FINAL RESPONSE>\n Failed to generate final response with error: [ {e} ]\n</FINAL RESPONSE>")
-    async def finish_and_then_respond(self) -> 'AssistResponse':
+    async def finish_and_then_respond(self) -> 'ToolResponse':
         final_response = await self.think_about_response()
+        data = self.get_data()
         return self.ToolResponse(
             prefix="",
             session_id="",
             answer=final_response,
-            data=self.get_data()
+            data=data
         )
     def quit(self):
         self.state = AgentState.FINISHED

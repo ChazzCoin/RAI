@@ -380,7 +380,7 @@ class BrowserTool(rAssistantReasoningPlugin):
                 self.current_step_count += 1
                 self.assistant_log(f"Executing step {self.current_step_count}/{self.max_steps}")
                 object_r: ToolResult = await self._decide_and_act(step.next_step_or_action)
-                self.import_new_data(object_r)
+                self.import_result_and_pass(object_r)
                 self.steps_taken.append(step)
                 results.append(f"Step {self.current_step_count}")
 

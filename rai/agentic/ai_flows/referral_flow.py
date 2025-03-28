@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from rai.agentic.ai_flows import rRagFlow
 from rai.ingest.miners.Pdf import FPDF
-from rai.agentic.ai_tasks.query_task import RaiQueryAgentResults, rQueryTask
+from rai.agentic.ai_tasks.query_task import RaiQueryAgentResults, QueryTool
 from rai.assistant.connectors import rAI
 from rai.ingest.utilities.TextUtils import TextProcessor
 
@@ -161,7 +161,7 @@ class ReferralAgentFormatRunner(rReferralFlow):
 class ReferralAgentChatRunner(rReferralFlow):
     def run(self, user_prompt: str) -> Optional[RaiQueryAgentResults]:
         try:
-            results = rQueryTask.get_pages(self.prefix)
+            results = QueryTool.get_pages(self.prefix)
             str_results = []
             for result in results:
                 str_results.append(result.document)

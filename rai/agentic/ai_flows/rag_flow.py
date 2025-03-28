@@ -4,7 +4,7 @@ from datetime import datetime
 from F import DICT, LIST
 
 from rai.agentic.ai_flows.r_flows import register_flow
-from rai.agentic.ai_tasks.query_task import RaiQueryAgentResults, rQueryTask
+from rai.agentic.ai_tasks.query_task import RaiQueryAgentResults, QueryTool
 from rai.agentic.ai_tools.text_tools.r_tools import rTextTools
 from rai.assistant.connectors import rAI
 from rai.ingest.utilities.TextUtils import TextProcessor
@@ -231,7 +231,7 @@ class RagAgentBaseRunner(rRagFlow):
                 "objective",
                 user_prompt=user_prompt
             )
-            agent_results: RaiQueryAgentResults = rQueryTask.execute(self.name, prefix, user_prompt)
+            agent_results: RaiQueryAgentResults = QueryTool.execute(self.name, prefix, user_prompt)
 
             objectives = DICT.get("objective", results, [])
             objective = LIST.get(0, objectives, "general")
@@ -251,7 +251,7 @@ class RagAgentBaseRunner(rRagFlow):
                 user_prompt=user_prompt
             )
 
-            agent_results: RaiQueryAgentResults = rQueryTask.execute(self.name, prefix, user_prompt)
+            agent_results: RaiQueryAgentResults = QueryTool.execute(self.name, prefix, user_prompt)
 
             objectives = DICT.get("objective", results, [])
             objective = LIST.get(0, objectives, "general")
@@ -303,8 +303,8 @@ class RagAgentBreakdownRunner(rRagFlow):
 
                 prompt_expanded = DICT.get("context_expander", results, user_prompt)
 
-                wrapped_results = VECTOR_DB_CLIENT.queries(*collection_list,
-                                                           user_prompt=f"{prompt}\n{prompt_expanded}", k=10)
+                wrapped_results = VECTOR_DB_CLIENT.queries_store(*collection_list,
+                                                                 user_prompt=f"{prompt}\n{prompt_expanded}", k=10)
                 unwrapped_results = self.unwrap_results(wrapped_results)
                 query_results = self.unwrap_formatted(unwrapped_results, k=15)
 

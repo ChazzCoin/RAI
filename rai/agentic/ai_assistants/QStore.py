@@ -2,14 +2,12 @@ import threading
 import uuid
 from typing import List, Dict
 
-from FNLP.Regex import Re
-from F import DICT, LIST
 from tqdm import tqdm
 from typing_extensions import Any  # noqa: F401
 
 from rai.RAG.QHelp import DocumentQueryUtils
 from rai.RAG.models import VectorItem, StoreDocument
-from rai.assistant.connectors import rAI
+from rai.assistant.connectors import LLM
 from rai.ingest.utilities.IngestModels import IngestLoaderDocument
 from rai.ingest.utilities.DataUtilities import ensure_metadata_format_for_chroma
 from rai.internal.chromadb import ChromaClient
@@ -19,7 +17,7 @@ from rai.RAG.connectors import VECTOR_DB_CLIENT
 
 Log = Log("Rai Data Loader")
 
-R = rAI('openai')
+R = LLM
 ###############################################################################
 #                Chroma (Vector-Based) Query Handler                          #
 ###############################################################################
@@ -27,47 +25,25 @@ class VectorStore(ChromaClient, DocumentQueryUtils):
     """
     Contains all functions that perform vector-based (Chroma) queries.
     """
-    def __init__(self):
-        super().__init__()
-
-    @staticmethod
-    def parse_chroma_results(results):
-        if results:
-            docs = DICT.get("documents", results, [])
-            documents = '\n'.join(LIST.flatten(docs))
-            return documents
-        return None
-
-    @staticmethod
-    def get_documents(collection, results) -> List:
-        if results:
-            docs = DICT.get(collection, results, [])
-            return docs
-        return None
-
-    @staticmethod
-    def find_documents(name, results: dict) -> List:
-        if results:
-            for item in results.keys():
-                if Re.contains(name, item):
-                    return VectorStore.get_documents(item, results)
-        return None
-
     def get_all(self, collection, limit:int=100, offset:int=0, where:dict={}, combined=False):
         results = self.get(collection, limit=limit, offset=offset, where=where, combined=combined)
         # Uses the document merging function from DocumentQueryUtils
         return DocumentQueryUtils.merge_sort_all_results(query_results=[results.model_dump()])
 
-    def get_all_from_store(self, collection, limit:int=100, offset:int=0, where:dict={}, combined=False) -> List[StoreDocument]:
-        results = self.get(collection, limit=limit, offset=offset, where=where, combined=combined)
+    @staticmethod
+    def get_available_sub_collections(prefix:str) -> [str]:
+        return VECTOR_DB_CLIENT.get_all_sub_collections(prefix=prefix)
+    @staticmethod
+    def get_all_from_store(collection:str, limit:int=100, offset:int=0, where:dict={}, combined=False) -> List[StoreDocument]:
+        results = VECTOR_DB_CLIENT.get(collection, limit=limit, offset=offset, where=where, combined=combined)
         merged_results = DocumentQueryUtils.merge_sort_all_results(query_results=[results.model_dump()])
         return [StoreDocument.model_validate(record) for record in merged_results]
-
-    def queries(self, *collections, user_prompt: str, k: int = 5, where: dict = None):
+    @classmethod
+    def queries_store(cls, *collections:str, user_prompt: str, k: int = 5, where: dict = None) -> Dict[str, List[StoreDocument]]:
         query_results = {}
 
         def query_db(collection, user_prompt, where):
-            query_results[collection] = self.query(
+             query_results[collection] = cls.query_store(
                 collection,
                 user_message=user_prompt,
                 k=k,
@@ -83,7 +59,8 @@ class VectorStore(ChromaClient, DocumentQueryUtils):
             thread.join()
 
         return query_results
-    def query(self, collection, user_message: str, k: int = 5, where: dict = None):
+    @staticmethod
+    def query_store(collection, user_message: str, k: int = 100, where: dict = None) -> List[StoreDocument]:
         try:
             print("User Query:", user_message)
             results = VECTOR_DB_CLIENT.search_vector(
@@ -92,14 +69,13 @@ class VectorStore(ChromaClient, DocumentQueryUtils):
                 limit=k,
                 where=where,
             )
-            # Delegate merging and sorting to the document utility class.
-            return DocumentQueryUtils.merge_sort_query_results(query_results=[results.model_dump()], k=k)
+            temp = DocumentQueryUtils.merge_sort_query_results(query_results=[results.model_dump()], k=k)
+            return [StoreDocument.model_validate(record) for record in temp]
         except Exception as e:
             Log.e("Failed to query", e)
-            return None
-
+            return []
     @staticmethod
-    def prepares(prefix, docs: List['IngestLoaderDocument']):
+    def prepare_for_store(prefix:str, docs: List['IngestLoaderDocument']):
         items = {}
         for idx, doc in enumerate(tqdm(docs, desc="Preparing Documents.", colour="yellow")):
             temp = {
@@ -115,12 +91,13 @@ class VectorStore(ChromaClient, DocumentQueryUtils):
             temp_items.append(temp)
             items[c] = temp_items
         return items
-    def stores(self, prefix, docs: List['IngestLoaderDocument']):
-        sorted_documents: Dict[str:VectorItem] = self.prepares(prefix, docs)
+    @staticmethod
+    def stores(prefix:str, docs: List['IngestLoaderDocument']):
+        sorted_documents: Dict[str:VectorItem] = VectorStore.prepare_for_store(prefix, docs)
         for collection, items in sorted_documents.items():
             Log.i(f"importing [ {len(items)} ] docs in [ {collection} ]")
             try:
-                return self.store(collection, items)
+                return VectorStore.store(collection, items)
             except Exception as e:
                 Log.e(e)
     @staticmethod
@@ -150,7 +127,7 @@ if __name__ == "__main__":
     chroma_handler = VectorStore()
 
     # Example: threaded query across several collections.
-    results = chroma_handler.queries(
+    results = chroma_handler.queries_store(
         "pcsc2025.2.web.pages",
         "pcsc2025.2.web.contacts",
         "pcsc2025.2.web.events",
@@ -159,7 +136,3 @@ if __name__ == "__main__":
         user_prompt="Who is joel person?",
         k=1
     )
-
-    # Find documents related to "events" within the threaded results.
-    events = chroma_handler.find_documents("events", results)
-    print("Found events:", events)

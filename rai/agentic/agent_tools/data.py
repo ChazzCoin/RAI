@@ -1,6 +1,9 @@
 import json
+from abc import abstractmethod
 from typing import Dict, Any, Optional, List, Type, TypeVar
 from pydantic import BaseModel, create_model
+
+from rai.RAG.models import StoreDocument
 from rai.agentic.agent_tools.result import ToolResult
 from rai.agentic.ai_modules.log import mLog
 from rai.assistant.connectors import LLM
@@ -15,9 +18,22 @@ def inject_generic(model: T) -> str:
     if not model: return "No Data"
     return "\n".join(f"{key}: {safe(value)}" for key, value in model.model_dump().items())
 
+"""
+
+1. ToolResult is its own data, 1 object at a time.
+2. Look at ToolResult.holding_data, this what what we do a normal import on.
+3. once imported, peak into what the object is, report it..
+"""
+
 class ToolData(mLog):
 
     session_id: str = "system"
+
+    _holding_data: bool = False
+    _is_store_documents: bool = False
+
+    _tool_result: ToolResult = ToolResult(output="We have nothing.")
+    _archived_tool_results: [ToolResult] = []
 
     _data_refresh_count: int = 0
     _temp_data: [BaseModel] = []
@@ -32,10 +48,10 @@ class ToolData(mLog):
     def create_new_model_type(name: str, **fields) -> Type[BaseModel]:
         return create_model(name, **fields)
 
-    @staticmethod
-    def _required_data_model_type() -> Type[ToolResult]:
+    @abstractmethod
+    def _required_data_model_type(self) -> Type[BaseModel]:
         """Return the required data model for the assistant."""
-        return ToolResult
+        pass
 
     def _required_data_model_type_name(self) -> str:
         """Return the required data model for the assistant."""
@@ -187,6 +203,14 @@ class ToolData(mLog):
         )
 
     """ IMPORTING """
+    def import_result_and_pass(self, result:ToolResult):
+        if self._tool_result: self._archived_tool_results.append(self._tool_result)
+        self._tool_result = result
+        if result.holder:
+            self.log_data(f"We see ToolResult is holding data. I am going to attempt to import it now.")
+            self.import_new_data(result.holder)
+        return self._tool_result
+
     def import_new_data(self, request_or_datas: Any, **additional_data) -> List[Any]:
         if not request_or_datas or request_or_datas is None: return []
         self._temp_data = []
@@ -204,9 +228,13 @@ class ToolData(mLog):
             self._move_data_to_archive()
         self._data = self._temp_data
         if self.has_data():
+            self._holding_data = True
+            if type(self._data[0]) in [StoreDocument]:
+                self._is_store_documents = True
             self.log_data("Data Import Successful.")
             self.log_data(f"Data Assistant is holding [ {len(self.get_data())} ] items.")
         else:
+            self._holding_data = False
             self.log_data("Data Import Failed.")
             self.log_data(f"Data Assistant is holding [ {len(self.get_data())} ] items.")
             self.log_data(f"Data Model Scheme and Breakdown\n{self.document_model()}")
@@ -256,11 +284,6 @@ class ToolData(mLog):
                         return nested_result
             return None
 
-        def parse_text(text: str) -> Optional[BaseModel]:
-            if not text: return None
-            result = self.ask_ai_to_create_data_model(text=text)
-            return try_simple_update(result)
-
         # --- Process the primary input (request_or_data) ---
         # First, try to directly update using request_or_data.
         result = try_simple_update(request_or_data)
@@ -297,7 +320,7 @@ class ToolData(mLog):
             req_text = f"{req_text}\n{additional_text}"
 
         # --- Fall back on text parsing ---
-        return parse_text(req_text)
+        return try_simple_update(req_text)
     def update_data(self, obj: BaseModel, updates: Dict[str, Any]) -> BaseModel:
         """
         - Update an existing Pydantic model instance with new data.
@@ -314,7 +337,7 @@ class ToolData(mLog):
         - Validates arbitrary data against a given Pydantic model.
         Returns a valid model instance if the data passes validation, otherwise raises a ValidationError.
         """
-        self.log_verbose("Creating New Data Model Object")
+        self.log_verbose(f"Creating New Data Model Object: [ {self._new_data_instance().__class__.__name__} ]")
         return self._new_data_instance().model_validate(data)
     def deep_update_model(self, obj: BaseModel, updates: Dict[str, Any]) -> BaseModel:
         """

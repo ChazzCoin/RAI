@@ -1,79 +1,52 @@
-
-from abc import ABC, abstractmethod
+import asyncio
 from collections import defaultdict
-from datetime import datetime
-from typing import List, Dict, Any, Union
-
-from F import DICT, LIST
-from pydantic import BaseModel
-
+from datetime import datetime, timedelta
+from typing import List, Dict, Any, Union, Type
 from rai.RAG.models import StoreDocument
-from rai.agentic.agent_tools.module import ToolModule
-from rai.ingest.utilities.TextUtils import TextProcessor
+from rai.agentic.agent_tools.engine import ToolEngine
+from rai.agentic.agent_tools.result import ToolResult
 
-
-QUERY_AGENT_REGISTRY = {}
-def register_query_agent(name: str):
-    def decorator(cls):
-        QUERY_AGENT_REGISTRY.setdefault(name, []).append(cls)
-        return cls
-
-    return decorator
-
-
-class rQueryTask(ABC, ToolModule, TextProcessor):
-    name = None
-
-    first = []
-    second = []
-    third = []
-    collections = {
-        "pages": 1,
-        "summaries": 1,
-        "context_groups": 2,
-        "events": 2,
-        "images": 3,
-        "pdfs": 3,
-        "contacts": 2,
-        "locations": 2,
-        "agent": 1,
-        "nlp": 3
-    }
-
-    @classmethod
-    def get(cls, collection:str, limit:int=100, offset:int=0, where:dict=None) -> List[StoreDocument]:
-        try:
-            return cls().rStore().get_all_from_store(
-                collection=collection,
-                limit=limit,
-                offset=offset,
-                where=where
-            )
-        except Exception as e:
-            print(e)
-            return []
-    @classmethod
-    def get_pages(cls, prefix: str) -> List[StoreDocument]:
-        return cls.get(collection=f"{prefix}.pages")
-    @classmethod
-    def get_pages_where(cls, prefix: str, where:dict) -> List[StoreDocument]:
-        return cls.get(collection=f"{prefix}.pages", where=where)
-
+class QueryModule:
     @staticmethod
-    def where_id_equals(idx:str): return rQueryTask.where_key_equals(key='id', value=idx)
+    def parse_date_query(date_query: str) -> datetime:
+        qd = datetime.strptime(date_query, "%Y-%m-%d")
+        return datetime(qd.year, qd.month, qd.day)
     @staticmethod
-    def where_key_equals(key, value): return {key: {"$eq": value}}
+    def where_id_equals(idx: str):
+        return QueryModule.where_key_equals(key='id', value=idx)
     @staticmethod
-    def where_key_is_gte(key, value): return {key: {"$gte": value}}
+    def where_key_equals(key, value):
+        return {key: {"$eq": value}}
     @staticmethod
-    def where_key_is_lte(key, value): return {key: {"$lte": value}}
+    def where_key_is_gte(key, value):
+        return {key: {"$gte": value}}
+    @staticmethod
+    def where_key_is_lte(key, value):
+        return {key: {"$lte": value}}
     @staticmethod
     def _get_date(query_date: Union[str, datetime]):
         if isinstance(query_date, str):
             query_date = datetime.strptime(query_date, "%Y-%m-%d")
         return datetime(query_date.year, query_date.month, query_date.day)
     @staticmethod
-    def _get_date_now(): return int(datetime.now().timestamp())
+    def _get_date_now():
+        return int(datetime.now().timestamp())
+    @staticmethod
+    def _get_date_tomorrow():
+        return int((datetime.now() + timedelta(days=1)).timestamp())
+    @staticmethod
+    def _get_date_yesterday():
+        return int((datetime.now() - timedelta(days=1)).timestamp())
+    @staticmethod
+    def _get_date_x_days_in_future(x: int):
+        return int((datetime.now() + timedelta(days=x)).timestamp())
+    @staticmethod
+    def _get_date_x_days_ago(x: int):
+        return int((datetime.now() - timedelta(days=x)).timestamp())
+    @staticmethod
+    def where_is_today():
+        return {"$and": [{"timestamp": {"$gte": QueryModule._get_date_now()}},
+                         {"timestamp": {"$lt": QueryModule._get_date_tomorrow()}}]}
     @staticmethod
     def where_between_dates(start: datetime, end: datetime):
         return {"$and": [{"timestamp": {"$gte": start}}, {"timestamp": {"$lt": end}}]}
@@ -86,250 +59,178 @@ class rQueryTask(ABC, ToolModule, TextProcessor):
     @staticmethod
     def where_page_number(page_number):
         return {"page_number": {"$eq": page_number}}
-
     @staticmethod
     def remove_text_before_last_period(text: str) -> str:
         if '.' not in text: return text
         return text.rsplit('.', 1)[-1]
-    def get_first(self, key, obj, default):
-        return LIST.get(0, DICT.get(key, obj, []), default)
-    def unwrap_collection(self, name:str, results: {}) -> []:
-        for k,v in results.items():
-            if not v: continue
-            tempK = self.remove_text_before_last_period(k)
-            if tempK == name:
-                return results[k]
-
-
-    def unwrap_results(self, results: {}) -> []:
-        unwrapped_results = []
-        for k,v in results.items():
-            if not v: continue
-            tempK = self.remove_text_before_last_period(k)
-            if self.collections[tempK] == 1:
-                self.first.append(v)
-            elif self.collections[tempK] == 2:
-                self.second.append(v)
-            elif self.collections[tempK] == 3:
-                self.third.append(v)
-            unwrapped_results.append(v)
-
-        flat = LIST.flatten(unwrapped_results)
-        sort_flat = sorted(flat, key=lambda x: x["distance"])
-        return sort_flat
-    def unwrap_first(self, k=5):
-        unwrapped_results = []
-        count = 1
-        for i in self.first:
-            formatted = DICT.get("formatted", i, "")
-            metadata = DICT.get("metadata", i, "")
-            unwrapped_results.append(f"\nDOCUMENT: {count}\n{formatted}\nMETADATA: {count}\n{metadata}")
-        if len(unwrapped_results) <= k:
-            return "\n".join(unwrapped_results)
-        else:
-            return "\n".join(unwrapped_results[:k])
-    def unwrap_second(self, k=5):
-        unwrapped_results = []
-        count = 1
-        for i in self.second:
-            formatted = DICT.get("formatted", i, "")
-            metadata = DICT.get("metadata", i, "")
-            unwrapped_results.append(f"\nDOCUMENT: {count}\n{formatted}\nMETADATA: {count}\n{metadata}")
-        if len(unwrapped_results) <= k:
-            return "\n".join(unwrapped_results)
-        else:
-            return "\n".join(unwrapped_results[:k])
-    def unwrap_third(self, k=5):
-        unwrapped_results = []
-        count = 1
-        for i in self.third:
-            formatted = DICT.get("formatted", i, "")
-            metadata = DICT.get("metadata", i, "")
-            unwrapped_results.append(f"\nDOCUMENT: {count}\n{formatted}\nMETADATA: {count}\n{metadata}")
-        if len(unwrapped_results) <= k:
-            return "\n".join(unwrapped_results)
-        else:
-            return "\n".join(unwrapped_results[:k])
     @staticmethod
-    def unwrap_formatted(results, k=5):
-        unwrapped_results = []
-        count = 1
-        for i in results:
-            formatted = DICT.get("formatted", i, "")
-            metadata = DICT.get("metadata", i, "")
-            unwrapped_results.append(f"\nDOCUMENT: {count}\n{formatted}\nMETADATA: {count}\n{metadata}")
-        if len(unwrapped_results) <= k:
-            return "\n".join(unwrapped_results)
-        else:
-            return "\n".join(unwrapped_results[:k])
-
-    def filter_by_distance(self, objects: list[dict]) -> list[dict]:
-        if not objects:
-            return []
-
+    def filter_by_distance(objects: list[dict]) -> list[dict]:
+        if not objects: return []
         # Sort the list by 'distance' in ascending order
         objects.sort(key=lambda x: x['distance'])
-
         # Get the top object's distance
         top_distance = objects[0]['distance']
-
         # Define the valid range
         min_distance = top_distance - 0.25
         max_distance = top_distance + 0.25
-
         # Filter objects within the valid range
         filtered_objects = [obj for obj in objects if min_distance <= obj['distance'] <= max_distance]
-
         return filtered_objects
-
-    def real_time_data(self):
+    @staticmethod
+    def real_time_data():
         now = datetime.now()
-        return f"""
-        Current Date & Time: {now.strftime("%Y-%m-%d %H:%M:%S %Z%z")}
-        """
-
-    def get_collections(self, prefix):
-        return [f"{prefix}.{c}" for c in self.collections]
-
+        return f""" Current Date & Time: {now.strftime("%Y-%m-%d %H:%M:%S %Z%z")} """
     @staticmethod
     def sort_documents(documents: List[Dict[str, Any]]) -> Dict[str, Dict[int, Dict[str, Any]]]:
         sorted_by_brief = defaultdict(list)
-
         # Group documents by brief_id
         for doc in documents:
             brief_id = doc['metadata']['brief_id']
             sorted_by_brief[brief_id].append(doc)
-
         # Sort each brief_id group by page_index
         result = {}
         for brief_id, docs in sorted_by_brief.items():
             sorted_docs = sorted(docs, key=lambda d: d['metadata']['page_index'])
             # Map sorted docs by page_index
             result[brief_id] = {doc['metadata']['page_index']: doc for doc in sorted_docs}
-
         return result
 
-"""
-pages = self.unwrap_collection('pages', wrapped_results)
-events = self.unwrap_collection('events', wrapped_results)
-top_only = self.filter_by_distance(unwrapped_results)
-top_doc: RaiLoaderDocument = LIST.get(0, top_only, None)
 
-top_doc_meta = DICT.get("metadata", top_doc, None)
+class QueryTool(ToolEngine, QueryModule):
 
-top_parent_id = DICT.get("parent_id", top_doc_meta, None)
-top_page_id = DICT.get("page_id", top_doc_meta, None)
-top_page_number = DICT.get("page_number", top_doc_meta, None)
-parent_where_query = { "parent_id": {"$eq": top_parent_id} }
-page_where_query = { "page_id": {"$eq": top_page_id} }
-number_where_query = { "page_number": {"$eq": top_page_number} }
-where_results = VECTOR_DB_CLIENT.queryThreaded(*collection_list, user_prompt=user_prompt, k=10, where=page_where_query)
-
-"""
-
-class RaiQueryAgentResults(BaseModel):
-    query: str
-    query_expanded: str
-    documents: List[dict]
-    sub_documents: List[dict]
-    formatted: str
-    response: str
-
-@register_query_agent("pages")
-class QueryAgentBaseRunner(rQueryTask):
-
+    def __init__(self, prefix: str):
+        super().__init__()
+        self.prefix = prefix
+    @staticmethod
+    def tool_assistant_name() -> str:
+        return "QueryTool"
+    @staticmethod
+    def assistant_rules() -> str:
+        return f"""
+            You understand users natural language and convert it into a function or where query for specific page documents.
+        """
     @staticmethod
     def module_name() -> str:
-        return "query_base"
+        return "QueryTool"
+    def _required_data_model_type(self) -> Type[StoreDocument]:
+        """Return the required data model for the assistant."""
+        return StoreDocument
 
-    def where_parent_id(self, parent_id):
-        return {"parent_id": {"$eq": parent_id}}
-    def where_page_id(self, page_id):
-        return {"page_id": {"$eq": page_id}}
-    def where_page_number(self, page_number):
-        return {"page_number": {"$eq": page_number}}
+    def get_tools(self) -> List[dict[str, Any]]:
+        return [
+            self.get_tool('get_pages'),
+            self.get_tool('get_latest_page'),
+            self.get_tool('get_pages_on_date'),
+            self.get_tool('get_pages_between_dates'),
+            self.get_tool('search'),
+            self.get_tool('update_page'),
+            self.get_tool('delete_page')
+        ]
 
-
-
-
-
-@register_query_agent("base")
-class QueryAgentBaseRunner(rQueryTask):
-
+    async def get_current_state(self) -> ToolResult:
+        return self._tool_result
     @staticmethod
-    def module_name() -> str:
-        return "query_base"
+    def attach_data_and_send_result(results) -> ToolResult:
+        return ToolResult(
+            output="We have attached the query document results to the holder.",
+            success=True,
+            holding="StoreDocument",
+            holder=results
+        )
 
-    def where_parent_id(self, parent_id):
-        return {"parent_id": {"$eq": parent_id}}
-    def where_page_id(self, page_id):
-        return {"page_id": {"$eq": page_id}}
-    def where_page_number(self, page_number):
-        return {"page_number": {"$eq": page_number}}
-    def run(self, prefix: str, query: str):
+    def query_all(self, query: str, k: int = 5) -> Dict[str, List[StoreDocument]]:
         try:
-            wrapped_results = self.rStore().queries(
-                *self.get_collections(prefix),
+            wrapped_results: Dict[str, List[StoreDocument]] = self.rStore().queries_store(
+                *self.rStore().get_available_sub_collections(self.prefix),
                 user_prompt=query,
-                k=5
+                k=k
             )
-
-            # rank_1_result = self.unwrap_first(wrapped_results, k=1)
-            # rank_1_top_doc: RaiLoaderDocument = LIST.get(0, rank_1_result, None)
-            # rank_1_top_doc_meta = DICT.get("metadata", rank_1_top_doc, None)
-            # top_parent_id = DICT.get("parent_id", top_doc_meta, None)
-            # top_page_id = DICT.get("page_id", top_doc_meta, None)
-            # top_page_number = DICT.get("page_number", top_doc_meta, None)
-            # parent_where_query = {"parent_id": {"$eq": top_parent_id}}
-            # page_where_query = {"page_id": {"$eq": top_page_id}}
-            # number_where_query = {"page_number": {"$eq": top_page_number}}
-            # where_results = self.store.queries(
-            #     *self.get_collections(prefix),
-            #     user_prompt=query,
-            #     k=5,
-            #     where=page_where_query
-            # )
-            # rank_2_result = self.unwrap_second(wrapped_results, k=1)
-            # rank_3_result = self.unwrap_third(wrapped_results, k=1)
-            #
-            # where = {
-            #     "category": "sports",
-            #     "priority": {"$gte": 5}
-            # }
-
-            unwrapped_results = self.rStore().unwrap_results(wrapped_results)
-            formatted_results = self.rStore().unwrap_formatted(unwrapped_results, k=1)
-            return RaiQueryAgentResults(
-                query=query,
-                query_expanded=query,
-                documents=unwrapped_results,
-                sub_documents=[],
-                formatted=TextProcessor.clean_text_for_openai_embedding(formatted_results),
-                response="",
-            )
+            return wrapped_results
         except Exception as e:
             print(f"Error: {e}")
-            return None
+            return {}
+    def get(self, collection: str, limit: int = 100, offset: int = 0, where: dict = None) -> List[StoreDocument]:
+        try:
+            return self.rStore().get_all_from_store(
+                collection=collection,
+                limit=limit,
+                offset=offset,
+                where=where
+            )
+        except Exception as e:
+            print(e)
+            return []
 
+    def delete_page(self, doc_id: str) -> ToolResult:
+        """Delete a document from the collection based on its ID."""
+        try:
+            self.log_voice(f"Attempting to delete document with ID: {doc_id}")
+            self.rStore().delete(f"{self.prefix}.pages", [doc_id])
+            self.log_voice(f"Document with ID '{doc_id}' deleted.")
+            return ToolResult(
+                output=f"Document with ID '{doc_id}' deleted.",
+                success=True
+            )
+        except Exception as e:
+            return ToolResult(
+                output=f"Something went wrong. {e}",
+                success=False
+            )
+    def update_page(self, doc_id: str, new_text: str) -> ToolResult:
+        """
+        Update an existing document with new text, vector, and optionally new metadata.
+        Utilizes the upsert operation, so if the document doesn't exist, it will be inserted.
+        """
+        self.log_voice(f"Updating document with ID: {doc_id}")
+        try:
+            item = {
+                "id": doc_id,
+                "text": new_text,
+                "vector": self.llm().embed(new_text),
+                "metadata": {'type': 'ai modifications', 'timestamp': self._get_date_now() },
+            }
+            self.rStore().upsert(f"{self.prefix}.pages", [item])
+            self.log_voice(f"Document with ID '{doc_id}' updated.")
+            return ToolResult(
+                output=f"Document with ID '{doc_id}' updated.",
+                success=True
+            )
+        except Exception as e:
+            return ToolResult(
+                output=f"Something went wrong. {e}",
+                success=False
+            )
+    def search(self, text_query: str) -> ToolResult:
+        try:
+            temp = self.rStore().query_store(
+                collection=f"{self.prefix}.pages",
+                user_message=text_query
+            )
+            return self.attach_data_and_send_result(temp)
+        except Exception as e:
+            return ToolResult(
+                output=f"Something went wrong trying to search. {e}",
+                success=False
+            )
+    def get_pages(self) -> ToolResult:
+        return self.attach_data_and_send_result(self.get(collection=f"{self.prefix}.pages"))
+    def get_latest_page(self) -> ToolResult:
+        return self.attach_data_and_send_result(self.get(collection=f"{self.prefix}.pages", where=self.where_is_today()))
+    def get_pages_on_date(self, date_query: str) -> ToolResult:
+        query_date = datetime.strptime(date_query, "%Y-%m-%d")
+        date_time = datetime(query_date.year, query_date.month, query_date.day)
+        date_time_plus_one = date_time + timedelta(days=1)
+        return self.attach_data_and_send_result(self.get(collection=f"{self.prefix}.pages", where=self.where_between_dates(date_time, date_time_plus_one)))
+    def get_pages_between_dates(self, start_date: str, end_date: str) -> ToolResult:
+        query_date_start = self.parse_date_query(start_date)
+        query_date_end = self.parse_date_query(end_date)
+        return self.attach_data_and_send_result(self.get(collection=f"{self.prefix}.pages", where=self.where_between_dates(query_date_start, query_date_end)))
 
-async def main(prefix, query):
-    # from rai.pipeline.utilities.text_data import schedule_text
-    results = rQueryTask.execute(
-            name="pages",
-            prefix=prefix,
-            query=query
-        )
-    if type(results) in [list, tuple]:
-        for item in results:
-            print(item)
-    elif type(results) in [dict]:
-        for item in results.items():
-            print(item)
-    else:
-        print(results)
+    def get_pages_where(self, where: dict) -> List[StoreDocument]:
+        return self.get(collection=f"{self.prefix}.pages", where=where)
+
 
 
 if __name__ == "__main__":
-    q = ""
-    results = rQueryTask.get_pages("referral2025.3")
-    print(results)
+    looper = asyncio.get_event_loop()
+    looper.run_until_complete(QueryTool(prefix="referral2025.1").self_navigation(request="Which documents are Electronically signed by Kasmia,Abdei H, MD?"))

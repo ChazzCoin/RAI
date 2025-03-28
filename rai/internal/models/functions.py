@@ -125,12 +125,12 @@ class FunctionsTable:
             if active_only:
                 return [
                     FunctionModel.model_validate(function)
-                    for function in db.queries(Function).filter_by(is_active=True).all()
+                    for function in db.queries_store(Function).filter_by(is_active=True).all()
                 ]
             else:
                 return [
                     FunctionModel.model_validate(function)
-                    for function in db.queries(Function).all()
+                    for function in db.queries_store(Function).all()
                 ]
 
     def get_functions_by_type(
@@ -140,21 +140,21 @@ class FunctionsTable:
             if active_only:
                 return [
                     FunctionModel.model_validate(function)
-                    for function in db.queries(Function)
+                    for function in db.queries_store(Function)
                     .filter_by(type=type, is_active=True)
                     .all()
                 ]
             else:
                 return [
                     FunctionModel.model_validate(function)
-                    for function in db.queries(Function).filter_by(type=type).all()
+                    for function in db.queries_store(Function).filter_by(type=type).all()
                 ]
 
     def get_global_filter_functions(self) -> list[FunctionModel]:
         with POSTGRES_DB_CLIENT as db:
             return [
                 FunctionModel.model_validate(function)
-                for function in db.queries(Function)
+                for function in db.queries_store(Function)
                 .filter_by(type="filter", is_active=True, is_global=True)
                 .all()
             ]
@@ -163,7 +163,7 @@ class FunctionsTable:
         with POSTGRES_DB_CLIENT as db:
             return [
                 FunctionModel.model_validate(function)
-                for function in db.queries(Function)
+                for function in db.queries_store(Function)
                 .filter_by(type="action", is_active=True, is_global=True)
                 .all()
             ]
@@ -235,7 +235,7 @@ class FunctionsTable:
     def update_function_by_id(self, id: str, updated: dict) -> Optional[FunctionModel]:
         with POSTGRES_DB_CLIENT as db:
             try:
-                db.queries(Function).filter_by(id=id).update(
+                db.queries_store(Function).filter_by(id=id).update(
                     {
                         **updated,
                         "updated_at": int(time.time()),
@@ -249,7 +249,7 @@ class FunctionsTable:
     def deactivate_all_functions(self) -> Optional[bool]:
         with POSTGRES_DB_CLIENT as db:
             try:
-                db.queries(Function).update(
+                db.queries_store(Function).update(
                     {
                         "is_active": False,
                         "updated_at": int(time.time()),
@@ -263,7 +263,7 @@ class FunctionsTable:
     def delete_function_by_id(self, id: str) -> bool:
         with POSTGRES_DB_CLIENT as db:
             try:
-                db.queries(Function).filter_by(id=id).delete()
+                db.queries_store(Function).filter_by(id=id).delete()
                 db.commit()
 
                 return True
