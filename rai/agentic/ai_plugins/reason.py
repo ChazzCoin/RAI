@@ -10,7 +10,7 @@ from rai.agentic.aether.schema import AgentState
 from rai.agentic.agent_tools.module import ToolModule
 from rai.agentic.ai_modules import mAssistLog
 from rai.agentic.agent_tools.data import ToolData
-from rai.agentic.ai_modules.map import mMap
+from rai.agentic.ai_modules.map import ToolMap
 from rai.agentic.ai_tools.text_tools.r_tools import rTextTools
 from rai.agentic.ai_tools.text_tools.text_formats import NextStepModel
 from rai.ingest.utilities.TextUtils import TextProcessor
@@ -68,7 +68,7 @@ class SearchTerms(BaseModel):
 class DOMIndex(BaseModel):
     index: int
 
-class rAssistantReasoningPlugin(ToolModule, mMap, ToolData, mAssistLog, ABC):
+class rAssistantReasoningPlugin(ToolModule, ToolMap, ToolData, mAssistLog, ABC):
     """
     A reasoning assistant plugin that coordinates the process of generating plans,
     selecting functions to call, and ultimately driving the agent's behavior.

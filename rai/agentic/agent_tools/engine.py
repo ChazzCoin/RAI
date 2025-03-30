@@ -1,19 +1,32 @@
 from abc import ABC, abstractmethod
 from collections import deque
-from typing import Optional
+from typing import Optional, Type
 from F import LIST
-from watchfiles import awatch
 
 from rai.agentic.aether.schema import AgentState
 from rai.agentic.agent_tools.manager import ToolManager
 from rai.agentic.agent_tools.module import ToolModule
 from rai.agentic.agent_tools.result import ToolResult
-from rai.agentic.ai_modules.map import mMap
+from rai.agentic.ai_modules.map import ToolMap
 from rai.agentic.ai_plugins.reason import Objective, StepCheckpoints
 from rai.agentic.ai_tools.text_tools.text_formats import NextStepModel, RequiredActions
 
+TOOL_ENGINE_REGISTRY = {}
 
-class ToolEngine(ToolModule, ToolManager, mMap, ABC):
+def register_tool_engine(name: str):
+    def decorator(cls):
+        TOOL_ENGINE_REGISTRY.setdefault(name, []).append(cls)
+        return cls
+    return decorator
+
+class ToolEngine(ToolModule, ToolManager, ToolMap, ABC):
+
+    @classmethod
+    def registry(cls): return TOOL_ENGINE_REGISTRY
+
+    @classmethod
+    def get_tool_engine(cls, name: str) -> Type['ToolEngine']:
+        return TOOL_ENGINE_REGISTRY.get(name)[0]
 
     @staticmethod
     @abstractmethod
@@ -26,7 +39,7 @@ class ToolEngine(ToolModule, ToolManager, mMap, ABC):
         """Return the assistant rules as a string."""
         pass
 
-    """ ASSISTANT """
+    """ BETA-ASSISTANT """
     def generate_mini_plan(self, request: str):
         """AI CALL: Generate a chain-of-steps plan based on the provided prompt."""
         try:
@@ -55,6 +68,7 @@ class ToolEngine(ToolModule, ToolManager, mMap, ABC):
             self.log_voice("I am having trouble making a decision.")
             return None
     async def ask(self, request: str) -> 'ToolResponse':
+        await self.setup_assistant(request)
         try:
             max_steps = 10
             step_queue = deque(self.generate_mini_plan(request=request) or [])
@@ -89,9 +103,11 @@ class ToolEngine(ToolModule, ToolManager, mMap, ABC):
                 answer=f"I have failed to complete your request. [ {str(e)} ]",
                 data=None
             )
-    ##############################
+
+    """ AGENT """
     async def self_navigation(self, request: Optional[str] = None) -> str:
         await self.setup_assistant(user_request=request)
+        await self.setup_navigation()
         async with self.state_context(AgentState.RUNNING):
             while self.checkpointQueueIsLive():
                 await self.decide_the_next_action()
@@ -103,7 +119,6 @@ class ToolEngine(ToolModule, ToolManager, mMap, ABC):
                 self.log_voice("I am going to try and refine my checkpoint plan now.")
                 await self.decide_a_refined_action()
         return await self.finish_and_then_respond()
-
     async def setup_assistant(self, user_request: str):
         # The Assistant Process Log
         self.state = AgentState.RUNNING
@@ -114,12 +129,13 @@ class ToolEngine(ToolModule, ToolManager, mMap, ABC):
         await self.think_then_set_core_end_goal()
         await self.think_then_set_core_required_data()
         await self.think_then_set_core_required_actions()
+        self.log_voice("All setup. It is time to accomplish a task!")
+    async def setup_navigation(self):
         await self.think_then_set_plan_type()
         await self.think_then_set_plan()
         await self.think_then_set_role_master()
         await self.decide_the_next_action()
-        self.log_voice("All setup. It is time to accomplish a task!")
-
+        self.log_voice("I have thought about ")
     """ Thinking """
     # CORE
     async def think_then_set_core_objective(self, depth=0):
@@ -224,7 +240,6 @@ class ToolEngine(ToolModule, ToolManager, mMap, ABC):
             self.tool_plan.overall_plan = result
         self.log_voice("Alrighty, got the plan put together.")
         return result
-
     # DECIDE AND ACT
     async def decide_the_next_action(self, depth=0):
         self.log_voice("I need to now figure out what we need to start doing...")
@@ -305,7 +320,6 @@ class ToolEngine(ToolModule, ToolManager, mMap, ABC):
         else:
             self.log_voice(f"The function was called but either no data came back or something went wrong. I am looking into it.")
         return await self.add_action_to_timeline()
-
     # ASK ROLE MASTER
     async def think_then_set_role_master(self):
         self.log_voice("I am putting together a role master to help me along the way.")
@@ -439,7 +453,6 @@ class ToolEngine(ToolModule, ToolManager, mMap, ABC):
             self.log_voice(f"I've updated my memory summary:\n{report}")
             self.tool_plan.summary_report = report
         return report
-
     # FINISH AND RESPOND: Review What Took Place and Generate Output
     async def think_about_response(self) -> str:
         """AI CALL: Attempt to establish an objective based on the provided prompt."""
@@ -473,7 +486,13 @@ class ToolEngine(ToolModule, ToolManager, mMap, ABC):
     def quit(self):
         self.state = AgentState.FINISHED
         self.tool_plan.current_checkpoint_count = 100
-
+    def attach_data_and_send_result(self, results) -> ToolResult:
+        return ToolResult(
+            output="We have attached data to the holder.",
+            success=True,
+            holding=self._required_data_model_type().__class__.__name__,
+            holder=results
+        )
     """ PROMPTS """
     def prompt_create_role_user(self):
         return f"""

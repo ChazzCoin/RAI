@@ -4,7 +4,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Union, Type
 from rai.RAG.models import StoreDocument
-from rai.agentic.agent_tools.engine import ToolEngine
+from rai.agentic.agent_tools.engine import ToolEngine, register_tool_engine
 from rai.agentic.agent_tools.result import ToolResult
 
 class QueryModule:
@@ -97,11 +97,11 @@ class QueryModule:
         return result
 
 
-class QueryTool(ToolEngine, QueryModule):
+@register_tool_engine('knowledge-base')
+class KnowledgeTool(ToolEngine, QueryModule):
 
-    def __init__(self, prefix: str):
+    def __init__(self):
         super().__init__()
-        self.prefix = prefix
     @staticmethod
     def tool_assistant_name() -> str:
         return "QueryTool"
@@ -124,26 +124,19 @@ class QueryTool(ToolEngine, QueryModule):
             self.get_tool('get_pages_on_date'),
             self.get_tool('get_pages_between_dates'),
             self.get_tool('search'),
-            self.get_tool('add_page'),
-            self.get_tool('update_page'),
-            self.get_tool('delete_page')
+            self.get_tool('set_prefix')
+            # self.get_tool('add_page'),
+            # self.get_tool('update_page'),
+            # self.get_tool('delete_page')
         ]
 
     async def get_current_state(self) -> ToolResult:
         return self._tool_result
-    @staticmethod
-    def attach_data_and_send_result(results) -> ToolResult:
-        return ToolResult(
-            output="We have attached the query document results to the holder.",
-            success=True,
-            holding="StoreDocument",
-            holder=results
-        )
 
     def query_all(self, query: str, k: int = 5) -> Dict[str, List[StoreDocument]]:
         try:
             wrapped_results: Dict[str, List[StoreDocument]] = self.rStore().queries_store(
-                *self.rStore().get_available_sub_collections(self.prefix),
+                *self.rStore().get_available_sub_collections(self.tool_plan.prefix),
                 user_prompt=query,
                 k=k
             )
@@ -163,6 +156,12 @@ class QueryTool(ToolEngine, QueryModule):
             print(e)
             return []
 
+    def set_prefix(self, prefix: str) -> ToolResult:
+        self.tool_plan.prefix = prefix
+        return ToolResult(
+            output=f"I am changed the prefix to: [ {prefix} ]",
+            success=True
+        )
     def add_page(self, raw_text: str, metadata: dict = None) -> ToolResult:
         """
         Add a new document to the collection with provided raw text and optional metadata.
@@ -176,7 +175,7 @@ class QueryTool(ToolEngine, QueryModule):
                 "vector": self.llm().embed(raw_text),
                 "metadata": metadata if metadata else {'type': 'user entry', 'timestamp': self._get_date_now()},
             }
-            self.rStore().upsert(f"{self.prefix}.pages", [item])
+            self.rStore().upsert(f"{self.tool_plan.prefix}.pages", [item])
             self.log_voice(f"New document added with ID '{doc_id}'.")
             return ToolResult(
                 output=f"New document added with ID '{doc_id}'.",
@@ -191,7 +190,7 @@ class QueryTool(ToolEngine, QueryModule):
         """Delete a document from the collection based on its ID."""
         try:
             self.log_voice(f"Attempting to delete document with ID: {doc_id}")
-            self.rStore().delete(f"{self.prefix}.pages", [doc_id])
+            self.rStore().delete(f"{self.tool_plan.prefix}.pages", [doc_id])
             self.log_voice(f"Document with ID '{doc_id}' deleted.")
             return ToolResult(
                 output=f"Document with ID '{doc_id}' deleted.",
@@ -215,7 +214,7 @@ class QueryTool(ToolEngine, QueryModule):
                 "vector": self.llm().embed(new_text),
                 "metadata": {'type': 'ai modifications', 'timestamp': self._get_date_now() },
             }
-            self.rStore().upsert(f"{self.prefix}.pages", [item])
+            self.rStore().upsert(f"{self.tool_plan.prefix}.pages", [item])
             self.log_voice(f"Document with ID '{doc_id}' updated.")
             return ToolResult(
                 output=f"Document with ID '{doc_id}' updated.",
@@ -229,7 +228,7 @@ class QueryTool(ToolEngine, QueryModule):
     def search(self, text_query: str) -> ToolResult:
         try:
             temp = self.rStore().query_store(
-                collection=f"{self.prefix}.pages",
+                collection=f"{self.tool_plan.prefix}.pages",
                 user_message=text_query
             )
             return self.attach_data_and_send_result(temp)
@@ -239,24 +238,23 @@ class QueryTool(ToolEngine, QueryModule):
                 success=False
             )
     def get_pages(self) -> ToolResult:
-        return self.attach_data_and_send_result(self.get(collection=f"{self.prefix}.pages"))
+        return self.attach_data_and_send_result(self.get(collection=f"{self.tool_plan.prefix}.pages"))
     def get_latest_page(self) -> ToolResult:
-        return self.attach_data_and_send_result(self.get(collection=f"{self.prefix}.pages", where=self.where_is_today()))
+        return self.attach_data_and_send_result(self.get(collection=f"{self.tool_plan.prefix}.pages", where=self.where_is_today()))
     def get_pages_on_date(self, date_query: str) -> ToolResult:
         query_date = datetime.strptime(date_query, "%Y-%m-%d")
         date_time = datetime(query_date.year, query_date.month, query_date.day)
         date_time_plus_one = date_time + timedelta(days=1)
-        return self.attach_data_and_send_result(self.get(collection=f"{self.prefix}.pages", where=self.where_between_dates(date_time, date_time_plus_one)))
+        return self.attach_data_and_send_result(self.get(collection=f"{self.tool_plan.prefix}.pages", where=self.where_between_dates(date_time, date_time_plus_one)))
     def get_pages_between_dates(self, start_date: str, end_date: str) -> ToolResult:
         query_date_start = self.parse_date_query(start_date)
         query_date_end = self.parse_date_query(end_date)
-        return self.attach_data_and_send_result(self.get(collection=f"{self.prefix}.pages", where=self.where_between_dates(query_date_start, query_date_end)))
-
+        return self.attach_data_and_send_result(self.get(collection=f"{self.tool_plan.prefix}.pages", where=self.where_between_dates(query_date_start, query_date_end)))
     def get_pages_where(self, where: dict) -> List[StoreDocument]:
-        return self.get(collection=f"{self.prefix}.pages", where=where)
+        return self.get(collection=f"{self.tool_plan.prefix}.pages", where=where)
 
 
 
 if __name__ == "__main__":
     looper = asyncio.get_event_loop()
-    looper.run_until_complete(QueryTool(prefix="referral2025.1").ask(request="Which documents are Electronically signed by Kasmia,Abdei H, MD?"))
+    looper.run_until_complete(KnowledgeTool(prefix="referral2025.3").ask(request="Show me my documents"))

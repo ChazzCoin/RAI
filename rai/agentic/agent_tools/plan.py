@@ -30,6 +30,8 @@ PLAN_TYPES = {
 class ToolPlan(BaseModel):
     mode: str = "next-step"
     initial_request: str = ""
+    prefix: str = "general2025.1"
+    session_id: str = "general2025.1"
     user_data: Optional[Dict[str, str]] = { "username": "myname@gmail.com", "password": "somepassword1" }
     role: str = "**You control a web browser interactively.**"
     plan_type: str = "checkpoints"

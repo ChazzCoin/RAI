@@ -1,3 +1,4 @@
+import asyncio
 from abc import abstractmethod
 from typing import Type, Any
 from pydantic import BaseModel
@@ -15,6 +16,10 @@ class rModule:
         answer: str
         data: Any
 
+    @property
+    def io(self): return asyncio.get_event_loop()
+    @staticmethod
+    def run_task(func): return asyncio.get_event_loop().run_until_complete(func)
     @staticmethod
     @abstractmethod
     def module_name() -> str: pass

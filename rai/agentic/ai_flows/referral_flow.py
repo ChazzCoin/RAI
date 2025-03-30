@@ -6,7 +6,7 @@ from typing import Optional
 from pydantic import BaseModel
 
 from rai.ingest.miners.Pdf import FPDF
-from rai.agentic.agent_assistants.knowledge_assist import RaiQueryAgentResults, QueryTool
+from rai.agentic.agent_assistants.knowledge_assist import KnowledgeTool
 from rai.assistant.connectors import rAI
 from rai.ingest.utilities.TextUtils import TextProcessor
 
@@ -158,9 +158,9 @@ class ReferralAgentFormatRunner(rReferralFlow):
 
 @register_referral_agent("medical-chat")
 class ReferralAgentChatRunner(rReferralFlow):
-    def run(self, user_prompt: str) -> Optional[RaiQueryAgentResults]:
+    def run(self, user_prompt: str) -> Optional['RaiQueryAgentResults']:
         try:
-            results = QueryTool.get_pages(self.prefix)
+            results = KnowledgeTool.get_pages(self.prefix)
             str_results = []
             for result in results:
                 str_results.append(result.document)
@@ -174,7 +174,7 @@ class ReferralAgentChatRunner(rReferralFlow):
             return None
 
 
-    async def run_async(self, user_prompt: str) -> Optional[RaiQueryAgentResults]:
+    async def run_async(self, user_prompt: str) -> Optional['RaiQueryAgentResults']:
         try:
             return self.generate_format("", "", ReferralResponse)
         except Exception as e:

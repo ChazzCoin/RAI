@@ -7,11 +7,11 @@ from typing import List, Dict, Any, Type
 from F import LIST
 
 from rai.RAG.models import StoreDocument
-from rai.agentic.agent_tools.engine import ToolEngine
+from rai.agentic.agent_tools.engine import ToolEngine, register_tool_engine
 from rai.agentic.agent_tools.result import ToolResult
 
 
-
+@register_tool_engine('memory-assistant')
 class MemoryTool(ToolEngine):
 
     def __init__(self, prefix: str):

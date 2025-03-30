@@ -8,7 +8,6 @@ from quart_cors import cors
 from F.LOG import Log
 from rai.agentic.ai_assistants.knowledge import rKnowledgeAssistant
 from rai.agentic.ai_flows.rag_flow import rRagFlow
-from rai.agentic.agent_assistants.knowledge_assist import RaiQueryAgentResults
 from rai.assistant.connectors import rAI
 from rai.internal.clients.ioredis_client import RedisIO
 from rai.internal.connectors import REDIS_DB_CLIENT_0, REDIS_DB_CLIENT_1, PostgresTables
@@ -82,7 +81,7 @@ async def query():
             parent_model = item
     query: str = jbody.get('query')
     # agent_results: RaiQueryAgentResults = RaiQueryAgent.execute("base", "rai2025.1", query)
-    query_results: RaiQueryAgentResults = rRagFlow.flow(
+    query_results = rRagFlow.flow(
         name='base',
         prefix=parent_model.get('collection', "pcsc2025.4"),
         user_prompt=query

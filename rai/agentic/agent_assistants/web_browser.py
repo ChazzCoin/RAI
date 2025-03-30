@@ -13,7 +13,7 @@ from playwright.async_api import Page, Dialog
 from pydantic import Field, BaseModel
 from rai.agentic.aether.UseBrowserConfig import config
 from rai.agentic.agent_tools.base import BrowserToolState
-from rai.agentic.agent_tools.engine import ToolEngine
+from rai.agentic.agent_tools.engine import ToolEngine, register_tool_engine
 from rai.agentic.agent_tools.result import ToolResult
 from rai.agentic.ai_plugins.reason import SearchTerms
 from rai.agentic.ai_tools.text_tools.text_formats import InteractiveElements
@@ -41,6 +41,7 @@ content extraction, and tab management. Supported actions include:
 - 'refresh': Refresh the current page
 """
 
+@register_tool_engine('web-browser')
 class WebBrowserTool(ToolEngine):
 
     @staticmethod
@@ -556,6 +557,10 @@ class WebBrowserTool(ToolEngine):
         return ToolResult(output="Closed current tab")
 
     """ DEEP SEARCH MODE """
+
+    def _required_data_model_type(self) -> Type[BaseModel]:
+        return ToolResult
+
     async def navigate_through_search_results(self, tool_results: List[ToolResult]=None) -> List[ToolResult]:
         recon_step_count = 0
         search_queue = deque(tool_results or self.find_all_search_results() or [])

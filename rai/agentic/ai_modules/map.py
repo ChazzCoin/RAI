@@ -6,7 +6,7 @@ from typing import Callable, Dict, Any, Union, List, get_origin, get_args
 from F import LIST, DICT
 
 
-class mMap:
+class ToolMap:
 
     def get_tool(self, function_name:str) -> dict[str, Any]:
         func_obj = {}
@@ -280,7 +280,7 @@ class mMap:
                 func_obj = member
             else:
                 continue
-            functions.append(mMap.function_to_schema(func_obj))
+            functions.append(ToolMap.function_to_schema(func_obj))
         return functions
     @staticmethod
     def call_function(self, json_input: Union[str, dict, list]) -> Any:

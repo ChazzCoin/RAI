@@ -4,7 +4,7 @@ from datetime import datetime
 from F import DICT, LIST
 
 from rai.agentic.ai_flows.r_flows import register_flow
-from rai.agentic.agent_assistants.knowledge_assist import RaiQueryAgentResults, QueryTool
+from rai.agentic.agent_assistants.knowledge_assist import KnowledgeTool
 from rai.agentic.ai_tools.text_tools.r_tools import rTextTools
 from rai.assistant.connectors import rAI
 from rai.ingest.utilities.TextUtils import TextProcessor
@@ -224,14 +224,14 @@ where_results = VECTOR_DB_CLIENT.queryThreaded(*collection_list, user_prompt=use
 
 @register_rag_agent("base")
 class RagAgentBaseRunner(rRagFlow):
-    def run(self, prefix: str, user_prompt: str) -> RaiQueryAgentResults:
+    def run(self, prefix: str, user_prompt: str) :
         try:
             # self.switch_engine('ollama')
             results = rTextTools.tool(
                 "objective",
                 user_prompt=user_prompt
             )
-            agent_results: RaiQueryAgentResults = QueryTool.execute(self.name, prefix, user_prompt)
+            agent_results = KnowledgeTool.execute(self.name, prefix, user_prompt)
 
             objectives = DICT.get("objective", results, [])
             objective = LIST.get(0, objectives, "general")
@@ -243,7 +243,7 @@ class RagAgentBaseRunner(rRagFlow):
         except Exception as e:
             print(f"Error: {e}")
             return None
-    async def run_async(self, prefix: str, user_prompt: str) -> RaiQueryAgentResults:
+    async def run_async(self, prefix: str, user_prompt: str) :
         try:
             # self.switch_engine('ollama')
             results = rTextTools.tools(
@@ -251,7 +251,7 @@ class RagAgentBaseRunner(rRagFlow):
                 user_prompt=user_prompt
             )
 
-            agent_results: RaiQueryAgentResults = QueryTool.execute(self.name, prefix, user_prompt)
+            agent_results = KnowledgeTool.execute(self.name, prefix, user_prompt)
 
             objectives = DICT.get("objective", results, [])
             objective = LIST.get(0, objectives, "general")
@@ -403,7 +403,7 @@ def mains(name:str, prefix, user_prompt):
             user_prompt=user_prompt
         )
     print(user_prompt)
-    if type(results) in [RaiQueryAgentResults]:
+    if type(results) in [str]:
         print(results.response)
     elif type(results) in [list, tuple]:
         for item in results:
