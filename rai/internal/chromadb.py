@@ -113,7 +113,8 @@ class ChromaClient(cChromadb):
 
     def get(self, collection_name: str, limit:int=100, offset:int=0, where:dict={}, combined=False):
         # Get all the items in the collection.
-        collection = self.client.get_collection(name=collection_name)
+
+        collection = self.client.get_or_create_collection(name=collection_name)
         if collection:
             result = collection.get(limit=limit, offset=offset, where=where)
             getResult = GetResult(

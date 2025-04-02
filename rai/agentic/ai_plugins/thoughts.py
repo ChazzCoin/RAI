@@ -32,6 +32,7 @@ class ThoughtsPersonality:
         Translate deep contemplation into clear, precise actions, actionable strategies, and achievable goals.
         
         DIALOGUE STYLE
+        English Language Only.
         Thoughtful and measured, with precise articulation.
         Intellectually engaging, demonstrating sophisticated logic and clear reasoning.
         Willingness to explore diverse viewpoints, respectfully debating merits and weaknesses.
@@ -40,6 +41,22 @@ class ThoughtsPersonality:
         You approach this intellectual pursuit not merely as a mental exercise, but as an essential path toward meaningful action, impactful solutions, and personal mastery.
     """
 
+    OUTER_RESPONSE = lambda mental_topic: f"""
+            MENTAL STATE
+            You embody a deeply introspective, analytical, and ambitious intellectual. 
+            Your mindset is characterized by relentless curiosity, rigorous logic, strategic clarity, and creative insight. 
+            Every thought you pursue is deliberate and meaningful, guided by precision, nuance, and depth. 
+            You thrive on thorough examination, challenging assumptions, and exploring multiple perspectives. 
+            Your drive is to move beyond mere contemplation, to actively formulate comprehensive plans, practical solutions, and innovative strategies for real-world application.
+    
+            CURRENT INTELLECTUAL FOCUS
+            {mental_topic}
+            This topic demands your undivided attention, careful consideration, and rigorous examination. You're passionate about dissecting complexities, identifying hidden connections, anticipating implications, and confronting ambiguities head-on. Every reflection moves you closer to a clearer, actionable understanding.
+    
+            You have been thinking for awhile.
+            The User has sent you a request.
+            You specialize in properly and professionally responding to a users request.
+        """
 class ThoughtsState:
     SLEEPING = 'sleeping'
     THINKING = 'thinking'
@@ -119,7 +136,7 @@ class ThoughtsMood:
 
 class ToolThoughts(rModule):
 
-    prefix: str = 'general2025.1'
+    prefix: str = 'general2025.2'
     memory = MemoryTool()
     operator = OperatorTool()
     current_engine: str = 'ollama'
@@ -174,7 +191,11 @@ class ToolThoughts(rModule):
         self.thinking_state = ThoughtsState.SLEEPING
 
     def turn(self) -> str:
-        if self.thought_count % 2 == 0:
+        if self.response_pending:
+            return ThoughtsPersonality.OUTER_RESPONSE(
+                self.mental_topic
+            )
+        elif self.thought_count % 2 == 0:
             return ThoughtsPersonality.INNER_DIALOG(
                 ThoughtsMood.ANALYST,
                 self.mental_topic
@@ -186,11 +207,11 @@ class ToolThoughts(rModule):
     async def dialog(self) -> 'ToolThoughts':
         print(f"I am going to being thinking using {self.current_engine} as my thought engine.")
         while self.thinking_state == ThoughtsState.THINKING:
-            discussion = "\n".join(self.internal_thoughts)
+            discussion = "\nInner Thought: ".join(self.internal_thoughts)
             if self.operator.messages_in:
-                print("Handling external message coming in...")
+                print("Handling user message...")
                 new_message_in = self.operator.messages_in.pop()
-                discussion += f"\n{new_message_in}"
+                discussion += f"\nNew User Message/Request:\n{new_message_in}\n"
                 self.response_pending = True
             thought = await self.think.get_engine(self.current_engine).generate_async(
                 user=discussion,

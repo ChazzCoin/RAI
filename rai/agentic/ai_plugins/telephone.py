@@ -2,12 +2,9 @@ import asyncio
 import time
 from collections import deque
 from collections.abc import Callable
-from typing import List, Any, AsyncGenerator, Generator
+from typing import Any, AsyncGenerator
 import cv2
 import numpy as np
-import websockets
-
-# from rai.agentic.ai_modules.threads import ToolThread
 from rai.internal.clients.ioredis_client import RedisIO
 
 CHANNEL_REGISTRY = {}
