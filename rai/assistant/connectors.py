@@ -83,8 +83,14 @@ class rAI:
             raw_result=raw_result
         )
     @classmethod
-    def gen(cls, user:str, system:str):
-        return cls().engine.generate(
+    def gen(cls, user:str, system:str, engine:str='openai'):
+        return cls().get_engine(engine).generate(
+            user=user,
+            system=system
+        )
+    @classmethod
+    async def gen_async(cls, user:str, system:str, engine:str='openai'):
+        return await cls().get_engine(engine).generate_async(
             user=user,
             system=system
         )

@@ -42,5 +42,3 @@ class RedisDB:
         except redis.ConnectionError as e:
             print(f"Failed to connect to Remote Redis Client: {e}")
             return self
-
-REDIS_DB = RedisDB()

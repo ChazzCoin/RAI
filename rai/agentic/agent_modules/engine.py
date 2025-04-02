@@ -4,11 +4,12 @@ from typing import Optional, Type
 from F import LIST
 
 from rai.agentic.aether.schema import AgentState
-from rai.agentic.agent_tools.manager import ToolManager
-from rai.agentic.agent_tools.module import ToolModule
-from rai.agentic.agent_tools.result import ToolResult
+from rai.agentic.agent_modules.manager import ToolManager
+from rai.agentic.agent_modules.module import ToolModule
+from rai.agentic.agent_modules.result import ToolResult
 from rai.agentic.ai_modules.map import ToolMap
-from rai.agentic.ai_plugins.reason import Objective, StepCheckpoints
+from rai.agentic.ai_plugins.thoughts import ToolThoughts
+from rai.agentic.pending.reason import Objective, StepCheckpoints
 from rai.agentic.ai_tools.text_tools.text_formats import NextStepModel, RequiredActions
 
 TOOL_ENGINE_REGISTRY = {}
@@ -19,7 +20,7 @@ def register_tool_engine(name: str):
         return cls
     return decorator
 
-class ToolEngine(ToolModule, ToolManager, ToolMap, ABC):
+class ToolEngine(ToolManager):
 
     @classmethod
     def registry(cls): return TOOL_ENGINE_REGISTRY
@@ -67,7 +68,9 @@ class ToolEngine(ToolModule, ToolManager, ToolMap, ABC):
             self.log_thought(f"An error occurred while trying to decide: {e}")
             self.log_voice("I am having trouble making a decision.")
             return None
-    async def ask(self, request: str) -> 'ToolResponse':
+    @classmethod
+    async def ask(cls, request: str) -> 'ToolResponse':
+        self = cls()
         await self.setup_assistant(request)
         try:
             max_steps = 10
@@ -90,22 +93,25 @@ class ToolEngine(ToolModule, ToolManager, ToolMap, ABC):
             self.log_voice("")
             data = self.get_data()
             return self.ToolResponse(
-                prefix="",
-                session_id="",
+                prefix=self.tool_plan.prefix,
+                session_id=self.tool_plan.session_id,
                 answer="I have completed your request.",
                 data=data
             )
         except Exception as e:
             self.log_voice(f"Overall Reasoning Error: [ {str(e)} ]")
             return self.ToolResponse(
-                prefix="",
-                session_id="",
+                prefix=self.tool_plan.prefix,
+                session_id=self.tool_plan.session_id,
                 answer=f"I have failed to complete your request. [ {str(e)} ]",
                 data=None
             )
-
     """ AGENT """
-    async def self_navigation(self, request: Optional[str] = None) -> str:
+    @classmethod
+    async def go(cls, request: Optional[str] = None) -> 'ToolResponse':
+        return await cls().self_navigation(request=request)
+    async def self_navigation(self, request: Optional[str] = None) -> 'ToolResponse':
+        # self.r_switch_engine('ollama')
         await self.setup_assistant(user_request=request)
         await self.setup_navigation()
         async with self.state_context(AgentState.RUNNING):
@@ -115,6 +121,7 @@ class ToolEngine(ToolModule, ToolManager, ToolMap, ABC):
                 self.pop_next_checkpoint()
                 self.log_voice(f"I am working on the next action: {self.tool_plan.current_checkpoint_count}...")
                 await self.decide_the_function_to_call()
+                if self.final_response: break
                 self.log_voice(f"I have finished the action: {self.tool_plan.current_checkpoint_count}...")
                 self.log_voice("I am going to try and refine my checkpoint plan now.")
                 await self.decide_a_refined_action()
@@ -311,6 +318,7 @@ class ToolEngine(ToolModule, ToolManager, ToolMap, ABC):
         # if await self.ask_role_master_to_confirm_next_decision():
         self.log_voice("I am going to call the function now.")
         action_result = await self.parse_and_call_function_async(decision)
+        if self.final_response: return self.final_response
         if action_result:
             self.log_voice(f"The function seems to have returned something, I am going to take a deeper look at the data given to me.")
             self.import_result_and_pass(action_result)
@@ -475,14 +483,17 @@ class ToolEngine(ToolModule, ToolManager, ToolMap, ABC):
         except Exception as e:
             return self.add_problem(f"<FINAL RESPONSE>\n Failed to generate final response with error: [ {e} ]\n</FINAL RESPONSE>")
     async def finish_and_then_respond(self) -> 'ToolResponse':
-        final_response = await self.think_about_response()
+        if self.final_response: return self.final_response
+        self.quit()
+        f_response = await self.think_about_response()
         data = self.get_data()
-        return self.ToolResponse(
-            prefix="",
-            session_id="",
-            answer=final_response,
+        self.final_response = self.ToolResponse(
+            prefix=self.tool_plan.prefix,
+            session_id=self.tool_plan.session_id,
+            answer=f_response,
             data=data
         )
+        return self.final_response
     def quit(self):
         self.state = AgentState.FINISHED
         self.tool_plan.current_checkpoint_count = 100

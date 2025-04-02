@@ -5,7 +5,7 @@ import rai.assistant
 import rai.ingest
 import rai.agentic
 from rai.agentic.agent_assistants.knowledge_assist import KnowledgeTool
-from rai.agentic.agent_tools.engine import ToolEngine
+from rai.agentic.agent_modules.engine import ToolEngine
 from rai.assistant.connectors import LLM
 
 # loop = asyncio.get_event_loop()

@@ -8,7 +8,7 @@ from rai.RAG.models import StoreDocument
 from rai.agentic.ai_flows.r_flows import register_flow
 from F.LOG import Log
 
-from rai.agentic.ai_plugins.reason import rAssistantReasoningPlugin
+from rai.agentic.pending.reason import rAssistantReasoningPlugin
 from rai.assistant.openai_client import generate_embeddings
 from rai.internal.chromadb import ChromaClient
 

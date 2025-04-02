@@ -2,10 +2,14 @@ import os
 from dotenv import load_dotenv, dotenv_values
 from typing import Optional, Dict, List
 from datetime import datetime
-from rai.internal.f import fBaseModel, redis_client
+from pydantic import BaseModel
 
+from rai.internal.clients.ioredis_client import RedisIO
+from rai.internal.clients.redis_client import RedisDB
 
-class fVault(fBaseModel):
+redis_client = RedisIO()
+
+class fVault(BaseModel):
     name: Optional[str] = None
     client_name: Optional[str] = None
     service_name: str = "env"
@@ -57,7 +61,7 @@ class CentralAuthority:
         self.init()
 
     def init(self):
-        self.redis_client = redis_client.redis_client
+        self.redis_client = RedisDB().redis_client
         load_dotenv(self.dotenv_path)
         self.build_env_vault_list()
         # self.import_env_to_redis()
@@ -157,9 +161,9 @@ class CentralAuthority:
 AUTHORITY = CentralAuthority()
 
 # Example usage:
-if __name__ == '__main__':
-    authority = CentralAuthority()
-    print(authority.vault)
+# if __name__ == '__main__':
+#     authority = CentralAuthority()
+#     print(authority.vault)
     # Breaker usage
     # authority.set_breaker('maintenance_mode', False, 'Maintenance mode switch')
     # authority.switch('maintenance_mode')

@@ -1,5 +1,5 @@
 
-from rai.agentic.ai_plugins.reason import rAssistantReasoningPlugin
+from rai.agentic.pending.reason import rAssistantReasoningPlugin
 import json
 from typing import Any, Dict, Optional, Type, Union, List
 from pydantic import BaseModel, Field

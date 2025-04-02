@@ -3,14 +3,13 @@ from abc import abstractmethod
 from enum import Enum
 from typing import List
 
-from rai.internal.clients.redis_client import REDIS_DB
+from rai.internal.clients.redis_client import RedisDB
 
-ioRedis = REDIS_DB.connect()
 
 class ToolLog:
     voice: List[str] = []
     thoughts: List[str] = []
-
+    ioRedis = RedisDB()
     class LogType(Enum):
         THOUGHTS = "thoughts"
         VOICE = "voice"
@@ -24,7 +23,7 @@ class ToolLog:
 
     def load_voice(self):
         """Load the thoughts list from Redis cache."""
-        cached = ioRedis.client.get(self._get_log_key("voice"))
+        cached = self.ioRedis.client.get(self._get_log_key("voice"))
         if cached:
             try:
                 self.voice = json.loads(cached)
@@ -35,7 +34,7 @@ class ToolLog:
         return self.voice
     def _cache_voice(self):
         """Helper method to cache the current thoughts list to Redis."""
-        ioRedis.client.set(self._get_log_key("voice"), json.dumps(self.voice))
+        self.ioRedis.client.set(self._get_log_key("voice"), json.dumps(self.voice))
     def log_voice(self, *data: str) -> str:
         """Log messages to the assistant log chain and update the Redis cache."""
         for line in data:
@@ -47,7 +46,7 @@ class ToolLog:
 
     def load_thoughts(self):
         """Load the thoughts list from Redis cache."""
-        cached = ioRedis.client.get(self._get_log_key())
+        cached = self.ioRedis.client.get(self._get_log_key())
         if cached:
             try:
                 self.thoughts = json.loads(cached)
@@ -58,7 +57,7 @@ class ToolLog:
         return self.thoughts
     def _cache_thoughts(self):
         """Helper method to cache the current thoughts list to Redis."""
-        ioRedis.client.set(self._get_log_key(), json.dumps(self.thoughts))
+        self.ioRedis.client.set(self._get_log_key(), json.dumps(self.thoughts))
     def log_thought(self, *data: str) -> str:
         """Log messages to the assistant log chain and update the Redis cache."""
         for line in data:

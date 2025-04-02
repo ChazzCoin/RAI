@@ -6,7 +6,7 @@ from typing import Type
 from F import LIST
 from pydantic import BaseModel
 
-from rai.agentic.ai_plugins.assist import pAssistant
+from rai.agentic.pending.assist import pAssistant
 from rai.agentic.ai_tools.text_tools.r_tools import rTextTools
 
 

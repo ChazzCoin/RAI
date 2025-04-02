@@ -6,7 +6,7 @@ import logging
 
 from pydantic import BaseModel
 
-from rai.agentic.ai_plugins.reason import rAssistantReasoningPlugin
+from rai.agentic.pending.reason import rAssistantReasoningPlugin
 
 
 class SessionAssistant(rAssistantReasoningPlugin):

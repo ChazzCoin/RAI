@@ -5,6 +5,8 @@ from typing import Callable, Dict, Any, Union, List, get_origin, get_args
 
 from F import LIST, DICT
 
+from rai.agentic.agent_modules.result import ToolResult
+
 
 class ToolMap:
 
@@ -237,15 +239,35 @@ class ToolMap:
                 return f"'{func_name}' is not callable."
 
             f"Calling function '{func_name}' with arguments: {arguments}"
-            try:
-                result = await func(**arguments)
-                return result
-            except Exception as e:
-                print(e)
-                result = func(**arguments)
-                return result
-        except Exception as e:
-            return f"Error in parse_and_call: {json_input} | Exception: {e}"
+
+            errors: List[str] = []
+            retries = 0
+
+            while retries < 3:
+                try:
+                    result = await func(**arguments)
+                    return result
+                except Exception as e1:
+                    errors.append(str(e1))
+                    print("Parse_and_Call await failure", e1)
+                    try:
+                        result = func(**arguments)
+                        return result
+                    except Exception as e2:
+                        errors.append(str(e2))
+                        print("Parse_and_Call normal/fallback failure", e2)
+                retries += 1
+            return ToolResult(
+                output=f"We tried to call the function {retries} times and failed.",
+                success=False,
+                error="\n".join(errors)
+            )
+        except Exception as e3:
+            return ToolResult(
+                output=f"An error occurred while calling function: {json_input} | Exception: {e3}",
+                success=False,
+                error=str(e3)
+            )
 
     @staticmethod
     def map_class(cls) -> str:

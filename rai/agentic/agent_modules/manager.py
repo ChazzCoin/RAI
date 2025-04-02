@@ -10,23 +10,24 @@ from F import DICT, LIST
 from bs4 import BeautifulSoup
 
 from rai.agentic.aether.schema import AgentState
-from rai.agentic.agent_tools.data import ToolData
-from rai.agentic.agent_tools.plan import ToolPlan
-from rai.agentic.agent_tools.result import ToolResult
+from rai.agentic.agent_modules.data import ToolData
+from rai.agentic.agent_modules.module import ToolModule
+from rai.agentic.agent_modules.plan import ToolPlan
+from rai.agentic.agent_modules.result import ToolResult
 from rai.agentic.ai_modules import ToolLog
 from rai.agentic.ai_tools.text_tools.text_formats import NextStepModel, ChainOfStepsToolFormat
 from rai.ingest.utilities.TextUtils import TextProcessor
 from rai.ingest.web.soup.BodyExtractor import WebBodyExtractor
 
 
-class ToolManager(ToolData, ToolLog, TextProcessor):
+class ToolManager(ToolModule, ToolData, ToolLog, TextProcessor):
 
     @abstractmethod
     def get_tools(self) -> List[dict[str, Any]]: pass
 
     async def get_current_state(self) -> ToolResult:
         # explicitly specify the parent class name
-        temp = await self.__class__.__name__.get_current_state(self)
+        temp = await self.__class__.get_current_state(self)
 
         if isinstance(temp, ToolResult):
             return temp
@@ -34,6 +35,21 @@ class ToolManager(ToolData, ToolLog, TextProcessor):
         return ToolResult(output=str(temp))
 
     def log_key(self) -> str: return "tool"
+
+    def set_prefix(self, prefix: str) -> None:
+        self.tool_plan.prefix = prefix
+    def set_session_id(self, session_id: str) -> None:
+        self.tool_plan.session_id = session_id
+
+    @property
+    def prefix(self) -> str:
+        return self.tool_plan.prefix
+
+    @property
+    def session_id(self) -> str:
+        return self.tool_plan.session_id
+
+    final_response: Optional['ToolResponse'] = None
 
     is_setup: bool = False
     state: AgentState = AgentState.IDLE

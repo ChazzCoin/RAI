@@ -1,14 +1,17 @@
 import asyncio
-from abc import abstractmethod
+from abc import abstractmethod, ABC
 from typing import Type, Any
 from pydantic import BaseModel
 from rai.agentic.ai_assistants.QCache import vCACHE
 from rai.agentic.ai_assistants.QStore import vSTORE
+from rai.agentic.ai_modules.map import ToolMap
+from rai.agentic.ai_modules.query import QueryModule
 from rai.assistant.connectors import LLM, rAI
 from rai.ingest.utilities.TextUtils import TextProcessor
 
 
-class ToolModule:
+class ToolModule(ToolMap, QueryModule, ABC):
+
 
     class ToolResponse(BaseModel):
         prefix: str

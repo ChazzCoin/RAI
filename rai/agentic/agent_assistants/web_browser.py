@@ -6,20 +6,19 @@ from browser_use import Browser as BrowserUseBrowser
 from browser_use import BrowserConfig
 from browser_use.browser.context import BrowserContext, BrowserContextConfig
 from browser_use.dom.service import DomService
-from browser_use.dom.views import DOMTextNode, DOMBaseNode, DOMElementNode
+from browser_use.dom.views import DOMBaseNode, DOMElementNode
 from browser_use.utils import time_execution_sync
 from bs4 import BeautifulSoup
 from playwright.async_api import Page, Dialog
 from pydantic import Field, BaseModel
 from rai.agentic.aether.UseBrowserConfig import config
-from rai.agentic.agent_tools.base import BrowserToolState
-from rai.agentic.agent_tools.engine import ToolEngine, register_tool_engine
-from rai.agentic.agent_tools.result import ToolResult
-from rai.agentic.ai_plugins.reason import SearchTerms
-from rai.agentic.ai_tools.text_tools.text_formats import InteractiveElements
+from rai.agentic.agent_modules.base import BrowserToolState
+from rai.agentic.agent_modules.engine import ToolEngine, register_tool_engine
+from rai.agentic.agent_modules.result import ToolResult
+from rai.agentic.pending.reason import SearchTerms
 from rai.ingest.utilities.TextUtils import TextProcessor
 from rai.ingest.web.soup.BodyExtractor import WebBodyExtractor
-from rai.internal.clients.ioredis_client import IORedis
+from rai.internal.clients.ioredis_client import RedisIO
 
 MAX_LENGTH = 2000
 
@@ -70,7 +69,7 @@ class WebBrowserTool(ToolEngine):
     current_page: Optional[Page] = None
 
     """ PUB/SUB STREAMING OUTPUT """
-    pub = IORedis
+    pub = RedisIO()
     async def start_screenshot_stream(self, channel_name="agent", interval=10):
         async def publish_screenshots():
             while True:
@@ -209,7 +208,6 @@ class WebBrowserTool(ToolEngine):
         self.dom_service = DomService(await context.get_current_page())
         self.context = context
         return context
-
     async def inject_dom_interactions(self) -> ToolResult:
         state = await self.context.get_state()
         # indexed_interactions = state.element_tree.clickable_elements_to_string()
@@ -600,8 +598,7 @@ class WebBrowserTool(ToolEngine):
         return result or None
 
 if __name__ == "__main__":
-
     looper = asyncio.get_event_loop()
     #looper.run_until_complete(WebBrowserTool().self_navigation("go to dominoes and order me a single large pepperoni pizza, my address is 801 6th avenue southwest, alabaster, AL 35007, then order the pizza and have it delivered to my house."))
-    looper.run_until_complete(WebBrowserTool().self_navigation("I want you to order pizza on dominoes that will be for pick-up and set the time of pick-up to be 5:45pm. My dominoes is alabaster, AL 35007. I want a large pepperoni pizza with light sauce. I also want a medium cheese pizza. I want you to order this pizza for me now."))
+    looper.run_until_complete(WebBrowserTool.go("Take me to the fbi vault and find what they have on JFK, handle any captcha's along the way."))
     # looper.run_until_complete(WebBrowserTool().self_navigation("What is bruce romeos law firm called? I know he left mezrano, so that is not it."))

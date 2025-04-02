@@ -1,6 +1,6 @@
 import textwrap
 
-from rai.agentic.agent_tools.module import ToolModule
+from rai.agentic.agent_modules.module import ToolModule
 
 FLOW_REGISTRY = {}
 

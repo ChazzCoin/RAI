@@ -4,12 +4,11 @@ import datetime
 
 from pydantic import BaseModel
 
-from rai.agentic.ai_plugins.reason import rAssistantReasoningPlugin
+from rai.agentic.pending.reason import rAssistantReasoningPlugin
 from rai.ingest.utilities.TextUtils import TextProcessor
 
 app_password = "cjgz bqwz xbzk gpzf"
 
-import smtplib
 import logging
 # from email.mime.text import MIMEText
 from typing import Optional, List, Type

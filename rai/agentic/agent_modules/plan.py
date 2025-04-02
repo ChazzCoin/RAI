@@ -2,9 +2,9 @@ import datetime
 from collections import deque
 from typing import List, Optional, Any, Dict
 from pydantic import BaseModel
-from rai.agentic.agent_tools.result import ToolResult
-from rai.agentic.ai_plugins.reason import Objectives, Checkpoints
-from rai.agentic.ai_tools.text_tools.text_formats import NextStepModel, ChainOfStepsToolFormat, RequiredActions
+from rai.agentic.agent_modules.result import ToolResult
+from rai.agentic.pending.reason import Objectives, Checkpoints
+from rai.agentic.ai_tools.text_tools.text_formats import NextStepModel, RequiredActions
 
 PLAN_TYPES = {
     "deep_research": "User Prompt Context Involves ongoing, exploratory research that continuously gathers, documents, and summarizes evolving insights on a given topic.",

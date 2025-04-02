@@ -7,9 +7,9 @@ from pydantic import BaseModel
 from pydantic.v1 import Field
 
 from rai.agentic.aether.schema import AgentState
-from rai.agentic.agent_tools.module import ToolModule
+from rai.agentic.agent_modules.module import ToolModule
 from rai.agentic.ai_modules import mAssistLog
-from rai.agentic.agent_tools.data import ToolData
+from rai.agentic.agent_modules.data import ToolData
 from rai.agentic.ai_modules.map import ToolMap
 from rai.agentic.ai_tools.text_tools.r_tools import rTextTools
 from rai.agentic.ai_tools.text_tools.text_formats import NextStepModel

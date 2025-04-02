@@ -5,7 +5,7 @@ import os
 from abc import ABC, abstractmethod
 from typing import Optional, Dict, Type, Any, List
 import ollama
-from ollama import ChatResponse, EmbedResponse
+from ollama import ChatResponse, EmbedResponse, GenerateResponse
 from openai import OpenAI, AsyncOpenAI
 from pydantic import BaseModel
 
@@ -150,7 +150,7 @@ class FusedAI(ABC):
     def generate_function(self, user: str, system: str, functions: [dict], image=None, raw_result=False, response_only=False): pass
     """ ASYNC """
     @abstractmethod
-    async def generate_async(self, user: str, system: str, image=None): pass
+    async def generate_async(self, user: str, system: str, image=None, model=None): pass
     @abstractmethod
     async def generate_chat_async(self, messages: [{}], image=None): pass
     @abstractmethod
@@ -280,10 +280,10 @@ class OpenAiEngine(FusedAI, engine="openai"):
         except Exception as e:
             return self.fallback("generate_function", e, depth=depth, **{"user":user, "system":system, "functions":functions, "image":image, "raw_result":raw_result })
     """ ASYNC FUNCTIONS"""
-    async def generate_async(self, user: str, system: str, image=None):
+    async def generate_async(self, user: str, system: str, image=None, model=None):
         try:
             completion = await self.OAsync.chat.completions.create(
-                model=self.engine_model(),
+                model=model or self.engine_model(),
                 messages=buildMessage(user, system, image),
             )
             response = completion.choices[0].message.content
@@ -382,6 +382,11 @@ class OllamaEngine(FusedAI, engine="ollama"):
     def download_ollama_model(self, model_name: str):
         yield self.O.pull(model=model_name)
 
+    def list_models(self):
+        models = self.O.list()
+        print(models)
+        return models
+
     """ SYNC """
     def generate(self, user: str, system: str, image=None, model=None):
         print("Generating Async Chat - Ollama")
@@ -462,16 +467,14 @@ class OllamaEngine(FusedAI, engine="ollama"):
         except Exception as e:
             print(e)
             return None
-    async def generate_async(self, user:str, system:str, image=None):
+    async def generate_async(self, user:str, system:str, image=None, model=None):
         try:
-            data: ChatResponse = await self.OAsync.chat(
-                model=self.engine_model(),
-                messages=[
-                    {"role": "system", "content": system },
-                    {"role": "user", "content": user },
-                ]
+            data: GenerateResponse = await self.OAsync.generate(
+                model=model or self.engine_model(),
+                prompt=user,
+                system=system
             )
-            return data.message.content
+            return data.response
         except Exception as e:
             print(e)
             return None

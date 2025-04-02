@@ -17,6 +17,7 @@ class RedisIO:
     host = redis_host
     port = redis_port
     password = redis_pass
+    isConnected = False
 
     def ping(self): return self.redis_client.ping()
     def is_connected(self): return self.ping()
@@ -25,21 +26,22 @@ class RedisIO:
     async def connect(self) -> 'RedisIO':
         """Establish a connection to the Redis server."""
         try:
+            if self.isConnected: return self
             self.redis_client = ioredis.Redis(
                 host=self.host,
                 port=self.port,
                 db=self.db,
                 password=self.password
             )
-            p = await self.redis_client.ping()  # Test connection
-            print(p)
+            self.isConnected = await self.redis_client.ping()
+            print(self.isConnected)
             Log.s("Successfully Connected to Remote IORedis Client.")
             return self
         except ioredis.ConnectionError as e:
             print(f"Failed to connect to Remote IORedis Client: {e}")
             return self
 
-IORedis = RedisIO()
+
 
 # loop = asyncio.new_event_loop()
 # loop.run_until_complete(RedisIO.connect())

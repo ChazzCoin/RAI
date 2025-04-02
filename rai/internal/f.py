@@ -7,14 +7,14 @@ from pydantic import BaseModel
 """
 from rai.internal.clients.redis_client import RedisDB
 
-redis_client = RedisDB().connect()
+
 
 class fBaseModel(BaseModel):
     id: str = str(uuid.uuid4())
     key: str = "f"
     _log: List[str] = []
     _verbose: List[str] = []
-
+    redis_client = RedisDB()
     """ MODEL HELPERS """
     def new(self) -> BaseModel:
         self.log_info("Constructing new empty model.")
@@ -112,7 +112,7 @@ class fBaseModel(BaseModel):
     """ MODEL LOGGING """
     def restore_logs(self, key: str) -> list:
         try:
-            logs = redis_client.redis_client.lrange(key, 0, -1)
+            logs = self.redis_client.redis_client.lrange(key, 0, -1)
             return [log.decode("utf-8") if isinstance(log, bytes) else log for log in logs]
         except Exception as e:
             self.log_info(f"Error loading logs for key {key}: {e}")
@@ -120,7 +120,7 @@ class fBaseModel(BaseModel):
 
     def _push_log(self, key: str, message: str) -> None:
         try:
-            redis_client.redis_client.rpush(key, message)
+            self.redis_client.redis_client.rpush(key, message)
         except Exception as e:
             self.log_info(f"Error pushing log to key {key}: {e}")
 
@@ -136,11 +136,11 @@ class fBaseModel(BaseModel):
     """ MODEL CACHING """
     def save_to_cache(self):
         serialized_model = self.model_dump()
-        redis_client.redis_client.set(f"model:cache:{self.id}", serialized_model)
+        self.redis_client.redis_client.set(f"model:cache:{self.id}", serialized_model)
 
     @classmethod
     def restore_from_cache(cls, id:str):
-        serialized_model = redis_client.redis_client.get(f"model:cache:{id}")
+        serialized_model = cls().redis_client.redis_client.get(f"model:cache:{id}")
         if serialized_model:
             return cls().model_validate(serialized_model)
         return None

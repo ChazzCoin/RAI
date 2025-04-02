@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional, List, Type, TypeVar
 from pydantic import BaseModel, create_model
 
 from rai.RAG.models import StoreDocument
-from rai.agentic.agent_tools.result import ToolResult
+from rai.agentic.agent_modules.result import ToolResult
 from rai.agentic.ai_modules.log import mLog
 from rai.assistant.connectors import LLM
 from rai.ingest.utilities.TextUtils import TextProcessor
