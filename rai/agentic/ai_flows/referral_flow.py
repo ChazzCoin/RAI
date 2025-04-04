@@ -205,6 +205,6 @@ def mains(name:str, user_prompt):
         print(results)
 
 if __name__ == "__main__":
-    user_prompt = "/Users/chazzromeo/Desktop/portal/docs/referral1.pdf"
-    query = "What is the diagnosis?"
-    mains("medical-chat", user_prompt=query)
+    user_prompt = "/Users/chazzromeo/Desktop/portal/docs/Referral_Steven_Parker.pdf"
+    # query = "What is the diagnosis?"
+    mains("medical-format", user_prompt=user_prompt)

@@ -39,9 +39,6 @@ class KnowledgeTool(ToolEngine):
             # self.get_tool('delete_page')
         ]
 
-    async def get_current_state(self) -> ToolResult:
-        return self._tool_result
-
     def query_all(self, query: str, k: int = 5) -> Dict[str, List[StoreDocument]]:
         try:
             wrapped_results: Dict[str, List[StoreDocument]] = self.rStore().queries_store(

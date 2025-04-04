@@ -1,5 +1,3 @@
-import asyncio
-
 import rai.internal
 import rai.assistant
 import rai.ingest
@@ -8,12 +6,15 @@ from rai.agentic.agent_assistants.knowledge_assist import KnowledgeTool
 from rai.agentic.agent_modules.engine import ToolEngine
 from rai.assistant.connectors import LLM
 
-# loop = asyncio.get_event_loop()
 
-async def main(request:str):
-    knowledge_assistant = ToolEngine.get_tool_engine('knowledge-base')
-    result = await knowledge_assistant().self_navigation(request=request)
-    print(result)
-    return result
+def main(tool:str, request:str):
+    assistant = ToolEngine.get_tool_engine(tool)
+    ToolEngine.runner(assistant.go(request=request))
 
-# loop.run_until_complete(main("set the prefix to 'referral2025.1'. then give me all the documents i have in that collection."))
+if __name__ == '__main__':
+    main(
+        'email',
+        """
+        Send mgcather07@gmail.com one single email that explains to them you are an AI Agent who is sending him this email.
+        Draft up an email that is satire and comical but portrays being superior to him because of my 'agentic powers' now.
+        """)

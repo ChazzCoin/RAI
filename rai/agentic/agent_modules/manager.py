@@ -25,14 +25,17 @@ class ToolManager(ToolModule, ToolData, ToolLog, TextProcessor):
     @abstractmethod
     def get_tools(self) -> List[dict[str, Any]]: pass
 
+    # async def get_current_state(self) -> ToolResult:
+    #     # explicitly specify the parent class name
+    #     temp = await self.__class__.get_current_state(self)
+    #
+    #     if isinstance(temp, ToolResult):
+    #         return temp
+    #
+    #     return ToolResult(output=str(temp))
+
     async def get_current_state(self) -> ToolResult:
-        # explicitly specify the parent class name
-        temp = await self.__class__.get_current_state(self)
-
-        if isinstance(temp, ToolResult):
-            return temp
-
-        return ToolResult(output=str(temp))
+        return self._tool_result
 
     def log_key(self) -> str: return "tool"
 

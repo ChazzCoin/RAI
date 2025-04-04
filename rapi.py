@@ -6,6 +6,8 @@ from concurrent.futures import ThreadPoolExecutor
 from quart import Quart, request, jsonify, websocket
 from quart_cors import cors
 from F.LOG import Log
+
+from rai import ToolEngine
 from rai.agentic.ai_assistants.knowledge import rKnowledgeAssistant
 from rai.agentic.ai_flows.rag_flow import rRagFlow
 from rai.assistant.connectors import rAI
@@ -63,8 +65,8 @@ async def knowledge_base():
         if item.get('model') == model:
             parent_model = item
     query: str = jbody.get('query')
-    knowledge_results = rKnowledgeAssistant("pcsc2025.4").request(
-        user_request=query
+    knowledge_results = ToolEngine.get_tool_engine('knowledge-base').go(
+        request=query
     )
     dump = knowledge_results.model_dump()
     return jsonify({ "status": 200, "data": dump })

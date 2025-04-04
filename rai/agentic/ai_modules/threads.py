@@ -1,9 +1,16 @@
 import asyncio
 from asyncio import AbstractEventLoop
+from typing import Callable
 
 
 class MainLoop:
     main_loop: AbstractEventLoop = asyncio.get_event_loop()
+
+    @staticmethod
+    def looper(func: Callable):
+        while True:
+            asyncio.get_event_loop().run_until_complete(func)
+
     def is_running(self):
         return self.main_loop.is_running()
     def is_closed(self):

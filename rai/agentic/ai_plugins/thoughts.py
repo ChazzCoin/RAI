@@ -142,7 +142,6 @@ class ToolThoughts(rModule):
     current_engine: str = 'ollama'
     ollama_models: List[str] = [
         'llama3.2:3b',
-        'deepseek-r1:7b'
     ]
     openai_models: List[str] = [
         'o3-mini',

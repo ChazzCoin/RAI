@@ -1,6 +1,9 @@
 from abc import ABC, abstractmethod
 from collections import deque
+from collections.abc import Callable
 from typing import Optional, Type
+
+import asyncio
 from F import LIST
 
 from rai.agentic.aether.schema import AgentState
@@ -22,6 +25,11 @@ def register_tool_engine(name: str):
 
 class ToolEngine(ToolManager):
 
+    @staticmethod
+    def runner(func: Callable):
+        looper = asyncio.get_event_loop()
+        looper.run_until_complete(func)
+
     @classmethod
     def registry(cls): return TOOL_ENGINE_REGISTRY
 
@@ -29,6 +37,8 @@ class ToolEngine(ToolManager):
     def get_tool_engine(cls, name: str) -> Type['ToolEngine']:
         return TOOL_ENGINE_REGISTRY.get(name)[0]
 
+    @staticmethod
+    def module_name() -> str: return 'tool-engine'
     @staticmethod
     @abstractmethod
     def tool_assistant_name() -> str:

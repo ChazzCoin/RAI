@@ -3,8 +3,9 @@ import json
 from collections import deque
 from typing import Optional, Type, Any, List, Union
 from browser_use import Browser as BrowserUseBrowser
-from browser_use import BrowserConfig
-from browser_use.browser.context import BrowserContext, BrowserContextConfig
+from browser_use.browser.browser import BrowserConfig
+from browser_use.browser.context import BrowserContext
+from browser_use.browser.context import BrowserContextConfig
 from browser_use.dom.service import DomService
 from browser_use.dom.views import DOMBaseNode, DOMElementNode
 from browser_use.utils import time_execution_sync

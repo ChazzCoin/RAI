@@ -380,7 +380,19 @@ class OllamaEngine(FusedAI, engine="ollama"):
         return AiModels.DEFAULT_OLLAMA
 
     def download_ollama_model(self, model_name: str):
-        yield self.O.pull(model=model_name)
+        for item in self.O.pull(model=model_name):
+            print(item)
+            yield item
+
+    async def delete_ollama_model(self, model_name: str):
+        response = await self.OAsync.delete(model=model_name)
+        print(response.status)
+        return response
+
+    def ps_ollama(self):
+        response = self.O.ps()
+        print(response.models)
+        return response
 
     def list_models(self):
         models = self.O.list()
